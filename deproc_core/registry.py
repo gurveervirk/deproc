@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from importlib import import_module
 from importlib.metadata import entry_points
-from typing import Callable, Generic, TypeVar
+from typing import Generic, TypeVar
 
 T = TypeVar("T")
-
 
 def _select_entry_points(group: str):
     discovered = entry_points()
@@ -13,36 +11,18 @@ def _select_entry_points(group: str):
         return discovered.select(group=group)
     return discovered.get(group, [])  # type: ignore[union-attr]
 
-
-def resolve_dotted_object(path: str) -> object:
-    if ":" in path:
-        module_name, object_name = path.split(":", 1)
-    else:
-        module_name, _, object_name = path.rpartition(".")
-    if not module_name or not object_name:
-        raise ImportError(
-            f"Invalid dotted path '{path}'. Use module:object or module.object format."
-        )
-    module = import_module(module_name)
-    return getattr(module, object_name)
-
-
 class PluginRegistry(Generic[T]):
     def __init__(
         self,
         *,
         group: str,
-        validator: Callable[[object], bool] | None = None,
     ):
         self.group = group
-        self._validator = validator
         self._plugins: dict[str, T] = {}
 
     def discover(self) -> dict[str, T]:
         for entry in _select_entry_points(self.group):
             loaded = entry.load()
-            if self._validator and not self._validator(loaded):
-                continue
             self._plugins[entry.name] = loaded
         return dict(self._plugins)
 
