@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from importlib.metadata import entry_points
-from typing import Generic, TypeVar
+from typing import Callable, Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -16,13 +16,17 @@ class PluginRegistry(Generic[T]):
         self,
         *,
         group: str,
+        validator: Callable[[object], bool] | None = None,
     ):
         self.group = group
+        self.validator = validator
         self._plugins: dict[str, T] = {}
 
     def discover(self) -> dict[str, T]:
         for entry in _select_entry_points(self.group):
             loaded = entry.load()
+            if self.validator is not None and not self.validator(loaded):
+                continue
             self._plugins[entry.name] = loaded
         return dict(self._plugins)
 
