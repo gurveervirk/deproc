@@ -14,7 +14,7 @@ class CoreSourceDiscovery:
 
     @property
     def file_extensions(self) -> tuple[str, ...]:
-        return tuple(self._parser_core.list_registered_extensions())
+        return tuple(self._parser_core.list_effective_extensions())
 
     def find_source_files(self, root_path: str) -> Iterable[str]:
         root = Path(root_path)

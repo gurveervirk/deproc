@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Type
 
+from ..interfaces.parser import register_plugin
 from ..registry import PluginRegistry
 from .contracts import LanguagePlugin
 
@@ -15,6 +16,7 @@ class RuntimeRegistry:
         plugin = plugin_cls()
         canonical = plugin.language.strip().lower()
         self._plugin_classes[canonical] = plugin_cls
+        register_plugin(plugin.parser_plugin)
         for alias in plugin.aliases:
             self._aliases[alias.strip().lower()] = canonical
 

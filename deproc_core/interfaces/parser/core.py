@@ -15,6 +15,7 @@ class ParserCore(SourceParser):
     def __init__(self) -> None:
         self._plugins_by_extension: dict[str, ParserPlugin] = {}
         self._plugins_by_language: dict[str, ParserPlugin] = {}
+        self._ignored_extensions: set[str] = set()
 
     def register_plugin(self, plugin: ParserPlugin) -> None:
         self._plugins_by_language[plugin.language_id.lower()] = plugin
@@ -53,6 +54,22 @@ class ParserCore(SourceParser):
 
     def list_registered_extensions(self) -> list[str]:
         return sorted(self._plugins_by_extension.keys())
+
+    def ignore_file_extensions(self, extensions: list[str]) -> None:
+        for extension in extensions:
+            normalized = (extension or "").strip().lower()
+            if not normalized:
+                continue
+            if not normalized.startswith("."):
+                normalized = f".{normalized}"
+            self._ignored_extensions.add(normalized)
+
+    def list_effective_extensions(self) -> list[str]:
+        return sorted(
+            extension
+            for extension in self._plugins_by_extension.keys()
+            if extension not in self._ignored_extensions
+        )
 
     @staticmethod
     def _normalize_captures(raw_captures: object) -> list:

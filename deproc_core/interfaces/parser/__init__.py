@@ -10,9 +10,11 @@ from .models import (
     TypeDeclaration
 )
 from .registry import (
+    get_registered_file_extensions,
     get_parser_core,
     get_plugin_for_language,
     get_plugin_for_extension,
+    ignore_file_extensions,
     registered_parser_plugins,
     register_plugin,
     supported_file_extensions,
@@ -34,5 +36,7 @@ __all__ = [
     "get_plugin_for_language",
     "get_plugin_for_extension",
     "registered_parser_plugins",
+    "get_registered_file_extensions",
+    "ignore_file_extensions",
     "supported_file_extensions",
 ]

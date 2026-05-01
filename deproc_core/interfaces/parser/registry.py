@@ -28,3 +28,11 @@ def supported_file_extensions() -> list[str]:
 
 def registered_parser_plugins() -> list[ParserPlugin]:
     return _PARSER_CORE.list_registered_plugins()
+
+
+def ignore_file_extensions(extensions: list[str]) -> None:
+    _PARSER_CORE.ignore_file_extensions(extensions)
+
+
+def get_registered_file_extensions() -> list[str]:
+    return _PARSER_CORE.list_effective_extensions()
