@@ -1,5 +1,5 @@
 """
-Use SETTINGS to:
+Use `Config` to:
 - Access the runtime registry and registered plugins
 - Get the list of selected languages and file extensions for processing
 - Update the selected languages and file extensions using select_languages and select_file_extensions
