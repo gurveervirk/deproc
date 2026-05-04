@@ -109,7 +109,7 @@ class Relationship(BaseModel):
     from_entity: Entity
     to_entity: Union[Entity, ExternalEntityRef]
     label: str
-    properties: Dict
+    properties: Dict | None
 
     def __init__(self, from_entity: Entity, to_entity: Union[Entity, ExternalEntityRef], label: str, properties: Dict):
         super().__init__(from_entity=from_entity, to_entity=to_entity, label=label, properties=properties)
@@ -147,32 +147,3 @@ class AliasHop(BaseModel):
     module_fqn: str
     line_no: Optional[int] = None
     next_hop_fqn: str
-
-
-class SourceFilePayload(BaseModel):
-    source_entity_id: int
-    source_hash: bytes
-    source_code: Optional[str] = None
-    docstring_start_line: Optional[int] = None
-    docstring_end_line: Optional[int] = None
-    file_path: Optional[str] = None
-    language: str = "python"
-
-
-class EntityDefinitionPayload(BaseModel):
-    entity_id: int
-    source_hash: bytes
-    source_entity_name: str
-    start_line: Optional[int] = None
-    end_line: Optional[int] = None
-    docstring_start_line: Optional[int] = None
-    docstring_end_line: Optional[int] = None
-    signature_start_line: Optional[int] = None
-    signature_end_line: Optional[int] = None
-    stub_source_entity_name: Optional[str] = None
-
-
-class DecoratorDetailPayload(BaseModel):
-    entity_id: int
-    source_hash: bytes
-    details: Dict[str, Any] = Field(default_factory=dict)
