@@ -1,3 +1,8 @@
+"""
+Provisional data models for the parser interface.
+Please use these models either directly in the plugin implementations or as a reference for defining plugin-specific models.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
