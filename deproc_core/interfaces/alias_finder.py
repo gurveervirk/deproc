@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Optional, Protocol, Tuple, runtime_checkable
-from ...models import Entity, Relationship, ExternalEntityRef
+from ..models import Entity, Relationship, ExternalEntityRef
 
 @runtime_checkable
 class AliasFinder(Protocol):
