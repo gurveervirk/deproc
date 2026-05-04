@@ -1,10 +1,10 @@
-from typing_extensions import Dict, List, Optional, Any, Union, Tuple
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Dict, List, Optional, Any, Union, Tuple
+from dataclasses import dataclass, field
 import hashlib
 import re
 
-
-class ExternalEntityRef(BaseModel):
+@dataclass
+class ExternalEntityRef:
     """
     Reference to an external entity (outside current module being processed).
     Used for INHERITS/IMPORTS relations where the target may not be tracked.
@@ -14,10 +14,7 @@ class ExternalEntityRef(BaseModel):
     version: Optional[str] = None
     content_hash: Optional[str] = None
     alias: Optional[str] = None
-    attributes: Dict[str, Any] = Field(default_factory=dict)
-
-    class Config:
-        frozen = False
+    attributes: Dict[str, Any] = field(default_factory=dict)
 
     def __repr__(self):
         if self.version:
@@ -38,7 +35,6 @@ class ExternalEntityRef(BaseModel):
                 self.content_hash == other.content_hash and
                 self.alias == other.alias)
 
-
 def _sanitize_labels(labels: List[str]) -> List[str]:
     """Sanitize labels by replacing invalid characters with underscores."""
     sanitized = []
@@ -47,7 +43,6 @@ def _sanitize_labels(labels: List[str]) -> List[str]:
         clean_label = re.sub(r'[.:\-\s]+', '_', label)
         sanitized.append(clean_label)
     return sanitized
-
 
 def _compute_content_hash(name: str, props: Dict) -> str:
     """
@@ -70,27 +65,24 @@ def _compute_content_hash(name: str, props: Dict) -> str:
     
     return h.hexdigest()
 
-
-class Entity(BaseModel):
+@dataclass
+class Entity:
     """
     Module-agnostic entity class.
     """
     name: str
-    type: str = "UNKNOWN"
     labels: List[str]
     properties: Dict
-    content_hash: str
+    type: str = "UNKNOWN"
+    content_hash: Optional[str] = None
     language: str = "python"
 
-    def __init__(self, name: str, labels: List[str], properties: Dict, content_hash: Optional[str] = None, type: str = "UNKNOWN", language: str = "python"):
-        # Sanitize labels
-        sanitized_labels = _sanitize_labels(labels)
+    def __post_init__(self):
+        self.labels = _sanitize_labels(self.labels)
         
         # Compute content_hash if not provided
-        if content_hash is None:
-            content_hash = _compute_content_hash(name, properties)
-        
-        super().__init__(name=name, labels=sanitized_labels, properties=properties, content_hash=content_hash, type=type, language=language)
+        if self.content_hash is None:
+            self.content_hash = _compute_content_hash(self.name, self.properties)
 
     @property
     def label(self) -> str:
@@ -102,7 +94,8 @@ class Entity(BaseModel):
     def __repr__(self):
         return f"{self.label} ({self.name})"
 
-class Relationship(BaseModel):
+@dataclass
+class Relationship:
     """
     Module-agnostic relation class.
     """
@@ -111,28 +104,23 @@ class Relationship(BaseModel):
     label: str
     properties: Dict | None
 
-    def __init__(self, from_entity: Entity, to_entity: Union[Entity, ExternalEntityRef], label: str, properties: Dict):
-        super().__init__(from_entity=from_entity, to_entity=to_entity, label=label, properties=properties)
-
     def __repr__(self):
         return f"{self.from_entity} --{self.label}--> {self.to_entity}"
 
-
-class ExtractionResult(BaseModel):
+@dataclass
+class ExtractionResult:
     """
     Result of an extraction process containing entities, relationships, and other metadata.
     """
     entities: List[Entity]
     relations: List[Relationship]
     other_relations: Dict[str, List[Tuple[str, ExternalEntityRef]]]
-    aliases: Dict[str, List[str]] = Field(default_factory=dict)
-    symbol_maps: Dict[str, List["SymbolMapEntry"]] = Field(default_factory=dict)
-    alias_hops: Dict[str, List["AliasHop"]] = Field(default_factory=dict)
+    aliases: Dict[str, List[str]] = field(default_factory=dict)
+    symbol_maps: Dict[str, List["SymbolMapEntry"]] = field(default_factory=dict)
+    alias_hops: Dict[str, List["AliasHop"]] = field(default_factory=dict)
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-
-class SymbolMapEntry(BaseModel):
+@dataclass
+class SymbolMapEntry:
     name: str
     origin: str
     entity_fqn: Optional[str] = None
@@ -142,8 +130,8 @@ class SymbolMapEntry(BaseModel):
     parent_block_start_line: Optional[int] = None
     is_reexport: bool = False
 
-
-class AliasHop(BaseModel):
+@dataclass
+class AliasHop:
     module_fqn: str
     line_no: Optional[int] = None
     next_hop_fqn: str
