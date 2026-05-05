@@ -1,7 +1,7 @@
 from .base import ModelConverter
-from .models import ModelConversionResult
+from .models import ExtractionContext
 
 __all__ = [
     "ModelConverter",
-    "ModelConversionResult"
+    "ExtractionContext"
 ]
