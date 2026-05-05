@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .discovery import find_source_files
 from .config import Config
-from .interfaces.parser import SourceFile
+from .interfaces.parser.models import SourceFile
 
 from dataclasses import dataclass, field
 from pathlib import Path
