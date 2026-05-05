@@ -3,6 +3,36 @@ from dataclasses import dataclass, field
 import hashlib
 import re
 
+def _sanitize_labels(labels: List[str]) -> List[str]:
+    """Sanitize labels by replacing invalid characters with underscores."""
+    sanitized = []
+    for label in labels:
+        # Replace dots, colons, and other special chars with underscores
+        clean_label = re.sub(r'[.:\-\s]+', '_', label)
+        sanitized.append(clean_label)
+    return sanitized
+
+def _compute_content_hash(name: str, props: Dict) -> str:
+    """
+    Calculate content hash for an entity based on its name and all properties.
+    Hashes all property keys and values in sorted order for deterministic results.
+    """
+    h = hashlib.sha256()
+    
+    # Include entity name
+    h.update(name.encode("utf-8", errors="ignore"))
+    h.update(b"|::|")
+    
+    # Hash all properties in sorted order for determinism
+    for key in sorted(props.keys()):
+        value = props[key]
+        h.update(key.encode("utf-8", errors="ignore"))
+        h.update(b"|::|")
+        h.update(str(value).encode("utf-8", errors="ignore"))
+        h.update(b"|::|")
+    
+    return h.hexdigest()
+
 @dataclass
 class ExternalEntityRef:
     """
@@ -35,36 +65,6 @@ class ExternalEntityRef:
                 self.content_hash == other.content_hash and
                 self.alias == other.alias)
 
-def _sanitize_labels(labels: List[str]) -> List[str]:
-    """Sanitize labels by replacing invalid characters with underscores."""
-    sanitized = []
-    for label in labels:
-        # Replace dots, colons, and other special chars with underscores
-        clean_label = re.sub(r'[.:\-\s]+', '_', label)
-        sanitized.append(clean_label)
-    return sanitized
-
-def _compute_content_hash(name: str, props: Dict) -> str:
-    """
-    Calculate content hash for an entity based on its name and all properties.
-    Hashes all property keys and values in sorted order for deterministic results.
-    """
-    h = hashlib.sha256()
-    
-    # Include entity name
-    h.update(name.encode("utf-8", errors="ignore"))
-    h.update(b"|::|")
-    
-    # Hash all properties in sorted order for determinism
-    for key in sorted(props.keys()):
-        value = props[key]
-        h.update(key.encode("utf-8", errors="ignore"))
-        h.update(b"|::|")
-        h.update(str(value).encode("utf-8", errors="ignore"))
-        h.update(b"|::|")
-    
-    return h.hexdigest()
-
 @dataclass
 class Entity:
     """
@@ -72,7 +72,8 @@ class Entity:
     """
     name: str
     labels: List[str]
-    properties: Dict
+    primary_label: Optional[str] = None
+    properties: Dict[str, Any] | None = None
     type: str = "UNKNOWN"
     content_hash: Optional[str] = None
     language: str = "python"
@@ -84,15 +85,11 @@ class Entity:
         if self.content_hash is None:
             self.content_hash = _compute_content_hash(self.name, self.properties)
 
-    @property
-    def label(self) -> str:
-        """
-        Backwards-compatible primary label accessor. Returns the first label if available.
-        """
-        return self.labels[0] if self.labels else ""
+        if self.primary_label is None and self.labels:
+            self.primary_label = self.labels[0]
 
     def __repr__(self):
-        return f"{self.label} ({self.name})"
+        return f"{self.primary_label} ({self.name})"
 
 @dataclass
 class Relationship:
@@ -102,22 +99,10 @@ class Relationship:
     from_entity: Entity
     to_entity: Union[Entity, ExternalEntityRef]
     label: str
-    properties: Dict | None
+    properties: Dict[str, Any] | None = None
 
     def __repr__(self):
         return f"{self.from_entity} --{self.label}--> {self.to_entity}"
-
-@dataclass
-class ExtractionResult:
-    """
-    Result of an extraction process containing entities, relationships, and other metadata.
-    """
-    entities: List[Entity]
-    relations: List[Relationship]
-    other_relations: Dict[str, List[Tuple[str, ExternalEntityRef]]]
-    aliases: Dict[str, List[str]] = field(default_factory=dict)
-    symbol_maps: Dict[str, List["SymbolMapEntry"]] = field(default_factory=dict)
-    alias_hops: Dict[str, List["AliasHop"]] = field(default_factory=dict)
 
 @dataclass
 class SymbolMapEntry:
@@ -135,3 +120,14 @@ class AliasHop:
     module_fqn: str
     line_no: Optional[int] = None
     next_hop_fqn: str
+
+@dataclass
+class ExtractionResult:
+    """
+    Result of an extraction process containing entities, relationships, and other metadata.
+    """
+    entities: List[Entity]
+    relations: List[Relationship]
+    aliases: Dict[str, List[str]] = field(default_factory=dict)
+    symbol_maps: Dict[str, List[SymbolMapEntry]] = field(default_factory=dict)
+    alias_hops: Dict[str, List[AliasHop]] = field(default_factory=dict)
