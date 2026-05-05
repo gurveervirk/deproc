@@ -2,5 +2,5 @@ from dataclasses import dataclass
 from ..extraction.models import Entity
 
 @dataclass
-class ModelConversionResult:
+class ExtractionContext:
     entities: list[Entity]
