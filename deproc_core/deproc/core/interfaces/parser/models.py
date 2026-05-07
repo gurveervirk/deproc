@@ -9,26 +9,26 @@ class Docstring:
     """
     Represents a generic language-agnostic docstring metadata model.
     """
-    docstring_start_line: int | None = None
-    docstring_end_line: int | None = None
+    docstring_start_line: int
+    docstring_end_line: int
 
 @dataclass
 class Signature:
-    signature_start_line: int | None = None
-    signature_end_line: int | None = None
+    signature_start_line: int
+    signature_end_line: int
 
 @dataclass
 class SourceRange:
-    lineno: int | None = None
-    end_lineno: int | None = None
-    col_offset: int | None = None
-    end_col_offset: int | None = None
+    lineno: int
+    end_lineno: int
+    col_offset: int
+    end_col_offset: int
 
 @dataclass
 class Annotation:
     name: str
-    line_start: int | None = None
-    line_end: int | None = None
+    lineno: int | None
+    end_lineno: int | None
 
 @dataclass
 class ImportStmt(SourceRange):
@@ -36,45 +36,45 @@ class ImportStmt(SourceRange):
 
 @dataclass
 class Argument(SourceRange):
-    name: str | None = None
-    default_value: str | None = None
-    type_annotation: str | None = None
+    name: str
+    default_value: str | None
+    type_annotation: str | None
 
-@dataclass
+@dataclass(kw_only=True)
 class FunctionLike(Docstring, Signature, SourceRange):
     name: str
-    type: str = "FUNCTION"
+    type: str = field(default="FUNCTION")
 
 @dataclass
 class Variable(SourceRange):
     name: str
-    value: str | None = None
-    type_annotation: str | None = None
+    value: str | None
+    type_annotation: str | None
 
-@dataclass
+@dataclass(kw_only=True)
 class TypeDefinition(Docstring, Signature, SourceRange):
     name: str
-    type: str = "TYPE_DEFINITION"
+    type: str = field(default="TYPE_DEFINITION")
     kind: str
     annotations: list[Annotation] = field(default_factory=list)
     inherits: list[str] = field(default_factory=list)
     methods: list[FunctionLike] = field(default_factory=list)
     inner_type_definitions: list["TypeDefinition"] = field(default_factory=list)
     properties: list[Variable] = field(default_factory=list)
-    visibility: str | None = None
+    visibility: str | None
 
 @dataclass
 class ConditionalBlock:
     condition: str
     branch: str
-    parent_block_start_line: int | None = None
+    parent_block_start_line: int | None
     imports: list[ImportStmt] = field(default_factory=list)
     type_definitions: list[TypeDefinition] = field(default_factory=list)
     functions: list[FunctionLike] = field(default_factory=list)
     variables: list[Variable] = field(default_factory=list)
     nested_blocks: list["ConditionalBlock"] = field(default_factory=list)
 
-@dataclass
+@dataclass(kw_only=True)
 class SourceFile(Docstring):
     file_path: str
     module_name: str
