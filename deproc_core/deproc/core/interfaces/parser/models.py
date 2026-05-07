@@ -2,9 +2,6 @@
 Provisional data models for the parser interface.
 Please use these models either directly in the plugin implementations or as a reference for defining plugin-specific models.
 """
-
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 
 @dataclass
@@ -62,7 +59,7 @@ class TypeDefinition(Docstring, Signature, SourceRange):
     annotations: list[Annotation] = field(default_factory=list)
     inherits: list[str] = field(default_factory=list)
     methods: list[FunctionLike] = field(default_factory=list)
-    inner_type_definitions: list[TypeDefinition] = field(default_factory=list)
+    inner_type_definitions: list["TypeDefinition"] = field(default_factory=list)
     properties: list[Variable] = field(default_factory=list)
     visibility: str | None = None
 

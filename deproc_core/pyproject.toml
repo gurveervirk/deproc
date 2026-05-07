@@ -3,19 +3,12 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "deputy-core"
+name = "deproc-core"
 version = "0.1.0"
-description = "Language-agnostic core contracts and runtime for deputy plugins."
+description = "Language-agnostic core contracts and runtime for deproc plugins."
 requires-python = ">=3.10"
-dependencies = ["pydantic>=2.0"]
-
-[project.scripts]
-deproc-core = "deproc_core.__main__:main"
-
-[tool.setuptools]
-py-modules = []
 
 [tool.setuptools.packages.find]
-where = [".."]
-include = ["deproc_core*"]
+where = ["."]
+include = ["deproc.core*"]
 
