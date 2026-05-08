@@ -5,19 +5,6 @@ Please use these models either directly in the plugin implementations or as a re
 from dataclasses import dataclass, field
 
 @dataclass
-class Docstring:
-    """
-    Represents a generic language-agnostic docstring metadata model.
-    """
-    docstring_start_line: int
-    docstring_end_line: int
-
-@dataclass
-class Signature:
-    signature_start_line: int
-    signature_end_line: int
-
-@dataclass
 class SourceRange:
     lineno: int
     end_lineno: int
@@ -25,42 +12,71 @@ class SourceRange:
     end_col_offset: int
 
 @dataclass
-class Annotation:
-    name: str
-    lineno: int | None
-    end_lineno: int | None
+class Docstring:
+    docstring_range: SourceRange | None
 
 @dataclass
-class ImportStmt(SourceRange):
+class Signature:
+    signature_range: SourceRange
+    arguments_range: SourceRange | None
+    return_type_range: SourceRange | None
+
+@dataclass
+class Annotation:
+    source_range: SourceRange
+    name: str
+
+@dataclass
+class ImportStmt:
+    source_range: SourceRange
     type: str
 
 @dataclass
-class Argument(SourceRange):
+class Argument:
     name: str
+    source_range: SourceRange
     default_value: str | None
     type_annotation: str | None
 
 @dataclass(kw_only=True)
-class FunctionLike(Docstring, Signature, SourceRange):
+class FunctionLike(Docstring):
     name: str
+    source_range: SourceRange
     type: str = field(default="FUNCTION")
+    signature: Signature
 
 @dataclass
-class Variable(SourceRange):
+class VariableBinding:
     name: str
-    value: str | None
+    source_range: SourceRange
+    is_destructuring: bool = False
+
+@dataclass
+class VariableDeclaration:
+    bindings: list[VariableBinding]
+    source_range: SourceRange
+    value_range: SourceRange | None
     type_annotation: str | None
+    modifiers: list[str] = field(default_factory=list)
+
+@dataclass
+class Property:
+    name: str
+    source_range: SourceRange
+    type_annotation: str | None
+    default_value_range: SourceRange | None
+    modifiers: list[str] = field(default_factory=list)
 
 @dataclass(kw_only=True)
-class TypeDefinition(Docstring, Signature, SourceRange):
+class TypeDefinition(Docstring):
     name: str
+    source_range: SourceRange
     type: str = field(default="TYPE_DEFINITION")
-    kind: str
     annotations: list[Annotation] = field(default_factory=list)
     inherits: list[str] = field(default_factory=list)
     methods: list[FunctionLike] = field(default_factory=list)
     inner_type_definitions: list["TypeDefinition"] = field(default_factory=list)
-    properties: list[Variable] = field(default_factory=list)
+    properties: list[Property] = field(default_factory=list)
     visibility: str | None
 
 @dataclass
@@ -71,7 +87,7 @@ class ConditionalBlock:
     imports: list[ImportStmt] = field(default_factory=list)
     type_definitions: list[TypeDefinition] = field(default_factory=list)
     functions: list[FunctionLike] = field(default_factory=list)
-    variables: list[Variable] = field(default_factory=list)
+    variables: list[VariableDeclaration] = field(default_factory=list)
     nested_blocks: list["ConditionalBlock"] = field(default_factory=list)
 
 @dataclass(kw_only=True)
@@ -81,7 +97,7 @@ class SourceFile(Docstring):
     imports: list[ImportStmt] = field(default_factory=list)
     type_definitions: list[TypeDefinition] = field(default_factory=list)
     functions: list[FunctionLike] = field(default_factory=list)
-    variables: list[Variable] = field(default_factory=list)
+    variables: list[VariableDeclaration] = field(default_factory=list)
     conditional_blocks: list[ConditionalBlock] = field(default_factory=list)
     source_bytes: bytes
     source: str
