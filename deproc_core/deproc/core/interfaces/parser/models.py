@@ -27,7 +27,7 @@ class Annotation:
     name: str
 
 @dataclass
-class ImportStmt:
+class ImportStatement:
     source_range: SourceRange
     type: str
 
@@ -47,24 +47,16 @@ class FunctionLike(Docstring):
 
 @dataclass
 class VariableBinding:
-    name: str
-    source_range: SourceRange
-    is_destructuring: bool = False
+    name: str | None
+    source_range: SourceRange | None
+    is_complex: bool = field(default=False) # Determines whether to use name or source_range
 
-@dataclass
+@dataclass(kw_only=True)
 class VariableDeclaration:
-    bindings: list[VariableBinding]
+    variable_binding: VariableBinding
     source_range: SourceRange
     value_range: SourceRange | None
-    type_annotation: str | None
-    modifiers: list[str] = field(default_factory=list)
-
-@dataclass
-class Property:
-    name: str
-    source_range: SourceRange
-    type_annotation: str | None
-    default_value_range: SourceRange | None
+    type_annotation: SourceRange | None
     modifiers: list[str] = field(default_factory=list)
 
 @dataclass(kw_only=True)
@@ -76,28 +68,33 @@ class TypeDefinition(Docstring):
     inherits: list[str] = field(default_factory=list)
     methods: list[FunctionLike] = field(default_factory=list)
     inner_type_definitions: list["TypeDefinition"] = field(default_factory=list)
-    properties: list[Property] = field(default_factory=list)
+    properties: list[VariableDeclaration] = field(default_factory=list)
     visibility: str | None
 
 @dataclass
-class ConditionalBlock:
-    condition: str
+class ControlFlowBlock:
     branch: str
-    parent_block_start_line: int | None
-    imports: list[ImportStmt] = field(default_factory=list)
+    source_range: SourceRange
+    condition_range: SourceRange | None
+    import_statements: list[ImportStatement] = field(default_factory=list)
     type_definitions: list[TypeDefinition] = field(default_factory=list)
     functions: list[FunctionLike] = field(default_factory=list)
     variables: list[VariableDeclaration] = field(default_factory=list)
-    nested_blocks: list["ConditionalBlock"] = field(default_factory=list)
+    nested_groups: list["ControlFlowGroup"] = field(default_factory=list)
+
+@dataclass
+class ControlFlowGroup:
+    group_type: str
+    source_range: SourceRange
+    blocks: list[ControlFlowBlock] = field(default_factory=list)
 
 @dataclass(kw_only=True)
 class SourceFile(Docstring):
     file_path: str
     module_name: str
-    imports: list[ImportStmt] = field(default_factory=list)
+    import_statements: list[ImportStatement] = field(default_factory=list)
     type_definitions: list[TypeDefinition] = field(default_factory=list)
     functions: list[FunctionLike] = field(default_factory=list)
     variables: list[VariableDeclaration] = field(default_factory=list)
-    conditional_blocks: list[ConditionalBlock] = field(default_factory=list)
-    source_bytes: bytes
+    control_flow_groups: list[ControlFlowGroup] = field(default_factory=list)
     source: str
