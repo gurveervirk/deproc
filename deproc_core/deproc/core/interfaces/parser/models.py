@@ -91,7 +91,6 @@ class ControlFlowGroup:
 @dataclass(kw_only=True)
 class SourceFile(Docstring):
     file_path: str
-    module_name: str
     import_statements: list[ImportStatement] = field(default_factory=list)
     type_definitions: list[TypeDefinition] = field(default_factory=list)
     functions: list[FunctionLike] = field(default_factory=list)
