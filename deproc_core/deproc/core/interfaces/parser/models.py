@@ -41,20 +41,25 @@ class Argument:
 @dataclass(kw_only=True)
 class FunctionLike(Docstring):
     name: str
+    fqn: str
     source_range: SourceRange
     type: str = field(default="FUNCTION")
     signature: Signature
 
 @dataclass
-class VariableBinding:
-    name: str | None
+class SimpleBinding:
+    name: str
+
+@dataclass
+class ComplexBinding:
     source_range: SourceRange | None
-    is_complex: bool = field(default=False) # Determines whether to use name or source_range
 
 @dataclass(kw_only=True)
 class VariableDeclaration:
-    variable_binding: VariableBinding
+    fqn: str | None
+    type: str = field(default="VARIABLE")
     source_range: SourceRange
+    variable_binding: SimpleBinding | ComplexBinding
     value_range: SourceRange | None
     type_annotation: SourceRange | None
     modifiers: list[str] = field(default_factory=list)
@@ -62,6 +67,7 @@ class VariableDeclaration:
 @dataclass(kw_only=True)
 class TypeDefinition(Docstring):
     name: str
+    fqn: str
     source_range: SourceRange
     type: str = field(default="TYPE_DEFINITION")
     annotations: list[Annotation] = field(default_factory=list)
@@ -90,7 +96,7 @@ class ControlFlowGroup:
 
 @dataclass(kw_only=True)
 class SourceFile(Docstring):
-    file_path: str
+    path: str
     import_statements: list[ImportStatement] = field(default_factory=list)
     type_definitions: list[TypeDefinition] = field(default_factory=list)
     functions: list[FunctionLike] = field(default_factory=list)
