@@ -94,9 +94,12 @@ class ControlFlowGroup:
     source_range: SourceRange
     blocks: list[ControlFlowBlock] = field(default_factory=list)
 
-@dataclass(kw_only=True)
-class SourceFile(Docstring):
+@dataclass
+class Node:
     path: str
+
+@dataclass(kw_only=True)
+class SourceFile(Docstring, Node):
     import_statements: list[ImportStatement] = field(default_factory=list)
     type_definitions: list[TypeDefinition] = field(default_factory=list)
     functions: list[FunctionLike] = field(default_factory=list)
