@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 @dataclass
 class AliasMapping:
-    entity_name: str
+    fqn: str
     aliases: list[str]
 
 @dataclass
