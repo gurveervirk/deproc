@@ -12,6 +12,11 @@ class EntityRegistry:
     def add(self, entity: Entity) -> None:
         """Register a parsed entity."""
         self.entities[entity.id] = entity
+
+    def add_all(self, entities: list[Entity]) -> None:
+        """Register multiple parsed entities at once."""
+        for entity in entities:
+            self.add(entity)
         
     def get(self, entity_id: str) -> Entity | None:
         """Resolve a string ID back to the Entity object."""
