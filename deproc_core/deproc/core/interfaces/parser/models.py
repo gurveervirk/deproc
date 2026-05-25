@@ -3,6 +3,15 @@ Provisional data models for the parser interface.
 Please use these models either directly in the plugin implementations or as a reference for defining plugin-specific models.
 """
 from dataclasses import dataclass, field
+from uuid import uuid4
+
+def generate_id() -> str:
+    return uuid4().hex
+
+@dataclass
+class Entity:
+    id: str = field(default_factory=generate_id)
+    parent_id: str | None = None
 
 @dataclass
 class SourceRange:
@@ -39,7 +48,7 @@ class Argument:
     type_annotation: str | None
 
 @dataclass(kw_only=True)
-class FunctionLike(Docstring):
+class FunctionLike(Docstring, Entity):
     name: str
     fqn: str
     source_range: SourceRange
@@ -55,7 +64,7 @@ class ComplexBinding:
     source_range: SourceRange | None
 
 @dataclass(kw_only=True)
-class VariableDeclaration:
+class VariableDeclaration(Entity):
     fqn: str | None
     type: str = field(default="VARIABLE")
     source_range: SourceRange
@@ -65,44 +74,44 @@ class VariableDeclaration:
     modifiers: list[str] = field(default_factory=list)
 
 @dataclass(kw_only=True)
-class TypeDefinition(Docstring):
+class TypeDefinition(Docstring, Entity):
     name: str
     fqn: str
     source_range: SourceRange
     type: str = field(default="TYPE_DEFINITION")
     annotations: list[Annotation] = field(default_factory=list)
     inherits: list[str] = field(default_factory=list)
-    methods: list[FunctionLike] = field(default_factory=list)
-    inner_type_definitions: list["TypeDefinition"] = field(default_factory=list)
-    properties: list[VariableDeclaration] = field(default_factory=list)
+    method_ids: list[str] = field(default_factory=list)
+    inner_type_ids: list[str] = field(default_factory=list)
+    property_ids: list[str] = field(default_factory=list)
     visibility: str | None
 
 @dataclass
-class ControlFlowBlock:
+class ControlFlowBlock(Entity):
     branch: str
     source_range: SourceRange
     condition_range: SourceRange | None
     import_statements: list[ImportStatement] = field(default_factory=list)
-    type_definitions: list[TypeDefinition] = field(default_factory=list)
-    functions: list[FunctionLike] = field(default_factory=list)
-    variables: list[VariableDeclaration] = field(default_factory=list)
-    nested_groups: list["ControlFlowGroup"] = field(default_factory=list)
+    type_ids: list[str] = field(default_factory=list)
+    function_ids: list[str] = field(default_factory=list)
+    variable_ids: list[str] = field(default_factory=list)
+    nested_group_ids: list[str] = field(default_factory=list)
 
 @dataclass
-class ControlFlowGroup:
+class ControlFlowGroup(Entity):
     group_type: str
     source_range: SourceRange
-    blocks: list[ControlFlowBlock] = field(default_factory=list)
+    block_ids: list[str] = field(default_factory=list)
 
 @dataclass
 class Node:
     path: str
 
 @dataclass(kw_only=True)
-class SourceFile(Docstring, Node):
+class SourceFile(Docstring, Entity, Node):
     import_statements: list[ImportStatement] = field(default_factory=list)
-    type_definitions: list[TypeDefinition] = field(default_factory=list)
-    functions: list[FunctionLike] = field(default_factory=list)
-    variables: list[VariableDeclaration] = field(default_factory=list)
-    control_flow_groups: list[ControlFlowGroup] = field(default_factory=list)
+    type_ids: list[str] = field(default_factory=list)
+    function_ids: list[str] = field(default_factory=list)
+    variable_ids: list[str] = field(default_factory=list)
+    control_flow_group_ids: list[str] = field(default_factory=list)
     source: str
