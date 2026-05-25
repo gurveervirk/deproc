@@ -104,11 +104,11 @@ class ControlFlowGroup(Entity):
     block_ids: list[str] = field(default_factory=list)
 
 @dataclass
-class Node:
+class Node(Entity):
     path: str
 
 @dataclass(kw_only=True)
-class SourceFile(Docstring, Entity, Node):
+class SourceFile(Docstring, Node):
     import_statements: list[ImportStatement] = field(default_factory=list)
     type_ids: list[str] = field(default_factory=list)
     function_ids: list[str] = field(default_factory=list)
