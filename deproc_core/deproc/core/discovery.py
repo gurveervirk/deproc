@@ -1,8 +1,9 @@
+from .context import Context
 from pathlib import Path
 
-def find_source_files(root_path: str, file_extensions: list[str]) -> list[str]:
-    root = Path(root_path)
-    extension_set = set(file_extensions)
+def find_source_files(context: Context) -> list[str]:
+    root = Path(context.base_path)
+    extension_set = set(context.selected_file_extensions)
     if not extension_set:
         return []
 
