@@ -1,11 +1,10 @@
 from .alias_finder import AliasFinder, AliasFinderResult
+from .linker import Linker
 from .parser import SourceParser
-from .model_conversion import ModelConverter, ExtractionContext
 
 __all__ = [
 	"AliasFinder",
     "AliasFinderResult",
+    "Linker",
 	"SourceParser",
-	"ModelConverter",
-	"ExtractionContext"
 ]
