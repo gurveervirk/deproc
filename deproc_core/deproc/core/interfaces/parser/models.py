@@ -8,7 +8,7 @@ from uuid import uuid4
 def generate_id() -> str:
     return uuid4().hex
 
-@dataclass
+@dataclass(kw_only=True)
 class Entity:
     id: str = field(default_factory=generate_id)
     parent_id: str | None = None
