@@ -12,6 +12,7 @@ from .models import (
     ControlFlowGroup,
     PythonFunctionLike,
     SourceFile,
+    generate_id
 )
 from .utils.misc import visibility_from_name
 from .utils.extraction import (
@@ -110,8 +111,7 @@ class PythonSourceParser(SourceParser):
 
         docstring_range = extract_docstring_range(node)
         
-        from uuid import uuid4
-        cls_id = uuid4().hex
+        cls_id = generate_id()
 
         body_node = node.child_by_field_name("body")
         methods = self._extract_functions(body_node, source, context, type="METHOD", parent_id=cls_id) if body_node else []
@@ -165,10 +165,8 @@ class PythonSourceParser(SourceParser):
         docstring_range = extract_docstring_range(node)
         signature = extract_signature(node)
 
-        from uuid import uuid4
-        func_id = uuid4().hex
+        func_id = generate_id()
         
-        # In a generic situation, you might evaluate function body too, but we just set it up here.
         func_obj = PythonFunctionLike(
             id=func_id,
             parent_id=parent_id,
@@ -245,8 +243,7 @@ class PythonSourceParser(SourceParser):
         
         for child in iter_children(block_node):
             if child.type == "if_statement":
-                from uuid import uuid4
-                grp_id = uuid4().hex
+                grp_id = generate_id()
                 grp = ControlFlowGroup(
                     id=grp_id,
                     parent_id=parent_id,
@@ -256,9 +253,9 @@ class PythonSourceParser(SourceParser):
                 )
                 context.entity_registry.add(grp)
                 group_ids.append(grp.id)
+            
             elif child.type == "try_statement":
-                from uuid import uuid4
-                grp_id = uuid4().hex
+                grp_id = generate_id()
                 grp = ControlFlowGroup(
                     id=grp_id,
                     parent_id=parent_id,
@@ -280,8 +277,7 @@ class PythonSourceParser(SourceParser):
         
         consequence_node = node.child_by_field_name("consequence")
         if consequence_node:
-            from uuid import uuid4
-            blk_id = uuid4().hex
+            blk_id = generate_id()
             blk = ControlFlowBlock(
                 id=blk_id,
                 parent_id=parent_id,
@@ -303,8 +299,7 @@ class PythonSourceParser(SourceParser):
                 alt_cond_range = create_source_range(alt_cond_node) if alt_cond_node else None
                 alt_body = child.child_by_field_name("consequence")
                 if alt_body:
-                    from uuid import uuid4
-                    blk_id = uuid4().hex
+                    blk_id = generate_id()
                     blk = ControlFlowBlock(
                         id=blk_id,
                         parent_id=parent_id,
@@ -319,11 +314,11 @@ class PythonSourceParser(SourceParser):
                     )
                     context.entity_registry.add(blk)
                     result_ids.append(blk.id)
+            
             elif child.type == "else_clause":
                 alt_body = child.child_by_field_name("body")
                 if alt_body:
-                    from uuid import uuid4
-                    blk_id = uuid4().hex
+                    blk_id = generate_id()
                     blk = ControlFlowBlock(
                         id=blk_id,
                         parent_id=parent_id,
@@ -338,6 +333,7 @@ class PythonSourceParser(SourceParser):
                     )
                     context.entity_registry.add(blk)
                     result_ids.append(blk.id)
+        
         return result_ids
 
     def _process_try_node(self, node: Node, source: bytes, context: Context, parent_id: str | None = None) -> list[str]:
@@ -345,8 +341,7 @@ class PythonSourceParser(SourceParser):
         source_range = create_source_range(node)
         body_node = node.child_by_field_name("body")
         if body_node:
-            from uuid import uuid4
-            blk_id = uuid4().hex
+            blk_id = generate_id()
             blk = ControlFlowBlock(
                 id=blk_id,
                 parent_id=parent_id,
@@ -367,8 +362,7 @@ class PythonSourceParser(SourceParser):
                 body = child.child_by_field_name("body")
                 if body:
                     condition_range = create_source_range(child.child_by_field_name("condition")) if child.child_by_field_name("condition") else None
-                    from uuid import uuid4
-                    blk_id = uuid4().hex
+                    blk_id = generate_id()
                     blk = ControlFlowBlock(
                         id=blk_id,
                         parent_id=parent_id,
@@ -383,11 +377,11 @@ class PythonSourceParser(SourceParser):
                     )
                     context.entity_registry.add(blk)
                     result_ids.append(blk.id)
+            
             elif child.type == "else_clause":
                 alt_body = child.child_by_field_name("body")
                 if alt_body:
-                    from uuid import uuid4
-                    blk_id = uuid4().hex
+                    blk_id = generate_id()
                     blk = ControlFlowBlock(
                         id=blk_id,
                         parent_id=parent_id,
@@ -402,14 +396,14 @@ class PythonSourceParser(SourceParser):
                     )
                     context.entity_registry.add(blk)
                     result_ids.append(blk.id)
+            
             elif child.type == "finally_clause":
                 fin_body = None
                 for cc in iter_children(child):
                     if cc.type == "block":
                         fin_body = cc
                 if fin_body:
-                    from uuid import uuid4
-                    blk_id = uuid4().hex
+                    blk_id = generate_id()
                     blk = ControlFlowBlock(
                         id=blk_id,
                         parent_id=parent_id,
@@ -424,4 +418,5 @@ class PythonSourceParser(SourceParser):
                     )
                     context.entity_registry.add(blk)
                     result_ids.append(blk.id)
+        
         return result_ids
