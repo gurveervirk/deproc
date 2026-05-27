@@ -11,6 +11,7 @@ from deproc.core.interfaces.parser.models import (
     SourceRange,
     TypeDefinition,
     VariableDeclaration,
+    generate_id
 )
 from dataclasses import dataclass, field
 
@@ -45,4 +46,5 @@ __all__ = [
     "PythonFunctionLike",
     "PythonTypeAlias",
     "VariableDeclaration",
+    "generate_id"
 ]
