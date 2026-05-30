@@ -6,12 +6,13 @@ import os
 
 from .models import (
     Annotation,
-    ImportStatement,
     PythonClass,
     ControlFlowBlock,
     ControlFlowGroup,
     PythonFunctionLike,
-    SourceFile,
+    PythonImportStatement,
+    PythonImportAlias,
+    PythonSourceFile,
     generate_id
 )
 from .utils.misc import visibility_from_name
@@ -33,6 +34,7 @@ class PythonSourceParser(SourceParser):
     def __init__(self):
         self._parser = get_python_parser()
         self._language = get_python_language()
+
         self.import_query = Query(
             self._language,
             """
@@ -40,8 +42,17 @@ class PythonSourceParser(SourceParser):
             (import_from_statement) @import_from
             """,
         )
+        self.all_exports_query = Query(
+            self._language,
+            """
+            (expression_statement
+                (assignment
+                    left: (identifier) @all_name (#eq? @all_name "__all__")
+                    right: [(list) (tuple)] @all_values
+                )"""
+        )
 
-    def parse_file(self, path: str, context: Context) -> SourceFile:
+    def parse_file(self, path: str, context: Context) -> PythonSourceFile:
         if not os.path.exists(path):
             raise FileNotFoundError(f"File not found: {path}")
         
@@ -56,7 +67,7 @@ class PythonSourceParser(SourceParser):
 
         relative_path = os.path.relpath(path, context.base_path).replace("\\", "/")
 
-        source_file = SourceFile(
+        source_file = PythonSourceFile(
             path=relative_path,
             docstring_range=docstring_range,
             source=source_bytes.decode("utf-8"),
@@ -66,6 +77,7 @@ class PythonSourceParser(SourceParser):
         source_file.function_ids = self._extract_functions(root_node, source_bytes, context, type="FUNCTION", parent_id=source_file.id)
         source_file.variable_ids = self._extract_variables(root_node, source_bytes, context, parent_id=source_file.id)
         source_file.import_statements = self._extract_import_statements(root_node)
+        source_file.all_exports = self._extract_all_exports(root_node)
         source_file.control_flow_group_ids = self._extract_control_flow_groups(root_node, source_bytes, context, parent_id=source_file.id)
 
         context.entity_registry.add(source_file)
@@ -98,13 +110,13 @@ class PythonSourceParser(SourceParser):
     ) -> str:
         source_range = create_source_range(node)
         name_node = node.child_by_field_name("name")
-        name = node_text(name_node, source)
+        name = node_text(name_node)
 
         bases_node = node.child_by_field_name("superclasses")
         bases = []
         if bases_node:
             bases = [
-                node_text(part, source)
+                node_text(part)
                 for part in iter_children(bases_node)
                 if part.type not in (",", "(", ")")
             ]
@@ -160,7 +172,7 @@ class PythonSourceParser(SourceParser):
     ) -> str:
         source_range = create_source_range(node)
         name_node = node.child_by_field_name("name")
-        name = node_text(name_node, source)
+        name = node_text(name_node)
 
         docstring_range = extract_docstring_range(node)
         signature = extract_signature(node)
@@ -200,9 +212,24 @@ class PythonSourceParser(SourceParser):
         
         return variable_ids
     
-    def _extract_import_statements(self, root: Node) -> list[ImportStatement]:
-        imports = []
+    def _extract_all_exports(self, root: Node) -> list[str] | None:
+        cursor = QueryCursor(self.all_exports_query)
+        captures_dict = cursor.captures(root)
 
+        for node, name in captures_dict.items():
+            for n in node:
+                if name == "all_values":
+                    exports = []
+                    for child in iter_children(n):
+                        if child.type == "string":
+                            export_name = node_text(child).strip().strip('"').strip("'")
+                            exports.append(export_name)
+                    return exports
+        
+        return None
+    
+    def _extract_import_statements(self, root: Node) -> list[PythonImportStatement]:
+        imports = []
         cursor = QueryCursor(self.import_query)
         captures_dict = cursor.captures(root)
         captures = sorted(
@@ -211,22 +238,54 @@ class PythonSourceParser(SourceParser):
         )
 
         for node, name in captures:
+            n = node
+            source_range = create_source_range(n)
+            
             if name == "import":
-                source_range = create_source_range(node)
-                imports.append(
-                    ImportStatement(
-                        source_range=source_range,
-                        type="import",
-                    )
-                )
+                aliases = []
+                for child in n.children:
+                    if child.type == "dotted_name":
+                        aliases.append(PythonImportAlias(name=node_text(child), alias=None))
+                    elif child.type == "aliased_import":
+                        child_name = child.child_by_field_name("name")
+                        child_alias = child.child_by_field_name("alias")
+                        if child_name:
+                            aliases.append(PythonImportAlias(
+                                name=node_text(child_name),
+                                alias=node_text(child_alias) if child_alias else None
+                            ))
+                imports.append(PythonImportStatement(
+                    source_range=source_range,
+                    type="import",
+                    path="",
+                    names=aliases
+                ))
             elif name == "import_from":
-                source_range = create_source_range(node)
-                imports.append(
-                    ImportStatement(
-                        source_range=source_range,
-                        type="import_from",
-                    )
-                )
+                module_node = n.child_by_field_name("module_name")
+                module_name = node_text(module_node)
+                aliases = []
+                wildcard = False
+                for child in n.children:
+                    if child.type == "wildcard_import":
+                        wildcard = True
+                    elif child.type == "dotted_name":
+                        if child != module_node:
+                            aliases.append(PythonImportAlias(name=node_text(child), alias=None))
+                    elif child.type == "aliased_import":
+                        child_name = child.child_by_field_name("name")
+                        child_alias = child.child_by_field_name("alias")
+                        if child_name:
+                            aliases.append(PythonImportAlias(
+                                name=node_text(child_name),
+                                alias=node_text(child_alias) if child_alias else None
+                            ))
+                imports.append(PythonImportStatement(
+                    source_range=source_range,
+                    type="import_from",
+                    path=module_name,
+                    names=aliases,
+                    wildcard=wildcard
+                ))
         return imports
     
     def _extract_control_flow_groups(

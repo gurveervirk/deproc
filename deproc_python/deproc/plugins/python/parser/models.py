@@ -32,6 +32,21 @@ class PythonTypeAlias(VariableDeclaration):
 class PythonClass(TypeDefinition):
     type: str = field(default="CLASS")
 
+@dataclass(kw_only=True)
+class PythonImportAlias:
+    name: str
+    alias: str | None
+
+@dataclass(kw_only=True)
+class PythonImportStatement(ImportStatement):
+    path: str
+    names: list[PythonImportAlias]
+    wildcard: bool = False
+
+@dataclass(kw_only=True)
+class PythonSourceFile(SourceFile):
+    all_exports: list[str] | None = None
+
 __all__ = [
     "ComplexBinding",
     "ControlFlowBlock",
@@ -44,6 +59,7 @@ __all__ = [
     "PythonClass",
     "PythonConstant",
     "PythonFunctionLike",
+    "PythonSourceFile",
     "PythonTypeAlias",
     "VariableDeclaration",
     "generate_id"
