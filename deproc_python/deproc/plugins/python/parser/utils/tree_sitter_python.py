@@ -14,11 +14,10 @@ def get_python_parser() -> Parser:
     parser = Parser(PY_LANGUAGE)
     return parser
     
-def node_text(node: Node, source: bytes) -> str:
+def node_text(node: Node) -> str:
     if not node:
         return ""
-    return source[node.start_byte : node.end_byte].decode("utf-8")
-
+    return node.text.decode("utf-8")
 
 def create_source_range(node: Node) -> SourceRange:
     return SourceRange(
