@@ -91,7 +91,7 @@ class ControlFlowBlock(Entity):
     branch: str
     source_range: SourceRange
     condition_range: SourceRange | None
-    import_statements: list[ImportStatement] = field(default_factory=list)
+    import_stmt_ids: list[str] = field(default_factory=list)
     type_ids: list[str] = field(default_factory=list)
     function_ids: list[str] = field(default_factory=list)
     variable_ids: list[str] = field(default_factory=list)
@@ -109,7 +109,7 @@ class Node(Entity):
 
 @dataclass(kw_only=True)
 class SourceFile(Docstring, Node):
-    import_statements: list[ImportStatement] = field(default_factory=list)
+    import_stmt_ids: list[str] = field(default_factory=list)
     type_ids: list[str] = field(default_factory=list)
     function_ids: list[str] = field(default_factory=list)
     variable_ids: list[str] = field(default_factory=list)
