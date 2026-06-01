@@ -36,7 +36,7 @@ class Annotation:
     name: str
 
 @dataclass
-class ImportStatement:
+class ImportStatement(Entity):
     source_range: SourceRange
     type: str
 
