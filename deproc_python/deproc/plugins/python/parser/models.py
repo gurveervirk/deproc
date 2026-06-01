@@ -3,6 +3,7 @@ from deproc.core.interfaces.parser.models import (
     ComplexBinding,
     ControlFlowBlock,
     ControlFlowGroup,
+    Entity,
     FunctionLike,
     ImportStatement,
     Signature,
@@ -33,14 +34,14 @@ class PythonClass(TypeDefinition):
     type: str = field(default="CLASS")
 
 @dataclass(kw_only=True)
-class PythonImportAlias:
+class PythonImportAlias(Entity):
     name: str
     alias: str | None
 
 @dataclass(kw_only=True)
 class PythonImportStatement(ImportStatement):
     path: str
-    names: list[PythonImportAlias]
+    name_ids: list[str]
     wildcard: bool = False
 
 @dataclass(kw_only=True)
