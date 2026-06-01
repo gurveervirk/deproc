@@ -37,14 +37,14 @@ def extract_docstring_range(node: Node) -> SourceRange | None:
             break
     return None
 
-def extract_decorator_details(decorated_node: Node, source: bytes) -> list[Annotation]:
+def extract_decorator_details(decorated_node: Node) -> list[Annotation]:
     decorators: list[Annotation] = []
     for child in iter_children(decorated_node):
         if child.type == "decorator":
             source_range = create_source_range(child)
             decorators.append(
                 Annotation(
-                    name=node_text(child, source).strip(),
+                    name=node_text(child).strip(),
                     source_range=source_range
                 )
             )
@@ -83,13 +83,13 @@ def _select_variable_declaration_type(name: str) -> type[VariableDeclaration]:
         return PythonConstant
     return VariableDeclaration
 
-def collect_from_assignment_node(node: Node, source: bytes) -> list[VariableDeclaration]:
+def collect_from_assignment_node(node: Node) -> list[VariableDeclaration]:
     variables: list[VariableDeclaration] = []
 
     source_range = create_source_range(node)
 
     left = node.child_by_field_name("left")
-    name = node_text(left, source)
+    name = node_text(left)
     left_range = create_source_range(left) if left else None
 
     if node.type == "assignment":
@@ -157,7 +157,7 @@ def collect_from_assignment_node(node: Node, source: bytes) -> list[VariableDecl
         name_node = node.child_by_field_name("name")
         value_node = node.child_by_field_name("value")
         if name_node:
-            name = node_text(name_node, source)
+            name = node_text(name_node)
             variable_binding = SimpleBinding(
                 name=name
             )
