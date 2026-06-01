@@ -20,5 +20,5 @@ __all__ = [
     "PythonModule",
     "PythonNamespacePackage",
     "PythonPackage",
-    "SourceFile",
+    "PythonSourceFile",
 ]

@@ -7,18 +7,18 @@ from .models import (
     PythonModule,
     PythonNamespacePackage,
     PythonPackage,
-    SourceFile,
+    PythonSourceFile,
 )
 
-class PythonLinker(Linker[list[SourceFile], Node]):
-    def link_files(self, nodes: list[SourceFile], context: Context) -> Node:
+class PythonLinker(Linker[list[PythonSourceFile], Node]):
+    def link_files(self, nodes: list[PythonSourceFile], context: Context) -> Node:
         base_path = Path(context.base_path)
 
         # Map relative path to modules
         path_to_module: dict[str, PythonModule] = {}
 
         # Check if dir has an __init__.py file
-        has_init: dict[str, SourceFile] = {}
+        has_init: dict[str, PythonSourceFile] = {}
 
         for node in nodes:
             relative_path = node.path
@@ -63,7 +63,7 @@ class PythonLinker(Linker[list[SourceFile], Node]):
             base_path: Path, 
             current_path: Path, 
             path_to_module: dict[str, PythonModule], 
-            has_init: dict[str, SourceFile],
+            has_init: dict[str, PythonSourceFile],
             context: Context
         ) -> Node | None:
         if not self.validate_path(str(current_path)):
