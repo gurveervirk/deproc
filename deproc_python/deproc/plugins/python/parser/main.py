@@ -231,21 +231,26 @@ class PythonSourceParser(SourceParser):
 
         for child in iter_children(node):
             if child.type == "dotted_name":
+                child_source_range = create_source_range(child)
                 import_alias = PythonImportAlias(
                     name=node_text(child),
                     alias=None,
-                    parent_id=import_stmt_id
+                    parent_id=import_stmt_id,
+                    source_range=child_source_range
                 )
                 context.entity_registry.add(import_alias)
                 alias_ids.append(import_alias.id)
+            
             elif child.type == "aliased_import":
                 name_node = child.child_by_field_name("name")
                 alias_node = child.child_by_field_name("alias")
+                child_source_range = create_source_range(name_node) if name_node else source_range
                 if name_node:
                     import_alias = PythonImportAlias(
                         name=node_text(name_node),
                         alias=node_text(alias_node) if alias_node else None,
-                        parent_id=import_stmt_id
+                        parent_id=import_stmt_id,
+                        source_range=child_source_range
                     )
                     context.entity_registry.add(import_alias)
                     alias_ids.append(import_alias.id)
@@ -279,23 +284,28 @@ class PythonSourceParser(SourceParser):
         for child in iter_children(node):
             if child.type == "wildcard_import":
                 wildcard = True
+            
             elif child.type == "dotted_name":
                 if child != module_node:
                     import_alias = PythonImportAlias(
                         name=node_text(child),
                         alias=None,
-                        parent_id=import_stmt_id
+                        parent_id=import_stmt_id,
+                        source_range=create_source_range(child)
                     )
                     context.entity_registry.add(import_alias)
                     alias_ids.append(import_alias.id)
+            
             elif child.type == "aliased_import":
                 name_node = child.child_by_field_name("name")
                 alias_node = child.child_by_field_name("alias")
+                child_source_range = create_source_range(name_node) if name_node else source_range
                 if name_node:
                     import_alias = PythonImportAlias(
                         name=node_text(name_node),
                         alias=node_text(alias_node) if alias_node else None,
-                        parent_id=import_stmt_id
+                        parent_id=import_stmt_id,
+                        source_range=child_source_range
                     )
                     context.entity_registry.add(import_alias)
                     alias_ids.append(import_alias.id)
