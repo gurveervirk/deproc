@@ -1,5 +1,6 @@
 from .config import Config
 from .runtime import EntityRegistry
+from .interfaces.symbol_table_builder.models import SymbolTable
 
 class Context:
     def __init__(self, base_path: str = "", copy_from: "Context | None" = None):
@@ -10,6 +11,7 @@ class Context:
             self._languages = set(copy_from._languages)
             self._selected_languages = set(copy_from._selected_languages)
             self._selected_file_extensions = set(copy_from._selected_file_extensions)
+            self.symbol_tables = copy_from.symbol_tables
         else:
             self.base_path = base_path
             self.entity_registry = EntityRegistry()
@@ -17,6 +19,7 @@ class Context:
             self._languages = set(Config.get_languages())
             self._selected_languages = set(self._languages)
             self._selected_file_extensions = set(self._file_extensions)
+            self.symbol_tables = {}
 
     @property
     def selected_languages(self) -> set[str]:
@@ -50,15 +53,31 @@ class Context:
                 else:
                     self._selected_file_extensions.add(normalized)
 
+    def add_symbol_table(self, symbol_table: SymbolTable) -> None:
+        self.symbol_tables[symbol_table.language] = symbol_table
+
+    def get_symbol_table(self, language: str) -> SymbolTable | None:
+        return self.symbol_tables.get(language, None)
+    
+    def has_symbol_table(self, language: str) -> bool:
+        return language in self.symbol_tables
+    
+    def remove_symbol_table(self, language: str) -> None:
+        if language in self.symbol_tables:
+            del self.symbol_tables[language]
+
     def reset(
         self,
         include_languages: bool = True,
         include_file_extensions: bool = True,
+        include_symbol_tables: bool = True
     ) -> None:
         """
-        Reset selected languages and file extensions to include all available.
+        Reset selected languages, file extensions and symbol tables to include all available.
         """
         if include_languages:
             self._selected_languages = set(self._languages)
         if include_file_extensions:
             self._selected_file_extensions = set(self._file_extensions)
+        if include_symbol_tables:
+            self.symbol_tables = {}
