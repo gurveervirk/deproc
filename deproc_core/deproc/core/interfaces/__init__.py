@@ -1,10 +1,11 @@
-from .alias_finder import AliasFinder, AliasFinderResult
 from .linker import Linker
 from .parser import SourceParser
+from .resolver import Resolver
+from .symbol_table_builder import SymbolTableBuilder
 
 __all__ = [
-	"AliasFinder",
-    "AliasFinderResult",
     "Linker",
+    "Resolver",
 	"SourceParser",
+	"SymbolTableBuilder"
 ]
