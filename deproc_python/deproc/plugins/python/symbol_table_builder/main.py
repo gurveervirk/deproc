@@ -7,7 +7,7 @@ from .models import (
     PythonSymbolTable
 )
 
-class PythonSymbolTableBuilder(SymbolTableBuilder[PythonSymbolTable]):
+class PythonSymbolTableBuilder(SymbolTableBuilder):
     def _process_control_flow_group_for_imports(self, group_id: str, symbol_map: dict[str, list[str]], context: Context):
         group = context.entity_registry.get(group_id)
         if not group:
