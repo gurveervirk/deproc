@@ -36,7 +36,7 @@ class PythonSymbolTableBuilder(SymbolTableBuilder):
         module_fqn: str,
         context: Context
     ) -> PythonModuleSymbolMap:
-        symbol_map = defaultdict(list)
+        symbol_map: PythonModuleSymbolMap = defaultdict(list)
         for entity in context.entity_registry.values():
             # Find all immediately nested entities within the module
             if hasattr(entity, "fqn") and entity.fqn.startswith(module_fqn) and entity.fqn != module_fqn and not entity.fqn[len(module_fqn):].find("."):
@@ -62,8 +62,8 @@ class PythonSymbolTableBuilder(SymbolTableBuilder):
         for symbol, ids in symbol_map.items():
             symbol_map[symbol] = sorted(ids, key=lambda x: context.entity_registry.get(x, {}).get('lineno', 0))
 
-        return PythonModuleSymbolMap(symbol_map=symbol_map)
-    
+        return symbol_map
+
     def build(self, context: Context) -> PythonSymbolTable:
         """
         Create symbol maps for all modules in the context.
@@ -72,4 +72,7 @@ class PythonSymbolTableBuilder(SymbolTableBuilder):
         for entity in context.entity_registry.values():
             if isinstance(entity, PythonModule):
                 module_symbol_maps[entity.fqn] = self.create_symbol_map_for_module(entity, entity.fqn, context)
-        return PythonSymbolTable(module_symbol_maps=module_symbol_maps)
+        symbol_table = PythonSymbolTable(module_symbol_maps=module_symbol_maps)
+
+        context.add_symbol_table(symbol_table)
+        return symbol_table
