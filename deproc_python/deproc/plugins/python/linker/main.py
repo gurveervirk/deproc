@@ -1,7 +1,6 @@
 from deproc.core.interfaces import Linker
 from deproc.core.context import Context
 from pathlib import Path
-from uuid import uuid4
 from .models import (
     Node,
     PythonModule,
@@ -59,13 +58,13 @@ class PythonLinker(Linker[list[PythonSourceFile], Node]):
         return path.endswith(".py") or path.endswith(".pyi") or path.endswith("__init__.py") or Path(path).is_dir()
 
     def traverse_path(
-            self, 
-            base_path: Path, 
-            current_path: Path, 
-            path_to_module: dict[str, PythonModule], 
-            has_init: dict[str, PythonSourceFile],
-            context: Context
-        ) -> Node | None:
+        self, 
+        base_path: Path, 
+        current_path: Path, 
+        path_to_module: dict[str, PythonModule], 
+        has_init: dict[str, PythonSourceFile],
+        context: Context
+    ) -> Node | None:
         if not self.validate_path(str(current_path)):
             return None
         
