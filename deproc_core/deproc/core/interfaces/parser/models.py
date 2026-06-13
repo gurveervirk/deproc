@@ -5,13 +5,15 @@ Please use these models either directly in the plugin implementations or as a re
 from dataclasses import dataclass, field
 from uuid import uuid4
 
-def generate_id() -> str:
+type SymbolID = str
+
+def generate_id() -> SymbolID:
     return uuid4().hex
 
 @dataclass(kw_only=True)
 class Entity:
-    id: str = field(default_factory=generate_id)
-    parent_id: str | None = None
+    id: SymbolID = field(default_factory=generate_id)
+    parent_id: SymbolID | None = None
 
 @dataclass
 class SourceRange:
@@ -91,17 +93,17 @@ class ControlFlowBlock(Entity):
     branch: str
     source_range: SourceRange
     condition_range: SourceRange | None
-    import_stmt_ids: list[str] = field(default_factory=list)
-    type_ids: list[str] = field(default_factory=list)
-    function_ids: list[str] = field(default_factory=list)
-    variable_ids: list[str] = field(default_factory=list)
-    nested_group_ids: list[str] = field(default_factory=list)
+    import_stmt_ids: list[SymbolID] = field(default_factory=list)
+    type_ids: list[SymbolID] = field(default_factory=list)
+    function_ids: list[SymbolID] = field(default_factory=list)
+    variable_ids: list[SymbolID] = field(default_factory=list)
+    nested_group_ids: list[SymbolID] = field(default_factory=list)
 
 @dataclass
 class ControlFlowGroup(Entity):
     group_type: str
     source_range: SourceRange
-    block_ids: list[str] = field(default_factory=list)
+    block_ids: list[SymbolID] = field(default_factory=list)
 
 @dataclass
 class Node(Entity):
@@ -109,9 +111,9 @@ class Node(Entity):
 
 @dataclass(kw_only=True)
 class SourceFile(Docstring, Node):
-    import_stmt_ids: list[str] = field(default_factory=list)
-    type_ids: list[str] = field(default_factory=list)
-    function_ids: list[str] = field(default_factory=list)
-    variable_ids: list[str] = field(default_factory=list)
-    control_flow_group_ids: list[str] = field(default_factory=list)
+    import_stmt_ids: list[SymbolID] = field(default_factory=list)
+    type_ids: list[SymbolID] = field(default_factory=list)
+    function_ids: list[SymbolID] = field(default_factory=list)
+    variable_ids: list[SymbolID] = field(default_factory=list)
+    control_flow_group_ids: list[SymbolID] = field(default_factory=list)
     source: str
