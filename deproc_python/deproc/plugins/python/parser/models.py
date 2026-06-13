@@ -10,6 +10,7 @@ from deproc.core.interfaces.parser.models import (
     SimpleBinding,
     SourceFile,
     SourceRange,
+    SymbolID,
     TypeDefinition,
     VariableDeclaration,
     generate_id
@@ -42,7 +43,7 @@ class PythonImportAlias(Entity):
 @dataclass(kw_only=True)
 class PythonImportStatement(ImportStatement):
     path: str
-    name_ids: list[str]
+    name_ids: list[SymbolID] = field(default_factory=list)
     wildcard: bool = False
 
 @dataclass(kw_only=True)
@@ -54,15 +55,16 @@ __all__ = [
     "ControlFlowBlock",
     "ControlFlowGroup",
     "ImportStatement",
-    "SimpleBinding",
-    "Signature",
-    "SourceFile",
-    "SourceRange",
     "PythonClass",
     "PythonConstant",
     "PythonFunctionLike",
     "PythonSourceFile",
     "PythonTypeAlias",
+    "SimpleBinding",
+    "Signature",
+    "SourceFile",
+    "SourceRange",
+    "SymbolID",
     "VariableDeclaration",
     "generate_id"
 ]

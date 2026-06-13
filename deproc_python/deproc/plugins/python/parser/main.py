@@ -6,13 +6,14 @@ import os
 
 from .models import (
     Annotation,
-    PythonClass,
     ControlFlowBlock,
     ControlFlowGroup,
     PythonFunctionLike,
+    PythonClass,
     PythonImportStatement,
     PythonImportAlias,
     PythonSourceFile,
+    SymbolID,
     generate_id
 )
 from .utils.misc import visibility_from_name
@@ -76,10 +77,10 @@ class PythonSourceParser(SourceParser):
         context.entity_registry.add(source_file)
         return source_file
     
-    def _extract_classes(self, root: Node, context: Context, parent_id: str | None = None) -> list[str]:
+    def _extract_classes(self, root: Node, context: Context, parent_id: SymbolID | None = None) -> list[SymbolID]:
         return self._traverse_block_for_classes(root, context, parent_id)
     
-    def _traverse_block_for_classes(self, block_node: Node, context: Context, parent_id: str | None = None) -> list[str]:
+    def _traverse_block_for_classes(self, block_node: Node, context: Context, parent_id: SymbolID | None = None) -> list[SymbolID]:
         class_ids = []
 
         for child in iter_children(block_node):
@@ -98,8 +99,8 @@ class PythonSourceParser(SourceParser):
         node: Node,
         decorator_details: list[Annotation],
         context: Context,
-        parent_id: str | None = None,
-    ) -> str:
+        parent_id: SymbolID | None = None,
+    ) -> SymbolID:
         source_range = create_source_range(node)
         name_node = node.child_by_field_name("name")
         name = node_text(name_node)
@@ -138,8 +139,8 @@ class PythonSourceParser(SourceParser):
         context.entity_registry.add(cls_obj)
         return cls_obj.id
     
-    def _extract_functions(self, block_node: Node, context: Context, type: str = "FUNCTION", parent_id: str | None = None) -> list[str]:
-        function_ids = []
+    def _extract_functions(self, block_node: Node, context: Context, type: str = "FUNCTION", parent_id: SymbolID | None = None) -> list[SymbolID]:
+        function_ids: list[SymbolID] = []
         if not block_node:
             return function_ids
 
@@ -159,8 +160,8 @@ class PythonSourceParser(SourceParser):
         decorator_details: list[Annotation],
         context: Context,
         type: str = "FUNCTION",
-        parent_id: str | None = None,
-    ) -> str:
+        parent_id: SymbolID | None = None,
+    ) -> SymbolID:
         source_range = create_source_range(node)
         name_node = node.child_by_field_name("name")
         name = node_text(name_node)
@@ -184,8 +185,8 @@ class PythonSourceParser(SourceParser):
         context.entity_registry.add(func_obj)
         return func_obj.id
     
-    def _extract_variables(self, block_node: Node, context: Context, parent_id: str | None = None) -> list[str]:
-        variable_ids = []
+    def _extract_variables(self, block_node: Node, context: Context, parent_id: SymbolID | None = None) -> list[SymbolID]:
+        variable_ids: list[SymbolID] = []
 
         for child in iter_children(block_node):
             if child.type == "expression_statement":
@@ -223,8 +224,8 @@ class PythonSourceParser(SourceParser):
         self, 
         node: Node, 
         context: Context,
-        parent_id: str | None = None
-    ) -> str:
+        parent_id: SymbolID | None = None
+    ) -> SymbolID:
         source_range = create_source_range(node)
         alias_ids = []
         import_stmt_id = generate_id()
@@ -270,13 +271,13 @@ class PythonSourceParser(SourceParser):
         self, 
         node: Node, 
         context: Context,
-        parent_id: str | None = None
-    ) -> str:
+        parent_id: SymbolID | None = None
+    ) -> SymbolID:
         source_range = create_source_range(node)
         module_node = node.child_by_field_name("module_name")
         module_name = node_text(module_node) if module_node else ""
 
-        alias_ids = []
+        alias_ids: list[SymbolID] = []
         wildcard = False
 
         import_stmt_id = generate_id()
@@ -325,9 +326,9 @@ class PythonSourceParser(SourceParser):
         self, 
         root: Node,
         context: Context,
-        parent_id: str | None = None
-    ) -> list[str]:
-        import_stmt_ids = []
+        parent_id: SymbolID | None = None
+    ) -> list[SymbolID]:
+        import_stmt_ids: list[SymbolID] = []
 
         for child in iter_children(root):
             if child.type == "import_statement":
@@ -344,9 +345,9 @@ class PythonSourceParser(SourceParser):
         self,
         block_node: Node,
         context: Context,
-        parent_id: str | None = None,
-    ) -> list[str]:
-        group_ids = []
+        parent_id: SymbolID | None = None,
+    ) -> list[SymbolID]:
+        group_ids: list[SymbolID] = []
 
         if not block_node:
             return group_ids
@@ -378,8 +379,8 @@ class PythonSourceParser(SourceParser):
         
         return group_ids
 
-    def _process_if_node(self, node: Node, context: Context, parent_id: str | None = None) -> list[str]:
-        result_ids = []
+    def _process_if_node(self, node: Node, context: Context, parent_id: SymbolID | None = None) -> list[SymbolID]:
+        result_ids: list[SymbolID] = []
         source_range = create_source_range(node)
 
         condition_node = node.child_by_field_name("condition")
@@ -446,8 +447,8 @@ class PythonSourceParser(SourceParser):
         
         return result_ids
 
-    def _process_try_node(self, node: Node, context: Context, parent_id: str | None = None) -> list[str]:
-        result_ids = []
+    def _process_try_node(self, node: Node, context: Context, parent_id: SymbolID | None = None) -> list[SymbolID]:
+        result_ids: list[SymbolID] = []
         source_range = create_source_range(node)
         body_node = node.child_by_field_name("body")
         if body_node:
