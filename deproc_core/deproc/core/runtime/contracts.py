@@ -1,10 +1,10 @@
 from dataclasses import dataclass
-from ..interfaces import AliasFinder, SourceParser
+from ..interfaces import SymbolTableBuilder, SourceParser
 
 @dataclass
 class LanguagePlugin:
     language: str
     aliases: list[str]
     file_extensions: list[str]
-    alias_finder: AliasFinder
+    symbol_table_builder: SymbolTableBuilder
     source_parser: SourceParser
