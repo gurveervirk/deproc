@@ -60,6 +60,21 @@ def _get_target_module_fqn(import_statement_id: SymbolID, context: Context) -> s
                 target_fqn = ".".join(parent_parts + relative_parts)
                 return target_fqn
 
+    return path
+
+def _extract_alias_ids(symbol_ids: set[SymbolID], context: Context) -> tuple[set[SymbolID], set[SymbolID]]:
+    alias_ids = set()
+    non_alias_ids = set()
+
+    for symbol_id in symbol_ids:
+        symbol = _get_symbol(symbol_id, context)
+        if isinstance(symbol, PythonImportAlias):
+            alias_ids.add(symbol_id)
+        else:
+            non_alias_ids.add(symbol_id)
+
+    return alias_ids, non_alias_ids
+
 def resolve_symbol(data_in: PythonResolverInput, context: Context) -> list[SymbolID]:
     symbol_table: PythonSymbolTable = context.get_symbol_table("python")
     if not symbol_table:
@@ -82,12 +97,7 @@ def resolve_symbol(data_in: PythonResolverInput, context: Context) -> list[Symbo
     if not resolved_ids:
         return []
     
-    alias_ids = set()
-    for symbol_id in resolved_ids:
-            symbol = _get_symbol(symbol_id, context)
-            if isinstance(symbol, PythonImportAlias):
-                resolved_ids.discard(symbol_id)
-                alias_ids.add(symbol_id)
+    alias_ids, resolved_ids = _extract_alias_ids(resolved_ids, context)
     
     if alias_ids:
         resolved_alias_ids = resolve_alias_ids(alias_ids, symbol_cache, context)
@@ -97,26 +107,37 @@ def resolve_symbol(data_in: PythonResolverInput, context: Context) -> list[Symbo
 
     return list(resolved_ids)
 
-def resolve_alias_ids(alias_ids: set[SymbolID], symbol_cache: SymbolCache, context: Context) -> set[SymbolID]:
+def resolve_alias_ids(alias_ids: set[SymbolID], symbol_cache: SymbolCache, context: Context, visited: set[SymbolID] | None = None) -> set[SymbolID]:
+    if visited is None:
+        visited = set()
+
     if not alias_ids:
         return set()
     
     resolved_ids = set()
     for symbol_id in alias_ids:
+        # Handle worst case circular import scenario explicitly
+        if symbol_id in visited:
+            continue
+        visited.add(symbol_id)
+
         symbol = _get_symbol(symbol_id, context)
         if isinstance(symbol, PythonImportAlias):
-            resolved_ids_from_alias = resolve_alias(symbol, symbol_cache,context)
+            resolved_ids_from_alias = resolve_alias(symbol, symbol_cache, context, visited)
             resolved_ids.update(resolved_ids_from_alias)
         else:
             resolved_ids.add(symbol_id)
 
     return resolved_ids
 
-def resolve_alias(alias: PythonImportAlias, symbol_cache: SymbolCache, context: Context) -> list[SymbolID]:
+def resolve_alias(alias: PythonImportAlias, symbol_cache: SymbolCache, context: Context, visited: set[SymbolID] | None = None) -> list[SymbolID]:
     import_statement_id = alias.parent_id
 
     import_name = alias.name
     target_module_path = _get_target_module_fqn(import_statement_id, context)
+
+    if not target_module_path:
+        return []
 
     if symbol_cache:
         cached_result = symbol_cache.get((target_module_path, import_name))
@@ -131,18 +152,13 @@ def resolve_alias(alias: PythonImportAlias, symbol_cache: SymbolCache, context: 
     if module_symbol_map is None:
         return []
     
-    resolved_ids = module_symbol_map.get(import_name, [])
-
-    alias_ids = set()
-    for symbol_id in resolved_ids:
-        symbol = _get_symbol(symbol_id, context)
-        if isinstance(symbol, PythonImportAlias):
-            alias_ids.add(symbol_id)
+    resolved_ids = set(module_symbol_map.get(import_name, []))
+    alias_ids, resolved_ids = _extract_alias_ids(resolved_ids, context)
     
     if alias_ids:
-        resolved_alias_ids = resolve_alias_ids(alias_ids, symbol_cache, context)
+        resolved_alias_ids = resolve_alias_ids(alias_ids, symbol_cache, context, visited)
         resolved_ids.update(resolved_alias_ids)
 
     _populate_cache(target_module_path, import_name, list(resolved_ids), symbol_cache)
 
-    return resolved_ids
+    return list(resolved_ids)
