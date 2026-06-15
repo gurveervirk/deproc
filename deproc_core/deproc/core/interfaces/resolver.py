@@ -1,5 +1,8 @@
-from typing import Protocol, TypeVar, runtime_checkable
-from ..context import Context
+from __future__ import annotations
+from typing import TYPE_CHECKING, Protocol, TypeVar, runtime_checkable
+
+if TYPE_CHECKING:
+    from ..context import Context
 
 T_In = TypeVar("T_In")
 T_Out = TypeVar("T_Out")

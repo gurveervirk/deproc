@@ -1,3 +1,3 @@
-from .main import SymbolTableBuilder
+from .base import SymbolTableBuilder
 
 __all__ = ["SymbolTableBuilder"]

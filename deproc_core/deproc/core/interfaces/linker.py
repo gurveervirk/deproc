@@ -1,6 +1,10 @@
-from typing import Protocol, TypeVar, runtime_checkable
+from __future__ import annotations
+from typing import TYPE_CHECKING, Protocol, TypeVar, runtime_checkable
+
+if TYPE_CHECKING:
+    from ..context import Context
+
 from .parser.models import SourceFile, Node
-from ..context import Context
 
 T_In = TypeVar("T_In", bound=list[SourceFile])
 T_Out = TypeVar("T_Out", bound=list[Node])
