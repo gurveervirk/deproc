@@ -1,10 +1,19 @@
 from dataclasses import dataclass
-from ..interfaces import SymbolTableBuilder, SourceParser
+from ..interfaces import (
+    Linker,
+    Resolver,
+    SourceParser,
+    SymbolCache,
+    SymbolTableBuilder,
+)
 
 @dataclass
 class LanguagePlugin:
     language: str
     aliases: list[str]
     file_extensions: list[str]
-    symbol_table_builder: SymbolTableBuilder
+    linker: Linker
+    resolver: Resolver
     source_parser: SourceParser
+    symbol_cache: SymbolCache
+    symbol_table_builder: SymbolTableBuilder
