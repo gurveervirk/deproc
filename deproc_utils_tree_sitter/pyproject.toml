@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deproc-utils-tree-sitter"
+version = "0.1.0"
+description = "Tree Sitter utilities for deproc."
+requires-python = ">=3.10"
+dependencies = ["tree-sitter>=0.25.0"]
+
+[tool.setuptools]
+py-modules = []
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["deproc.utils*"]
