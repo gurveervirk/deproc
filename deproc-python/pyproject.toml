@@ -3,7 +3,7 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "deproc-plugins-python"
+name = "deproc-python"
 version = "0.1.0"
 description = "Python language plugin for deproc."
 requires-python = ">=3.10"
@@ -12,12 +12,9 @@ dependencies = ["deproc-core", "tree-sitter>=0.25.0", "tree-sitter-python>=0.25.
 [project.entry-points."deproc.languages"]
 python = "deproc.plugins.python:PythonPlugin"
 
-[tool.setuptools]
-py-modules = []
-
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["deproc.plugins.python*"]
 
-[tool.pytest.ini_options]
-pythonpath = ["."]
+[tool.uv.sources]
+deproc-core = { workspace = true }

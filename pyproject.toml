@@ -1,0 +1,17 @@
+[tool.uv.workspace]
+members = [
+    "deproc-core",
+    "deproc-python",
+    "deproc-utils-tree-sitter"
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["deproc-python"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
