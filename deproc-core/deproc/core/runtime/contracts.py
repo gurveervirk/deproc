@@ -1,11 +1,15 @@
+from __future__ import annotations
 from dataclasses import dataclass
-from ..interfaces import (
-    Linker,
-    Resolver,
-    SourceParser,
-    SymbolCache,
-    SymbolTableBuilder,
-)
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ..interfaces import (
+        Linker,
+        Resolver,
+        SourceParser,
+        SymbolCache,
+        SymbolTableBuilder,
+    )
 
 @dataclass
 class LanguagePlugin:
