@@ -1,0 +1,16 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
+  
+  "python.analysis.extraPaths": [
+    "deproc-core",
+    "deproc-python",
+    "deproc-utils-tree-sitter"
+  ],
+
+  "python.analysis.packageIndexDepths": [
+    {
+      "name": "",
+      "depth": 2
+    }
+  ]
+}
