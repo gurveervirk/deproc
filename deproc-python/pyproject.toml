@@ -9,9 +9,6 @@ description = "Python language plugin for deproc."
 requires-python = ">=3.10"
 dependencies = ["deproc-core", "tree-sitter>=0.25.0", "tree-sitter-python>=0.25.0"]
 
-[project.entry-points."deproc.languages"]
-python = "deproc.plugins.python:PythonPlugin"
-
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["deproc.plugins.python*"]

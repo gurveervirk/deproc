@@ -1,22 +1,12 @@
 from __future__ import annotations
-
-from importlib.metadata import entry_points
 from typing import Type
-
 from ..contracts import LanguagePlugin
-
-def _select_entry_points(group: str):
-    discovered = entry_points()
-    if hasattr(discovered, "select"):
-        return discovered.select(group=group)
-    return discovered.get(group, [])  # type: ignore[union-attr]
 
 class PluginRegistry:
     """
-    Discovers, registers, and provides access to Language Plugins via entry points.
+    Discovers, registers, and provides access to Language Plugins
     """
-    def __init__(self, entry_point_group: str = "deproc.languages"):
-        self._entry_point_group = entry_point_group
+    def __init__(self):
         self._plugin_classes: dict[str, Type[LanguagePlugin]] = {}
         self._aliases: dict[str, str] = {}
         self._file_extensions: dict[str, str] = {}
@@ -31,12 +21,6 @@ class PluginRegistry:
         
         for ext in plugin.file_extensions:
             self._file_extensions[ext.strip().lower()] = canonical_language
-
-    def discover(self) -> None:
-        for entry in _select_entry_points(self._entry_point_group):
-            loaded = entry.load()
-            if isinstance(loaded, type) and issubclass(loaded, LanguagePlugin):
-                self.register(loaded)
 
     def supported_languages(self) -> list[str]:
         return sorted(self._plugin_classes.keys())

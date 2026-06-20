@@ -4,22 +4,20 @@ Use `Config` to:
 - Get the list of selected languages and file extensions for processing
 - Update the selected languages and file extensions using select_languages and select_file_extensions
 """
-from .runtime import get_runtime_registry, PluginRegistry
+from .runtime import PluginRegistry
 
 class _Config:
     def __init__(self):
-        self._runtime_registry = get_runtime_registry()
-        self._file_extensions = set(self._runtime_registry._file_extensions.keys())
-        self._languages = set(self._runtime_registry._plugin_classes.keys())
+        self._plugin_registry = PluginRegistry()
     
     @property
-    def runtime_registry(self) -> PluginRegistry:
-        return self._runtime_registry
+    def plugin_registry(self) -> PluginRegistry:
+        return self._plugin_registry
     
     def get_languages(self) -> set[str]:
-        return self._languages
+        return set(self.plugin_registry.supported_languages())
     
     def get_file_extensions(self) -> set[str]:
-        return self._file_extensions
+        return set(self.plugin_registry.supported_file_extensions())
 
 Config = _Config()
