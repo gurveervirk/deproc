@@ -1,6 +1,10 @@
 from dataclasses import dataclass
+from deproc.core.interfaces.parser.models import SymbolID
+
+type ResolvedIDs = set[SymbolID]
+type UnresolvedIDs = set[SymbolID]
 
 @dataclass
-class PythonResolverInput:
-    module_fqn: str
-    symbol_name: str
+class PythonResolverResult:
+    resolved_ids: ResolvedIDs
+    unresolved_ids: UnresolvedIDs

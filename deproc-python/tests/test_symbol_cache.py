@@ -14,10 +14,11 @@ class TestSymbolCache:
         """Store and retrieve cached symbol."""
         module_fqn = "my_module"
         symbol_name = "my_symbol"
-        value = ["id_1", "id_2"]
-        self.cache.set(module_fqn, symbol_name, value)
+        resolved_ids = ["id_1", "id_2"]
+        unresolved_ids = ["id_3"]
+        self.cache.set(module_fqn, symbol_name, resolved_ids, unresolved_ids)
         result = self.cache.get(module_fqn, symbol_name)
-        assert result == value
+        assert result == (resolved_ids, unresolved_ids)
 
     def test_get_missing(self):
         """Get non-existent key."""
@@ -30,7 +31,7 @@ class TestSymbolCache:
 
     def test_cache_multiple_entries(self):
         """Store multiple cache entries."""
-        self.cache.set("mod1", "sym1", ["a"])
-        self.cache.set("mod2", "sym2", ["b"])
-        assert self.cache.get("mod1", "sym1") == ["a"]
-        assert self.cache.get("mod2", "sym2") == ["b"]
+        self.cache.set("mod1", "sym1", ["a"], [])
+        self.cache.set("mod2", "sym2", ["b"], [])
+        assert self.cache.get("mod1", "sym1") == (["a"], [])
+        assert self.cache.get("mod2", "sym2") == (["b"], [])
