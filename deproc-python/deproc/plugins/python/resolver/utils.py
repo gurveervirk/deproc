@@ -1,6 +1,9 @@
 from deproc.core.context import Context
 from deproc.core.interfaces.symbol_cache import SymbolCache
-from .models import PythonResolverInput
+from .models import (
+    ResolvedIDs,
+    UnresolvedIDs
+)
 from ..parser.models import (
     PythonImportAlias,
     SymbolID
@@ -17,9 +20,9 @@ def _get_symbol(symbol_id: SymbolID, context: Context):
         return None
     return symbol
 
-def _populate_cache(module_fqn: str, symbol_name: str, resolved_ids: list[SymbolID], cache: SymbolCache):
+def _populate_cache(module_fqn: str, symbol_name: str, resolved_ids: list[SymbolID], unresolved_ids: list[SymbolID], cache: SymbolCache):
     if cache:
-        cache.set((module_fqn, symbol_name), resolved_ids)
+        cache.set((module_fqn, symbol_name), resolved_ids, unresolved_ids)
 
 def _get_module(symbol_id: SymbolID, context: Context) -> PythonModule | None:
     symbol = _get_symbol(symbol_id, context)
@@ -62,7 +65,7 @@ def _get_target_module_fqn(import_statement_id: SymbolID, context: Context) -> s
 
     return path
 
-def _extract_alias_ids(symbol_ids: set[SymbolID], context: Context) -> tuple[set[SymbolID], set[SymbolID]]:
+def _extract_alias_ids(symbol_ids: set[SymbolID], context: Context) -> tuple[ResolvedIDs, UnresolvedIDs]:
     alias_ids = set()
     non_alias_ids = set()
 
@@ -75,13 +78,10 @@ def _extract_alias_ids(symbol_ids: set[SymbolID], context: Context) -> tuple[set
 
     return alias_ids, non_alias_ids
 
-def resolve_symbol(data_in: PythonResolverInput, context: Context) -> list[SymbolID]:
+def resolve_symbol(module_fqn: str, symbol_name: str, context: Context) -> tuple[ResolvedIDs, UnresolvedIDs]:
     symbol_table: PythonSymbolTable = context.get_symbol_table("python")
     if not symbol_table:
-        return []
-    
-    module_fqn = data_in.module_fqn
-    symbol_name = data_in.symbol_name
+        return set(), set()
 
     symbol_cache = context.get_symbol_cache("python")
     if symbol_cache:
@@ -91,30 +91,32 @@ def resolve_symbol(data_in: PythonResolverInput, context: Context) -> list[Symbo
 
     module_symbol_map: PythonModuleSymbolMap = symbol_table.module_symbol_maps.get(module_fqn, None)
     if module_symbol_map is None:
-        return []
+        return set(), set()
     
     resolved_ids = set(module_symbol_map.get(symbol_name, []))
     if not resolved_ids:
-        return []
-    
+        return set(), set()
+
     alias_ids, resolved_ids = _extract_alias_ids(resolved_ids, context)
+    unresolved_ids = set()
     
     if alias_ids:
-        resolved_alias_ids = resolve_alias_ids(alias_ids, symbol_cache, context)
+        resolved_alias_ids, unresolved_ids = resolve_alias_ids(alias_ids, symbol_cache, context)
         resolved_ids.update(resolved_alias_ids)
     
-    _populate_cache(module_fqn, symbol_name, list(resolved_ids), symbol_cache)
+    _populate_cache(module_fqn, symbol_name, resolved_ids, unresolved_ids, symbol_cache)
 
-    return list(resolved_ids)
+    return resolved_ids, unresolved_ids
 
-def resolve_alias_ids(alias_ids: set[SymbolID], symbol_cache: SymbolCache, context: Context, visited: set[SymbolID] | None = None) -> set[SymbolID]:
+def resolve_alias_ids(alias_ids: set[SymbolID], symbol_cache: SymbolCache, context: Context, visited: set[SymbolID] | None = None) -> tuple[ResolvedIDs, UnresolvedIDs]:
     if visited is None:
         visited = set()
 
     if not alias_ids:
-        return set()
+        return set(), set()
     
     resolved_ids = set()
+    unresolved_ids = set()
     for symbol_id in alias_ids:
         # Handle worst case circular import scenario explicitly
         if symbol_id in visited:
@@ -123,21 +125,25 @@ def resolve_alias_ids(alias_ids: set[SymbolID], symbol_cache: SymbolCache, conte
 
         symbol = _get_symbol(symbol_id, context)
         if isinstance(symbol, PythonImportAlias):
-            resolved_ids_from_alias = resolve_alias(symbol, symbol_cache, context, visited)
-            resolved_ids.update(resolved_ids_from_alias)
+            resolved_ids_from_alias, unresolved_ids_from_alias = resolve_alias(symbol, symbol_cache, context, visited)
+            if resolved_ids_from_alias:
+                resolved_ids.update(resolved_ids_from_alias)
+                unresolved_ids.update(unresolved_ids_from_alias)
+            else:
+                unresolved_ids.add(symbol_id)
         else:
             resolved_ids.add(symbol_id)
 
-    return resolved_ids
+    return resolved_ids, unresolved_ids
 
-def resolve_alias(alias: PythonImportAlias, symbol_cache: SymbolCache, context: Context, visited: set[SymbolID] | None = None) -> list[SymbolID]:
+def resolve_alias(alias: PythonImportAlias, symbol_cache: SymbolCache, context: Context, visited: set[SymbolID] | None = None) -> tuple[ResolvedIDs, UnresolvedIDs]:
     import_statement_id = alias.parent_id
 
     import_name = alias.name
     target_module_path = _get_target_module_fqn(import_statement_id, context)
 
     if not target_module_path:
-        return []
+        return set(), set()
 
     if symbol_cache:
         cached_result = symbol_cache.get((target_module_path, import_name))
@@ -146,19 +152,20 @@ def resolve_alias(alias: PythonImportAlias, symbol_cache: SymbolCache, context: 
 
     symbol_table: PythonSymbolTable = context.get_symbol_table("python")
     if not symbol_table:
-        return []
+        return set(), set()
     
     module_symbol_map: PythonModuleSymbolMap = symbol_table.module_symbol_maps.get(target_module_path, None)
     if module_symbol_map is None:
-        return []
+        return set(), set()
     
     resolved_ids = set(module_symbol_map.get(import_name, []))
     alias_ids, resolved_ids = _extract_alias_ids(resolved_ids, context)
+    unresolved_ids = set()
     
     if alias_ids:
-        resolved_alias_ids = resolve_alias_ids(alias_ids, symbol_cache, context, visited)
+        resolved_alias_ids, unresolved_ids = resolve_alias_ids(alias_ids, symbol_cache, context, visited)
         resolved_ids.update(resolved_alias_ids)
 
-    _populate_cache(target_module_path, import_name, list(resolved_ids), symbol_cache)
+    _populate_cache(target_module_path, import_name, resolved_ids, unresolved_ids, symbol_cache)
 
-    return list(resolved_ids)
+    return resolved_ids, unresolved_ids

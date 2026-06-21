@@ -1,16 +1,25 @@
 from deproc.core.interfaces.symbol_cache import SymbolCache
-from deproc.core.interfaces.parser.models import SymbolID
-from .models import cache_key, module_fqn, symbol_name
+from .models import (
+    cache_key,
+    cache_value,
+    module_fqn,
+    symbol_name,
+    ResolvedIDs,
+    UnresolvedIDs
+)
 
-class PythonSymbolCache(SymbolCache):
+class PythonSymbolCache(SymbolCache[cache_key, cache_value]):
     def __init__(self):
         self.language = "python"
-        self.cache: dict[cache_key, list[SymbolID]] = {}
+        self.cache: dict[cache_key, cache_value] = {}
 
-    def get(self, module_fqn: module_fqn, symbol_name: symbol_name) -> list[SymbolID] | None:
+    def get(self, module_fqn: module_fqn, symbol_name: symbol_name) -> cache_value | None:
         key: cache_key = (module_fqn, symbol_name)
         return self.cache.get(key)
     
-    def set(self, module_fqn: module_fqn, symbol_name: symbol_name, symbol_ids: list[SymbolID]) -> None:
+    def set(self, module_fqn: module_fqn, symbol_name: symbol_name, resolved_ids: ResolvedIDs, unresolved_ids: UnresolvedIDs) -> None:
         key: cache_key = (module_fqn, symbol_name)
-        self.cache[key] = symbol_ids
+        self.cache[key] = (resolved_ids, unresolved_ids)
+
+    def clear(self) -> None:
+        self.cache.clear()
