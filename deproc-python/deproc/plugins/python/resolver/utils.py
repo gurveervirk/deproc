@@ -13,10 +13,14 @@ from ..symbol_table_builder.models import (
     PythonSymbolTable,
     PythonModuleSymbolMap
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 def _get_symbol(symbol_id: SymbolID, context: Context):
     symbol = context.entity_registry.get(symbol_id)
     if not symbol:
+        logger.warning(f"Symbol not found for ID: {symbol_id}")
         return None
     return symbol
 
@@ -81,6 +85,8 @@ def _extract_alias_ids(symbol_ids: set[SymbolID], context: Context) -> tuple[Res
 def resolve_symbol(module_fqn: str, symbol_name: str, context: Context) -> tuple[ResolvedIDs, UnresolvedIDs]:
     symbol_table: PythonSymbolTable = context.get_symbol_table("python")
     if not symbol_table:
+        logger.warning(f"Symbol table not found for python, caching empty sets for ({module_fqn}, {symbol_name})")
+        _populate_cache(module_fqn, symbol_name, set(), set(), context.get_symbol_cache("python"))
         return set(), set()
 
     symbol_cache = context.get_symbol_cache("python")
@@ -91,10 +97,14 @@ def resolve_symbol(module_fqn: str, symbol_name: str, context: Context) -> tuple
 
     module_symbol_map: PythonModuleSymbolMap = symbol_table.module_symbol_maps.get(module_fqn, None)
     if module_symbol_map is None:
+        logger.warning(f"Module symbol map not found for module: {module_fqn}, caching empty sets for ({module_fqn}, {symbol_name})")
+        _populate_cache(module_fqn, symbol_name, set(), set(), symbol_cache)
         return set(), set()
     
     resolved_ids = set(module_symbol_map.get(symbol_name, []))
     if not resolved_ids:
+        logger.warning(f"Symbols not found for module: {module_fqn}, symbol: {symbol_name}, caching empty sets for ({module_fqn}, {symbol_name})")
+        _populate_cache(module_fqn, symbol_name, set(), set(), symbol_cache)
         return set(), set()
 
     alias_ids, resolved_ids = _extract_alias_ids(resolved_ids, context)
@@ -143,6 +153,7 @@ def resolve_alias(alias: PythonImportAlias, symbol_cache: SymbolCache, context: 
     target_module_path = _get_target_module_fqn(import_statement_id, context)
 
     if not target_module_path:
+        logger.warning(f"Target module path not found for alias: {alias.name}")
         return set(), set()
 
     if symbol_cache:
@@ -152,10 +163,14 @@ def resolve_alias(alias: PythonImportAlias, symbol_cache: SymbolCache, context: 
 
     symbol_table: PythonSymbolTable = context.get_symbol_table("python")
     if not symbol_table:
+        logger.warning(f"Symbol table not found for python, caching empty sets for ({target_module_path}, {import_name})")
+        _populate_cache(target_module_path, import_name, set(), set(), symbol_cache)
         return set(), set()
     
     module_symbol_map: PythonModuleSymbolMap = symbol_table.module_symbol_maps.get(target_module_path, None)
     if module_symbol_map is None:
+        logger.warning(f"Module symbol map not found for module: {target_module_path}, caching empty sets for ({target_module_path}, {import_name})")
+        _populate_cache(target_module_path, import_name, set(), set(), symbol_cache)
         return set(), set()
     
     resolved_ids = set(module_symbol_map.get(import_name, []))
