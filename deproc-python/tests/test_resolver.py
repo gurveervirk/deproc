@@ -127,6 +127,7 @@ class TestResolveSymbol:
 
     def test_resolve_symbol_no_symbol_table(self):
         """Handle missing symbol table."""
+        self.context.get_symbol_cache.return_value = None
         self.context.get_symbol_table.return_value = None
 
         resolved, unresolved = resolve_symbol("mymodule", "MyClass", self.context)
@@ -141,12 +142,11 @@ class TestResolveAliasIds:
         """Set up mock context."""
         self.context = MagicMock(spec=Context)
         self.context.entity_registry = {}
-        self.cache = MagicMock()
-        self.cache.get.return_value = None
+        self.context.get_symbol_cache.return_value = None
 
     def test_resolve_alias_ids_empty(self):
         """Resolve empty alias set."""
-        resolved, unresolved = resolve_alias_ids(set(), self.cache, self.context)
+        resolved, unresolved = resolve_alias_ids(set(), self.context)
         assert resolved == set()
         assert unresolved == set()
 
@@ -174,7 +174,9 @@ class TestResolveAliasIds:
         symbol_table = PythonSymbolTable(module_symbol_maps={})
         self.context.get_symbol_table.return_value = symbol_table
 
-        resolved, unresolved = resolve_alias_ids({alias_id}, self.cache, self.context)
+        alias_ids = set([alias_id])
+
+        resolved, unresolved = resolve_alias_ids(alias_ids, self.context)
         assert len(resolved) == 0
         assert alias_id in unresolved
 
@@ -228,7 +230,7 @@ class TestResolveAliasIds:
         )
         self.context.get_symbol_table.return_value = symbol_table
 
-        resolved, unresolved = resolve_alias_ids({alias_id_1}, self.cache, self.context)
+        resolved, unresolved = resolve_alias_ids({alias_id_1}, self.context)
         # Should not hang, should handle gracefully by marking one as unresolved
         assert alias_id_1 in unresolved or len(resolved) == 0
 
@@ -289,7 +291,6 @@ class TestResolveAliasIds:
 
         resolved, unresolved = resolve_alias_ids(
             {resolvable_alias_id, unresolvable_alias_id},
-            self.cache,
             self.context
         )
         assert target_id in resolved
@@ -303,8 +304,7 @@ class TestResolveAlias:
         """Set up mock context."""
         self.context = MagicMock(spec=Context)
         self.context.entity_registry = {}
-        self.cache = MagicMock()
-        self.cache.get.return_value = None
+        self.context.get_symbol_cache.return_value = None
 
     def test_resolve_alias_target_not_in_table(self):
         """Unresolvable alias returns empty resolved and unresolved."""
@@ -330,7 +330,7 @@ class TestResolveAlias:
         symbol_table = PythonSymbolTable(module_symbol_maps={})
         self.context.get_symbol_table.return_value = symbol_table
 
-        resolved, unresolved = resolve_alias(alias, self.cache, self.context)
+        resolved, unresolved = resolve_alias(alias, self.context)
         assert len(resolved) == 0
         assert len(unresolved) == 0
 
@@ -358,7 +358,7 @@ class TestResolveAlias:
         symbol_table = PythonSymbolTable(module_symbol_maps={})
         self.context.get_symbol_table.return_value = symbol_table
 
-        resolved, unresolved = resolve_alias(alias, self.cache, self.context)
+        resolved, unresolved = resolve_alias(alias, self.context)
         assert len(resolved) == 0
         assert len(unresolved) == 0
 
@@ -384,12 +384,14 @@ class TestResolveAlias:
             "import_stmt_1": import_stmt
         }
         cached_result = ({alias_id}, set())
-        self.cache.get.return_value = cached_result
+        cache_mock = MagicMock()
+        self.context.get_symbol_cache.return_value = cache_mock
+        cache_mock.get.return_value = cached_result
 
-        resolved, unresolved = resolve_alias(alias, self.cache, self.context)
+        resolved, unresolved = resolve_alias(alias, self.context)
         assert resolved == cached_result[0]
         assert unresolved == cached_result[1]
-        self.cache.get.assert_called()
+        self.context.get_symbol_cache.return_value.get.assert_called()
 
     def test_resolve_alias_direct_symbol(self):
         """Resolve alias to direct symbol (non-alias)."""
@@ -421,7 +423,7 @@ class TestResolveAlias:
         )
         self.context.get_symbol_table.return_value = symbol_table
 
-        resolved, unresolved = resolve_alias(alias, self.cache, self.context)
+        resolved, unresolved = resolve_alias(alias, self.context)
         assert target_id in resolved
         assert len(unresolved) == 0
 

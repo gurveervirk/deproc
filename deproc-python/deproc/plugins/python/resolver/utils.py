@@ -26,7 +26,7 @@ def _get_symbol(symbol_id: SymbolID, context: Context):
 
 def _populate_cache(module_fqn: str, symbol_name: str, resolved_ids: list[SymbolID], unresolved_ids: list[SymbolID], cache: SymbolCache):
     if cache:
-        cache.set((module_fqn, symbol_name), resolved_ids, unresolved_ids)
+        cache.set(module_fqn, symbol_name, resolved_ids, unresolved_ids)
 
 def _get_module(symbol_id: SymbolID, context: Context) -> PythonModule | None:
     symbol = _get_symbol(symbol_id, context)
@@ -85,14 +85,14 @@ def _extract_alias_ids(symbol_ids: set[SymbolID], context: Context) -> tuple[Res
 def resolve_symbol(module_fqn: str, symbol_name: str, context: Context, visited: set[SymbolID] | None = None) -> tuple[ResolvedIDs, UnresolvedIDs]:
     symbol_cache = context.get_symbol_cache("python")
     if symbol_cache:
-        cached_result = symbol_cache.get((module_fqn, symbol_name))
+        cached_result = symbol_cache.get(module_fqn, symbol_name)
         if cached_result is not None:
             return cached_result
     
     symbol_table: PythonSymbolTable = context.get_symbol_table("python")
     if not symbol_table:
         logger.warning(f"Symbol table not found for python, caching empty sets for ({module_fqn}, {symbol_name})")
-        _populate_cache(module_fqn, symbol_name, set(), set(), context.get_symbol_cache("python"))
+        _populate_cache(module_fqn, symbol_name, set(), set(), symbol_cache)
         return set(), set()
 
     module_symbol_map: PythonModuleSymbolMap = symbol_table.module_symbol_maps.get(module_fqn, None)
