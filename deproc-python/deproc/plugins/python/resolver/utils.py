@@ -13,16 +13,20 @@ from ..symbol_table_builder.models import (
     PythonSymbolTable,
     PythonModuleSymbolMap
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 def _get_symbol(symbol_id: SymbolID, context: Context):
     symbol = context.entity_registry.get(symbol_id)
     if not symbol:
+        logger.warning(f"Symbol not found for ID: {symbol_id}")
         return None
     return symbol
 
 def _populate_cache(module_fqn: str, symbol_name: str, resolved_ids: list[SymbolID], unresolved_ids: list[SymbolID], cache: SymbolCache):
     if cache:
-        cache.set((module_fqn, symbol_name), resolved_ids, unresolved_ids)
+        cache.set(module_fqn, symbol_name, resolved_ids, unresolved_ids)
 
 def _get_module(symbol_id: SymbolID, context: Context) -> PythonModule | None:
     symbol = _get_symbol(symbol_id, context)
@@ -78,37 +82,43 @@ def _extract_alias_ids(symbol_ids: set[SymbolID], context: Context) -> tuple[Res
 
     return alias_ids, non_alias_ids
 
-def resolve_symbol(module_fqn: str, symbol_name: str, context: Context) -> tuple[ResolvedIDs, UnresolvedIDs]:
-    symbol_table: PythonSymbolTable = context.get_symbol_table("python")
-    if not symbol_table:
-        return set(), set()
-
+def resolve_symbol(module_fqn: str, symbol_name: str, context: Context, visited: set[SymbolID] | None = None) -> tuple[ResolvedIDs, UnresolvedIDs]:
     symbol_cache = context.get_symbol_cache("python")
     if symbol_cache:
-        cached_result = symbol_cache.get((module_fqn, symbol_name))
+        cached_result = symbol_cache.get(module_fqn, symbol_name)
         if cached_result is not None:
             return cached_result
+    
+    symbol_table: PythonSymbolTable = context.get_symbol_table("python")
+    if not symbol_table:
+        logger.warning(f"Symbol table not found for python, caching empty sets for ({module_fqn}, {symbol_name})")
+        _populate_cache(module_fqn, symbol_name, set(), set(), symbol_cache)
+        return set(), set()
 
     module_symbol_map: PythonModuleSymbolMap = symbol_table.module_symbol_maps.get(module_fqn, None)
     if module_symbol_map is None:
+        logger.warning(f"Module symbol map not found for module: {module_fqn}, caching empty sets for ({module_fqn}, {symbol_name})")
+        _populate_cache(module_fqn, symbol_name, set(), set(), symbol_cache)
         return set(), set()
     
     resolved_ids = set(module_symbol_map.get(symbol_name, []))
     if not resolved_ids:
+        logger.warning(f"Symbols not found for module: {module_fqn}, symbol: {symbol_name}, caching empty sets for ({module_fqn}, {symbol_name})")
+        _populate_cache(module_fqn, symbol_name, set(), set(), symbol_cache)
         return set(), set()
 
     alias_ids, resolved_ids = _extract_alias_ids(resolved_ids, context)
     unresolved_ids = set()
     
     if alias_ids:
-        resolved_alias_ids, unresolved_ids = resolve_alias_ids(alias_ids, symbol_cache, context)
+        resolved_alias_ids, unresolved_ids = resolve_alias_ids(alias_ids, context, visited)
         resolved_ids.update(resolved_alias_ids)
     
     _populate_cache(module_fqn, symbol_name, resolved_ids, unresolved_ids, symbol_cache)
 
     return resolved_ids, unresolved_ids
 
-def resolve_alias_ids(alias_ids: set[SymbolID], symbol_cache: SymbolCache, context: Context, visited: set[SymbolID] | None = None) -> tuple[ResolvedIDs, UnresolvedIDs]:
+def resolve_alias_ids(alias_ids: set[SymbolID], context: Context, visited: set[SymbolID] | None = None) -> tuple[ResolvedIDs, UnresolvedIDs]:
     if visited is None:
         visited = set()
 
@@ -125,7 +135,7 @@ def resolve_alias_ids(alias_ids: set[SymbolID], symbol_cache: SymbolCache, conte
 
         symbol = _get_symbol(symbol_id, context)
         if isinstance(symbol, PythonImportAlias):
-            resolved_ids_from_alias, unresolved_ids_from_alias = resolve_alias(symbol, symbol_cache, context, visited)
+            resolved_ids_from_alias, unresolved_ids_from_alias = resolve_alias(symbol, context, visited)
             if resolved_ids_from_alias:
                 resolved_ids.update(resolved_ids_from_alias)
                 unresolved_ids.update(unresolved_ids_from_alias)
@@ -136,36 +146,14 @@ def resolve_alias_ids(alias_ids: set[SymbolID], symbol_cache: SymbolCache, conte
 
     return resolved_ids, unresolved_ids
 
-def resolve_alias(alias: PythonImportAlias, symbol_cache: SymbolCache, context: Context, visited: set[SymbolID] | None = None) -> tuple[ResolvedIDs, UnresolvedIDs]:
+def resolve_alias(alias: PythonImportAlias, context: Context, visited: set[SymbolID] | None = None) -> tuple[ResolvedIDs, UnresolvedIDs]:
     import_statement_id = alias.parent_id
 
     import_name = alias.name
     target_module_path = _get_target_module_fqn(import_statement_id, context)
 
     if not target_module_path:
+        logger.warning(f"Target module path not found for alias: {alias.name}")
         return set(), set()
 
-    if symbol_cache:
-        cached_result = symbol_cache.get((target_module_path, import_name))
-        if cached_result is not None:
-            return cached_result
-
-    symbol_table: PythonSymbolTable = context.get_symbol_table("python")
-    if not symbol_table:
-        return set(), set()
-    
-    module_symbol_map: PythonModuleSymbolMap = symbol_table.module_symbol_maps.get(target_module_path, None)
-    if module_symbol_map is None:
-        return set(), set()
-    
-    resolved_ids = set(module_symbol_map.get(import_name, []))
-    alias_ids, resolved_ids = _extract_alias_ids(resolved_ids, context)
-    unresolved_ids = set()
-    
-    if alias_ids:
-        resolved_alias_ids, unresolved_ids = resolve_alias_ids(alias_ids, symbol_cache, context, visited)
-        resolved_ids.update(resolved_alias_ids)
-
-    _populate_cache(target_module_path, import_name, resolved_ids, unresolved_ids, symbol_cache)
-
-    return resolved_ids, unresolved_ids
+    return resolve_symbol(target_module_path, import_name, context, visited)
