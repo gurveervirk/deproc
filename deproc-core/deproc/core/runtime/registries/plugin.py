@@ -7,14 +7,13 @@ class PluginRegistry:
     Discovers, registers, and provides access to Language Plugins
     """
     def __init__(self):
-        self._plugin_classes: dict[str, Type[LanguagePlugin]] = {}
+        self._plugins: dict[str, LanguagePlugin] = {}
         self._aliases: dict[str, str] = {}
         self._file_extensions: dict[str, str] = {}
 
-    def register(self, plugin_cls: Type[LanguagePlugin]) -> None:
-        plugin = plugin_cls()
+    def register(self, plugin: LanguagePlugin) -> None:
         canonical_language = plugin.language.strip().lower()
-        self._plugin_classes[canonical_language] = plugin_cls
+        self._plugins[canonical_language] = plugin
 
         for alias in plugin.aliases:
             self._aliases[alias.strip().lower()] = canonical_language
@@ -23,7 +22,7 @@ class PluginRegistry:
             self._file_extensions[ext.strip().lower()] = canonical_language
 
     def supported_languages(self) -> list[str]:
-        return sorted(self._plugin_classes.keys())
+        return sorted(self._plugins.keys())
     
     def supported_file_extensions(self) -> list[str]:
         return sorted(self._file_extensions.keys())
@@ -44,14 +43,14 @@ class PluginRegistry:
 
     def get_plugin_by_language(self, language: str) -> LanguagePlugin:
         language = self.normalize_language(language)
-        plugin_cls = self._plugin_classes.get(language)
-        if plugin_cls is None:
+        plugin = self._plugins.get(language)
+        if plugin is None:
             available = ", ".join(self.supported_languages())
             raise ImportError(
                 f"Language plugin '{language}' is not installed. "
                 f"Available languages: {available or '(none)'}."
             )
-        return plugin_cls()
+        return plugin
 
     def get_plugin_by_extension(self, extension: str) -> LanguagePlugin:
         extension = self.normalize_extension(extension)
