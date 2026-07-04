@@ -39,7 +39,7 @@ class PluginRegistry:
             return ""
         if not normalized.startswith("."):
             normalized = f".{normalized}"
-        return self._file_extensions.get(normalized, normalized)
+        return normalized
 
     def get_plugin_by_language(self, language: str) -> LanguagePlugin:
         language = self.normalize_language(language)
