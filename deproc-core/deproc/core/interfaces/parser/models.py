@@ -60,6 +60,7 @@ class FunctionLike(Docstring, Entity):
 @dataclass
 class SimpleBinding:
     name: str
+    fqn: str
 
 @dataclass
 class ComplexBinding:
@@ -67,7 +68,6 @@ class ComplexBinding:
 
 @dataclass(kw_only=True)
 class VariableDeclaration(Entity):
-    fqn: str | None
     type: str = field(default="VARIABLE")
     source_range: SourceRange
     variable_binding: SimpleBinding | ComplexBinding
