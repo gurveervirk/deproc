@@ -2,6 +2,12 @@
 
 from deproc.plugins.python.parser import PythonSourceParser
 from deproc.core.context import Context
+from deproc.plugins.python.parser.models import (
+    PythonConstant,
+    SimpleBinding,
+    ComplexBinding,
+    VariableDeclaration,
+)
 
 parser = PythonSourceParser()
 context = Context()
@@ -54,3 +60,45 @@ from . import local_module
         temp_file = _create_temp_file(code)
         ast = parser.parse_file(temp_file, context)
         assert ast is not None
+
+class TestVariableExtraction:
+    """Test variable declaration extraction with fqn and parent_id."""
+
+    def _get_variable(self, code: str, index: int = 0):
+        import tempfile as tf
+        ctx = Context()
+        with tf.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as tmp:
+            tmp.write(code)
+            tmp_path = tmp.name
+        source_file = parser.parse_file(tmp_path, ctx)
+        var_id = source_file.variable_ids[index]
+        return ctx.entity_registry.get(var_id), source_file
+
+    def test_simple_assignment_fqn(self):
+        var_decl, source_file = self._get_variable("x = 1")
+        assert isinstance(var_decl, VariableDeclaration)
+        assert var_decl.parent_id == source_file.id
+        assert isinstance(var_decl.variable_binding, SimpleBinding)
+        assert var_decl.variable_binding.name == "x"
+        assert var_decl.variable_binding.fqn.endswith(".x")
+
+    def test_annotated_assignment_fqn(self):
+        var_decl, source_file = self._get_variable("x: int = 1")
+        assert isinstance(var_decl, VariableDeclaration)
+        assert var_decl.parent_id == source_file.id
+        assert isinstance(var_decl.variable_binding, SimpleBinding)
+        assert var_decl.variable_binding.name == "x"
+        assert var_decl.variable_binding.fqn.endswith(".x")
+        assert var_decl.type_annotation is not None
+
+    def test_constant_detection(self):
+        var_decl, _ = self._get_variable("FOO = 'bar'")
+        assert isinstance(var_decl, PythonConstant)
+        assert isinstance(var_decl.variable_binding, SimpleBinding)
+        assert var_decl.variable_binding.fqn.endswith(".FOO")
+
+    def test_tuple_unpacking(self):
+        var_decl, source_file = self._get_variable("a, b = 1, 2")
+        assert isinstance(var_decl, VariableDeclaration)
+        assert var_decl.parent_id == source_file.id
+        assert isinstance(var_decl.variable_binding, ComplexBinding)
