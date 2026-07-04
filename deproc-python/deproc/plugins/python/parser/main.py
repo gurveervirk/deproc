@@ -209,15 +209,11 @@ class PythonSourceParser(SourceParser):
             if child.type == "expression_statement":
                 inner = first_child(child)
                 if inner:
-                    for v in collect_from_assignment_node(inner):
-                        v.parent_id = parent_id
-                        v.fqn = f"{parent_fqn}.{v.name}" if parent_fqn else v.name
+                    for v in collect_from_assignment_node(node=inner, parent_fqn=parent_fqn, parent_id=parent_id):
                         context.entity_registry.add(v)
                         variable_ids.append(v.id)
                 continue
-            for v in collect_from_assignment_node(child):
-                v.parent_id = parent_id
-                v.fqn = f"{parent_fqn}.{v.name}" if parent_fqn else v.name
+            for v in collect_from_assignment_node(node=child, parent_fqn=parent_fqn, parent_id=parent_id):
                 context.entity_registry.add(v)
                 variable_ids.append(v.id)
         

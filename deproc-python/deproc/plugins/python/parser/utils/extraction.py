@@ -6,6 +6,7 @@ from ..models import (
     SimpleBinding,
     Signature,
     SourceRange,
+    SymbolID,
     VariableDeclaration,
 )
 from .tree_sitter_python import (
@@ -83,7 +84,11 @@ def _select_variable_declaration_type(name: str) -> type[VariableDeclaration]:
         return PythonConstant
     return VariableDeclaration
 
-def collect_from_assignment_node(node: Node) -> list[VariableDeclaration]:
+def collect_from_assignment_node(
+        node: Node,
+        parent_fqn: str,
+        parent_id: SymbolID,
+    ) -> list[VariableDeclaration]:
     variables: list[VariableDeclaration] = []
 
     source_range = create_source_range(node)
@@ -103,6 +108,7 @@ def collect_from_assignment_node(node: Node) -> list[VariableDeclaration]:
             variable_declaration_type = _select_variable_declaration_type(name)
             variables.append(
                 variable_declaration_type(
+                    parent_id=parent_id,
                     variable_binding=variable_binding,
                     source_range=source_range,
                     value_range=value_range,
@@ -112,7 +118,8 @@ def collect_from_assignment_node(node: Node) -> list[VariableDeclaration]:
             
         elif left and left.type == "identifier":
             variable_binding = SimpleBinding(
-                name=name
+                name=name,
+                fqn=f"{parent_fqn}.{name}"
             )
 
             right = node.child_by_field_name("right")
@@ -124,6 +131,7 @@ def collect_from_assignment_node(node: Node) -> list[VariableDeclaration]:
             variable_declaration_type = _select_variable_declaration_type(name)
             variables.append(
                 variable_declaration_type(
+                    parent_id=parent_id,
                     type_annotation=type_range,
                     variable_binding=variable_binding,
                     source_range=source_range,
@@ -134,7 +142,8 @@ def collect_from_assignment_node(node: Node) -> list[VariableDeclaration]:
     elif node.type == "annotated_assignment":
         if left and left.type == "identifier":
             variable_binding = SimpleBinding(
-                name=name
+                name=name,
+                fqn=f"{parent_fqn}.{name}"
             )
 
             value_node = node.child_by_field_name("right")
@@ -146,6 +155,7 @@ def collect_from_assignment_node(node: Node) -> list[VariableDeclaration]:
             variable_declaration_type = _select_variable_declaration_type(name)
             variables.append(
                 variable_declaration_type(
+                    parent_id=parent_id,
                     variable_binding=variable_binding,
                     source_range=source_range,
                     value_range=value_range,
@@ -159,12 +169,14 @@ def collect_from_assignment_node(node: Node) -> list[VariableDeclaration]:
         if name_node:
             name = node_text(name_node)
             variable_binding = SimpleBinding(
-                name=name
+                name=name,
+                fqn=f"{parent_fqn}.{name}"
             )
             value_range = create_source_range(value_node) if value_node else None
 
             variables.append(
                 PythonTypeAlias(
+                    parent_id=parent_id,
                     variable_binding=variable_binding,
                     source_range=source_range,
                     value_range=value_range,
