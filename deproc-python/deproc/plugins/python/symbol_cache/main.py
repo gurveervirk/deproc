@@ -23,28 +23,25 @@ class PythonSymbolCache(SymbolCache[cache_key, cache_value]):
         key: cache_key = (module_fqn, symbol_name)
         self.cache[key] = (resolved_ids, unresolved_ids)
 
-    def add_cache_keys_for_module(self, module_fqn: module_fqn, keys: set[cache_key]) -> None:
+    def _link(self, module_fqn: module_fqn, key: cache_key) -> None:
         if module_fqn not in self.module_to_cache_keys:
             self.module_to_cache_keys[module_fqn] = set()
-        self.module_to_cache_keys[module_fqn].update(keys)
+        self.module_to_cache_keys[module_fqn].add(key)
 
+        if key not in self.cache_key_to_modules:
+            self.cache_key_to_modules[key] = set()
+        self.cache_key_to_modules[key].add(module_fqn)
+
+    def add_cache_keys_for_module(self, module_fqn: module_fqn, keys: set[cache_key]) -> None:
         for key in keys:
-            if key not in self.cache_key_to_modules:
-                self.cache_key_to_modules[key] = set()
-            self.cache_key_to_modules[key].add(module_fqn)
+            self._link(module_fqn, key)
     
     def get_cache_keys_for_module(self, module_fqn: module_fqn) -> set[cache_key]:
         return self.module_to_cache_keys.get(module_fqn, set())
     
     def add_modules_for_cache_key(self, key: cache_key, modules: set[module_fqn]) -> None:
-        if key not in self.cache_key_to_modules:
-            self.cache_key_to_modules[key] = set()
-        self.cache_key_to_modules[key].update(modules)
-
-        for module in modules:
-            if module not in self.module_to_cache_keys:
-                self.module_to_cache_keys[module] = set()
-            self.module_to_cache_keys[module].add(key)
+        for module_fqn in modules:
+            self._link(module_fqn, key)
     
     def get_modules_for_cache_key(self, key: cache_key) -> set[module_fqn]:
         return self.cache_key_to_modules.get(key, set())
@@ -52,10 +49,15 @@ class PythonSymbolCache(SymbolCache[cache_key, cache_value]):
     def clear(self) -> None:
         self.cache.clear()
         self.module_to_cache_keys.clear()
+        self.cache_key_to_modules.clear()
 
     def clear_module(self, module_fqn: module_fqn) -> None:
         if module_fqn in self.module_to_cache_keys:
             for key in self.module_to_cache_keys[module_fqn]:
                 if key in self.cache:
                     del self.cache[key]
+                if key in self.cache_key_to_modules:
+                    self.cache_key_to_modules[key].discard(module_fqn)
+                    if not self.cache_key_to_modules[key]:
+                        del self.cache_key_to_modules[key]
             del self.module_to_cache_keys[module_fqn]
