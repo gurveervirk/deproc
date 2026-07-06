@@ -1,5 +1,4 @@
 from deproc.core.context import Context
-from deproc.core.interfaces.symbol_cache import SymbolCache
 from .models import (
     ResolvedIDs,
     UnresolvedIDs
@@ -13,6 +12,7 @@ from ..symbol_table_builder.models import (
     PythonSymbolTable,
     PythonModuleSymbolMap
 )
+from ..symbol_cache import PythonSymbolCache
 import logging
 
 logger = logging.getLogger(__name__)
@@ -24,9 +24,20 @@ def _get_symbol(symbol_id: SymbolID, context: Context):
         return None
     return symbol
 
-def _populate_cache(module_fqn: str, symbol_name: str, resolved_ids: list[SymbolID], unresolved_ids: list[SymbolID], cache: SymbolCache):
+def _populate_cache(module_fqn: str, symbol_name: str, resolved_ids: list[SymbolID], unresolved_ids: list[SymbolID], cache: PythonSymbolCache):
     if cache:
         cache.set(module_fqn, symbol_name, resolved_ids, unresolved_ids)
+
+def _populate_module_cache_key_maps(module_fqn: str, cache_keys: set[tuple[str, str]], cache: PythonSymbolCache):
+    if cache:
+        cache.add_cache_keys_for_module(module_fqn, cache_keys)
+
+def _populate_module_cache_key_maps_for_cached_result(module_fqn: str, symbol_name: str, cache_keys: set[tuple[str, str]], cache: PythonSymbolCache):
+    current_cache_key = (module_fqn, symbol_name)
+    module_fqns = cache.get_modules_for_cache_key(current_cache_key)
+
+    for cache_key in cache_keys:
+        cache.add_modules_for_cache_key(cache_key, module_fqns)
 
 def _get_module(symbol_id: SymbolID, context: Context) -> PythonModule | None:
     symbol = _get_symbol(symbol_id, context)
@@ -82,11 +93,18 @@ def _extract_alias_ids(symbol_ids: set[SymbolID], context: Context) -> tuple[Res
 
     return alias_ids, non_alias_ids
 
-def resolve_symbol(module_fqn: str, symbol_name: str, context: Context, visited: set[SymbolID] | None = None) -> tuple[ResolvedIDs, UnresolvedIDs]:
-    symbol_cache = context.get_symbol_cache("python")
+def resolve_symbol(
+    module_fqn: str,
+    symbol_name: str,
+    context: Context,
+    visited: set[SymbolID] | None = None,
+    cache_keys: set[tuple[str, str]] | None = None
+) -> tuple[ResolvedIDs, UnresolvedIDs]:
+    symbol_cache: PythonSymbolCache = context.get_symbol_cache("python")
     if symbol_cache:
         cached_result = symbol_cache.get(module_fqn, symbol_name)
         if cached_result is not None:
+            _populate_module_cache_key_maps_for_cached_result(module_fqn, symbol_name, cache_keys, symbol_cache)
             return cached_result
     
     symbol_table: PythonSymbolTable = context.get_symbol_table("python")
@@ -109,16 +127,26 @@ def resolve_symbol(module_fqn: str, symbol_name: str, context: Context, visited:
 
     alias_ids, resolved_ids = _extract_alias_ids(resolved_ids, context)
     unresolved_ids = set()
+
+    if cache_keys is None:
+        cache_keys = set()
+    cache_keys.add((module_fqn, symbol_name))
     
     if alias_ids:
         resolved_alias_ids, unresolved_ids = resolve_alias_ids(alias_ids, context, visited)
         resolved_ids.update(resolved_alias_ids)
     
     _populate_cache(module_fqn, symbol_name, resolved_ids, unresolved_ids, symbol_cache)
+    _populate_module_cache_key_maps(module_fqn, cache_keys, symbol_cache)
 
     return resolved_ids, unresolved_ids
 
-def resolve_alias_ids(alias_ids: set[SymbolID], context: Context, visited: set[SymbolID] | None = None) -> tuple[ResolvedIDs, UnresolvedIDs]:
+def resolve_alias_ids(
+    alias_ids: set[SymbolID], 
+    context: Context,
+    visited: set[SymbolID] | None = None,
+    cache_keys: set[tuple[str, str]] | None = None
+) -> tuple[ResolvedIDs, UnresolvedIDs]:
     if visited is None:
         visited = set()
 
@@ -135,7 +163,7 @@ def resolve_alias_ids(alias_ids: set[SymbolID], context: Context, visited: set[S
 
         symbol = _get_symbol(symbol_id, context)
         if isinstance(symbol, PythonImportAlias):
-            resolved_ids_from_alias, unresolved_ids_from_alias = resolve_alias(symbol, context, visited)
+            resolved_ids_from_alias, unresolved_ids_from_alias = resolve_alias(symbol, context, visited, cache_keys)
             if resolved_ids_from_alias:
                 resolved_ids.update(resolved_ids_from_alias)
                 unresolved_ids.update(unresolved_ids_from_alias)
@@ -146,7 +174,12 @@ def resolve_alias_ids(alias_ids: set[SymbolID], context: Context, visited: set[S
 
     return resolved_ids, unresolved_ids
 
-def resolve_alias(alias: PythonImportAlias, context: Context, visited: set[SymbolID] | None = None) -> tuple[ResolvedIDs, UnresolvedIDs]:
+def resolve_alias(
+    alias: PythonImportAlias,
+    context: Context,
+    visited: set[SymbolID] | None = None,
+    cache_keys: set[tuple[str, str]] | None = None
+) -> tuple[ResolvedIDs, UnresolvedIDs]:
     import_statement_id = alias.parent_id
 
     import_name = alias.name
@@ -156,4 +189,4 @@ def resolve_alias(alias: PythonImportAlias, context: Context, visited: set[Symbo
         logger.warning(f"Target module path not found for alias: {alias.name}")
         return set(), set()
 
-    return resolve_symbol(target_module_path, import_name, context, visited)
+    return resolve_symbol(target_module_path, import_name, context, visited, cache_keys)
