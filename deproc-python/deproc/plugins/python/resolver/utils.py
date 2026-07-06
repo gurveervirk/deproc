@@ -114,18 +114,21 @@ def resolve_symbol(
     if not symbol_table:
         logger.warning(f"Symbol table not found for python, caching empty sets for ({module_fqn}, {symbol_name})")
         _populate_cache(module_fqn, symbol_name, set(), set(), symbol_cache)
+        _populate_module_cache_key_maps(module_fqn, cache_keys or set(), symbol_cache)
         return set(), set()
 
     module_symbol_map: PythonModuleSymbolMap = symbol_table.module_symbol_maps.get(module_fqn, None)
     if module_symbol_map is None:
         logger.warning(f"Module symbol map not found for module: {module_fqn}, caching empty sets for ({module_fqn}, {symbol_name})")
         _populate_cache(module_fqn, symbol_name, set(), set(), symbol_cache)
+        _populate_module_cache_key_maps(module_fqn, cache_keys or set(), symbol_cache)
         return set(), set()
     
     resolved_ids = set(module_symbol_map.get(symbol_name, []))
     if not resolved_ids:
         logger.warning(f"Symbols not found for module: {module_fqn}, symbol: {symbol_name}, caching empty sets for ({module_fqn}, {symbol_name})")
         _populate_cache(module_fqn, symbol_name, set(), set(), symbol_cache)
+        _populate_module_cache_key_maps(module_fqn, cache_keys or set(), symbol_cache)
         return set(), set()
 
     alias_ids, resolved_ids = _extract_alias_ids(resolved_ids, context)
