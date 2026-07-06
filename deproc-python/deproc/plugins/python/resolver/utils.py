@@ -33,6 +33,9 @@ def _populate_module_cache_key_maps(module_fqn: str, cache_keys: set[tuple[str, 
         cache.add_cache_keys_for_module(module_fqn, cache_keys)
 
 def _populate_module_cache_key_maps_for_cached_result(module_fqn: str, symbol_name: str, cache_keys: set[tuple[str, str]], cache: PythonSymbolCache):
+    if not cache_keys:
+        return
+    
     current_cache_key = (module_fqn, symbol_name)
     module_fqns = cache.get_modules_for_cache_key(current_cache_key)
 
