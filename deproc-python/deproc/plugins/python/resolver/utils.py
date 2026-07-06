@@ -136,7 +136,7 @@ def resolve_symbol(
     cache_keys.add((module_fqn, symbol_name))
     
     if alias_ids:
-        resolved_alias_ids, unresolved_ids = resolve_alias_ids(alias_ids, context, visited)
+        resolved_alias_ids, unresolved_ids = resolve_alias_ids(alias_ids, context, visited, cache_keys)
         resolved_ids.update(resolved_alias_ids)
     
     _populate_cache(module_fqn, symbol_name, resolved_ids, unresolved_ids, symbol_cache)
