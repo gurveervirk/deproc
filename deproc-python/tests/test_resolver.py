@@ -21,6 +21,7 @@ from deproc.plugins.python.linker.models import PythonModule
 from deproc.plugins.python.symbol_table_builder.models import (
     PythonSymbolTable
 )
+from deproc.plugins.python.symbol_cache import PythonSymbolCache
 
 
 class TestExtractAliasIds:
@@ -482,3 +483,86 @@ class TestGetTargetModuleFqn:
         """Handle missing import statement."""
         result = _get_target_module_fqn("nonexistent", self.context)
         assert result is None
+
+class TestResolveSymbolWithCache:
+    """Test symbol resolution with real cache (cache_key maps)."""
+
+    def setup_method(self):
+        self.cache = PythonSymbolCache()
+        self.context = MagicMock(spec=Context)
+        self.context.entity_registry = {}
+        self.context.get_symbol_cache.return_value = self.cache
+
+    def test_resolve_symbol_populates_cache_key_maps(self):
+        class_id = generate_id()
+        module_map = {"MyClass": [class_id]}
+        symbol_table = PythonSymbolTable(
+            module_symbol_maps={"mymodule": module_map}
+        )
+        self.context.get_symbol_table.return_value = symbol_table
+        resolved, _ = resolve_symbol("mymodule", "MyClass", self.context)
+        assert self.cache.get_cache_keys_for_module("mymodule") == {("mymodule", "MyClass")}
+        assert class_id in resolved
+
+    def test_clear_module_via_cache_after_resolve(self):
+        class_id = generate_id()
+        module_map = {"MyClass": [class_id]}
+        symbol_table = PythonSymbolTable(
+            module_symbol_maps={"mymodule": module_map}
+        )
+        self.context.get_symbol_table.return_value = symbol_table
+        resolve_symbol("mymodule", "MyClass", self.context)
+        self.cache.clear_module("mymodule")
+        assert self.cache.get("mymodule", "MyClass") is None
+        assert self.cache.get_cache_keys_for_module("mymodule") == set()
+
+    def test_resolve_symbol_cached_result_preserves_other_entries(self):
+        class_id = generate_id()
+        module_map = {"MyClass": [class_id]}
+        symbol_table = PythonSymbolTable(
+            module_symbol_maps={"mymodule": module_map, "other": {"Other": [generate_id()]}}
+        )
+        self.context.get_symbol_table.return_value = symbol_table
+        resolve_symbol("mymodule", "MyClass", self.context)
+        resolve_symbol("other", "Other", self.context)
+        self.cache.clear_module("mymodule")
+        assert self.cache.get("mymodule", "MyClass") is None
+        assert self.cache.get("other", "Other") is not None
+        assert self.cache.get_cache_keys_for_module("other") == {("other", "Other")}
+
+    def test_resolve_symbol_alias_populates_transitive_maps(self):
+        target_id = generate_id()
+        alias_id = generate_id()
+        alias = PythonImportAlias(
+            id=alias_id,
+            name="AliasedClass",
+            parent_id="import_stmt_1",
+            alias=None,
+            source_range=SourceRange(lineno=1, end_lineno=1, col_offset=0, end_col_offset=10)
+        )
+        import_stmt = PythonImportStatement(
+            id="import_stmt_1",
+            path="target_module",
+            name_ids=[alias_id],
+            source_range=SourceRange(lineno=1, end_lineno=1, col_offset=0, end_col_offset=20),
+            type="generic_import"
+        )
+        self.context.entity_registry = {
+            alias_id: alias,
+            "import_stmt_1": import_stmt,
+            target_id: {"type": "class"}
+        }
+        symbol_table = PythonSymbolTable(
+            module_symbol_maps={
+                "source_module": {"AliasedClass": [alias_id]},
+                "target_module": {"AliasedClass": [target_id]}
+            }
+        )
+        self.context.get_symbol_table.return_value = symbol_table
+        resolve_symbol("source_module", "AliasedClass", self.context)
+        source_keys = self.cache.get_cache_keys_for_module("source_module")
+        target_keys = self.cache.get_cache_keys_for_module("target_module")
+        assert ("source_module", "AliasedClass") in source_keys
+        assert ("target_module", "AliasedClass") in source_keys
+        assert ("source_module", "AliasedClass") in target_keys
+        assert ("target_module", "AliasedClass") in target_keys
