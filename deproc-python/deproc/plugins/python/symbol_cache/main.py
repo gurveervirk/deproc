@@ -1,3 +1,4 @@
+from __future__ import annotations
 from deproc.core.interfaces.symbol_cache import SymbolCache
 from .models import (
     cache_key,
