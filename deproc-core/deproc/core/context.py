@@ -107,10 +107,11 @@ class Context:
 
     def select_file_extensions(self, extensions: list[str]) -> None:
         for ext in extensions:
-            normalized = self._normalize_extension(ext)
-            exclude = normalized.startswith("!")
+            raw = ext.strip().lower()
+            exclude = raw.startswith("!")
             if exclude:
-                normalized = normalized[1:]
+                raw = raw[1:]
+            normalized = self._normalize_extension(raw)
             if normalized in self._all_file_extensions:
                 if exclude:
                     self._selected_file_extensions.discard(normalized)
