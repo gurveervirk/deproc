@@ -1,11 +1,7 @@
 from .registries import (
-    EntityRegistry,
-    PluginRegistry
+    EntityRegistry
 )
-from .contracts import LanguagePlugin
 
 __all__ = [
-    "EntityRegistry",
-    "PluginRegistry",
-    "LanguagePlugin"
+    "EntityRegistry"
 ]
