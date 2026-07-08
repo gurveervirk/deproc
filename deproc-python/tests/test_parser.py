@@ -8,6 +8,7 @@ from deproc.plugins.python.parser.models import (
     ComplexBinding,
     VariableDeclaration,
 )
+import tempfile as tf
 
 parser = PythonSourceParser()
 context = Context()
@@ -102,3 +103,40 @@ class TestVariableExtraction:
         assert isinstance(var_decl, VariableDeclaration)
         assert var_decl.parent_id == source_file.id
         assert isinstance(var_decl.variable_binding, ComplexBinding)
+
+class TestAllExports:
+    def test_all_exports_list(self):
+        code = '__all__ = ["Foo", "Bar"]\n'
+        ctx = Context()
+        with tf.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as tmp:
+            tmp.write(code)
+            tmp_path = tmp.name
+        sf = parser.parse_file(tmp_path, ctx)
+        assert sf.all_exports == ["Foo", "Bar"]
+
+    def test_all_exports_no_all(self):
+        code = "x = 1\n"
+        ctx = Context()
+        with tf.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as tmp:
+            tmp.write(code)
+            tmp_path = tmp.name
+        sf = parser.parse_file(tmp_path, ctx)
+        assert sf.all_exports is None
+
+    def test_all_exports_tuple(self):
+        code = '__all__ = ("Foo", "Bar")\n'
+        ctx = Context()
+        with tf.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as tmp:
+            tmp.write(code)
+            tmp_path = tmp.name
+        sf = parser.parse_file(tmp_path, ctx)
+        assert sf.all_exports == ["Foo", "Bar"]
+
+    def test_all_exports_with_imports(self):
+        code = 'from .submod import helper_func\n__all__ = ["helper_func", "SomeClass"]\n'
+        ctx = Context()
+        with tf.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as tmp:
+            tmp.write(code)
+            tmp_path = tmp.name
+        sf = parser.parse_file(tmp_path, ctx)
+        assert sf.all_exports == ["helper_func", "SomeClass"]
