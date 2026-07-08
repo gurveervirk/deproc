@@ -60,7 +60,7 @@ class PythonSymbolTableBuilder(SymbolTableBuilder):
 
         # Order symbol map lists by line number precedence in the module's source code
         for symbol, ids in symbol_map.items():
-            symbol_map[symbol] = sorted(ids, key=lambda x: context.entity_registry.get(x, {}).get('lineno', 0))
+            symbol_map[symbol] = sorted(ids, key=lambda x: getattr(getattr(context.entity_registry.get(x), 'source_range', None), 'lineno', 0))
 
         return symbol_map
 
