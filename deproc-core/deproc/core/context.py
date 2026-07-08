@@ -121,17 +121,24 @@ class Context:
         if language not in self._all_languages:
             raise KeyError(f"Language '{language}' is not registered. Call set_language() first.")
 
+    def _warn_if_language_missing(self, language: str) -> None:
+        if language not in self._all_languages:
+            logger.warning("Language '%s' is not registered. Did you forget to call set_language()?", language)
+
     def set_parser(self, language: str, parser: SourceParser) -> None:
         self._require_language(language)
         self._parsers[language] = parser
 
     def get_parser(self, language: str) -> SourceParser | None:
+        self._warn_if_language_missing(language)
         return self._parsers.get(language)
 
     def has_parser(self, language: str) -> bool:
+        self._warn_if_language_missing(language)
         return language in self._parsers
 
     def remove_parser(self, language: str) -> None:
+        self._warn_if_language_missing(language)
         self._parsers.pop(language, None)
 
     def set_resolver(self, language: str, resolver: Resolver) -> None:
@@ -139,12 +146,15 @@ class Context:
         self._resolvers[language] = resolver
 
     def get_resolver(self, language: str) -> Resolver | None:
+        self._warn_if_language_missing(language)
         return self._resolvers.get(language)
 
     def has_resolver(self, language: str) -> bool:
+        self._warn_if_language_missing(language)
         return language in self._resolvers
 
     def remove_resolver(self, language: str) -> None:
+        self._warn_if_language_missing(language)
         self._resolvers.pop(language, None)
 
     def set_linker(self, language: str, linker: Linker) -> None:
@@ -152,12 +162,15 @@ class Context:
         self._linkers[language] = linker
 
     def get_linker(self, language: str) -> Linker | None:
+        self._warn_if_language_missing(language)
         return self._linkers.get(language)
 
     def has_linker(self, language: str) -> bool:
+        self._warn_if_language_missing(language)
         return language in self._linkers
 
     def remove_linker(self, language: str) -> None:
+        self._warn_if_language_missing(language)
         self._linkers.pop(language, None)
 
     def set_symbol_table_builder(self, language: str, builder: SymbolTableBuilder) -> None:
@@ -165,12 +178,15 @@ class Context:
         self._symbol_table_builders[language] = builder
 
     def get_symbol_table_builder(self, language: str) -> SymbolTableBuilder | None:
+        self._warn_if_language_missing(language)
         return self._symbol_table_builders.get(language)
 
     def has_symbol_table_builder(self, language: str) -> bool:
+        self._warn_if_language_missing(language)
         return language in self._symbol_table_builders
 
     def remove_symbol_table_builder(self, language: str) -> None:
+        self._warn_if_language_missing(language)
         self._symbol_table_builders.pop(language, None)
 
     def set_symbol_table(self, symbol_table: SymbolTable) -> None:
@@ -178,12 +194,15 @@ class Context:
         self.symbol_tables[symbol_table.language] = symbol_table
 
     def get_symbol_table(self, language: str) -> SymbolTable | None:
+        self._warn_if_language_missing(language)
         return self.symbol_tables.get(language)
 
     def has_symbol_table(self, language: str) -> bool:
+        self._warn_if_language_missing(language)
         return language in self.symbol_tables
 
     def remove_symbol_table(self, language: str) -> None:
+        self._warn_if_language_missing(language)
         self.symbol_tables.pop(language, None)
 
     def set_symbol_cache(self, cache: SymbolCache) -> None:
@@ -191,12 +210,15 @@ class Context:
         self.symbol_caches[cache.language] = cache
 
     def get_symbol_cache(self, language: str) -> SymbolCache | None:
+        self._warn_if_language_missing(language)
         return self.symbol_caches.get(language)
 
     def has_symbol_cache(self, language: str) -> bool:
+        self._warn_if_language_missing(language)
         return language in self.symbol_caches
 
     def remove_symbol_cache(self, language: str) -> None:
+        self._warn_if_language_missing(language)
         self.symbol_caches.pop(language, None)
 
     def reset(
