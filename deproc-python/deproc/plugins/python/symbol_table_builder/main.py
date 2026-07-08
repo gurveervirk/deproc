@@ -74,5 +74,5 @@ class PythonSymbolTableBuilder(SymbolTableBuilder):
                 module_symbol_maps[entity.fqn] = self.create_symbol_map_for_module(entity, entity.fqn, context)
         symbol_table = PythonSymbolTable(module_symbol_maps=module_symbol_maps)
 
-        context.add_symbol_table(symbol_table)
+        context.set_symbol_table(symbol_table)
         return symbol_table

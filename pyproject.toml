@@ -9,7 +9,7 @@ members = [
 package = false
 
 [tool.pytest.ini_options]
-testpaths = ["deproc-python"]
+testpaths = ["deproc-python", "deproc-core"]
 
 [dependency-groups]
 dev = [
