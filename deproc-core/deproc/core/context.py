@@ -117,7 +117,12 @@ class Context:
                 else:
                     self._selected_file_extensions.add(normalized)
 
+    def _require_language(self, language: str) -> None:
+        if language not in self._all_languages:
+            raise KeyError(f"Language '{language}' is not registered. Call set_language() first.")
+
     def set_parser(self, language: str, parser: SourceParser) -> None:
+        self._require_language(language)
         self._parsers[language] = parser
 
     def get_parser(self, language: str) -> SourceParser | None:
@@ -130,6 +135,7 @@ class Context:
         self._parsers.pop(language, None)
 
     def set_resolver(self, language: str, resolver: Resolver) -> None:
+        self._require_language(language)
         self._resolvers[language] = resolver
 
     def get_resolver(self, language: str) -> Resolver | None:
@@ -142,6 +148,7 @@ class Context:
         self._resolvers.pop(language, None)
 
     def set_linker(self, language: str, linker: Linker) -> None:
+        self._require_language(language)
         self._linkers[language] = linker
 
     def get_linker(self, language: str) -> Linker | None:
@@ -154,6 +161,7 @@ class Context:
         self._linkers.pop(language, None)
 
     def set_symbol_table_builder(self, language: str, builder: SymbolTableBuilder) -> None:
+        self._require_language(language)
         self._symbol_table_builders[language] = builder
 
     def get_symbol_table_builder(self, language: str) -> SymbolTableBuilder | None:
@@ -166,6 +174,7 @@ class Context:
         self._symbol_table_builders.pop(language, None)
 
     def set_symbol_table(self, symbol_table: SymbolTable) -> None:
+        self._require_language(symbol_table.language)
         self.symbol_tables[symbol_table.language] = symbol_table
 
     def get_symbol_table(self, language: str) -> SymbolTable | None:
@@ -178,6 +187,7 @@ class Context:
         self.symbol_tables.pop(language, None)
 
     def set_symbol_cache(self, cache: SymbolCache) -> None:
+        self._require_language(cache.language)
         self.symbol_caches[cache.language] = cache
 
     def get_symbol_cache(self, language: str) -> SymbolCache | None:
