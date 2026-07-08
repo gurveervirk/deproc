@@ -223,8 +223,8 @@ class PythonSourceParser(SourceParser):
         cursor = QueryCursor(self.all_exports_query)
         captures_dict = cursor.captures(root)
 
-        for node, name in captures_dict.items():
-            for n in node:
+        for name, nodes in captures_dict.items():
+            for n in nodes:
                 if name == "all_values":
                     exports = []
                     for child in iter_children(n):

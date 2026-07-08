@@ -21,9 +21,11 @@ class EntityRegistry:
         for entity in entities:
             self.add(entity)
         
-    def get(self, entity_id: SymbolID) -> Entity | None:
-        """Resolve a string ID back to the Entity object."""
-        return self.entities.get(entity_id)
+    def values(self):
+        return self.entities.values()
+
+    def get(self, entity_id: SymbolID, default=None):
+        return self.entities.get(entity_id, default)
 
     def __contains__(self, entity_id: SymbolID) -> bool:
         return entity_id in self.entities
