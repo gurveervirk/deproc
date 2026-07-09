@@ -13,7 +13,6 @@ from deproc.core.interfaces.parser.models import (
     SymbolID,
     TypeDefinition,
     VariableDeclaration,
-    generate_id
 )
 from dataclasses import dataclass, field
 
@@ -66,5 +65,4 @@ __all__ = [
     "SourceRange",
     "SymbolID",
     "VariableDeclaration",
-    "generate_id"
 ]
