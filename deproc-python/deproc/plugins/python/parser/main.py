@@ -14,7 +14,6 @@ from .models import (
     PythonImportAlias,
     PythonSourceFile,
     SymbolID,
-    generate_id
 )
 from .utils.misc import visibility_from_name
 from .utils.extraction import (
@@ -127,16 +126,10 @@ class PythonSourceParser(SourceParser):
 
         docstring_range = extract_docstring_range(node)
         
-        cls_id = generate_id()
         cls_fqn = f"{parent_fqn}.{name}" if parent_fqn else name
-
         body_node = node.child_by_field_name("body")
-        methods = self._extract_functions(body_node, context, type="METHOD", parent_id=cls_id, parent_fqn=cls_fqn) if body_node else []
-        inner_classes = self._traverse_block_for_classes(body_node, context, parent_id=cls_id, parent_fqn=cls_fqn) if body_node else []
-        class_variables = self._extract_variables(body_node, context, parent_id=cls_id, parent_fqn=cls_fqn) if body_node else []
 
         cls_obj = PythonClass(
-            id=cls_id,
             fqn=cls_fqn,
             parent_id=parent_id,
             name=name,
@@ -144,11 +137,12 @@ class PythonSourceParser(SourceParser):
             docstring_range=docstring_range,
             annotations=decorator_details,
             inherits=bases,
-            method_ids=methods,
-            inner_type_ids=inner_classes,
-            property_ids=class_variables,
             visibility=visibility_from_name(name),
         )
+
+        cls_obj.method_ids = self._extract_functions(body_node, context, type="METHOD", parent_id=cls_obj.id, parent_fqn=cls_fqn) if body_node else []
+        cls_obj.inner_type_ids = self._traverse_block_for_classes(body_node, context, parent_id=cls_obj.id, parent_fqn=cls_fqn) if body_node else []
+        cls_obj.property_ids = self._extract_variables(body_node, context, parent_id=cls_obj.id, parent_fqn=cls_fqn) if body_node else []
         context.entity_registry.add(cls_obj)
         return cls_obj.id
     
@@ -183,12 +177,9 @@ class PythonSourceParser(SourceParser):
         docstring_range = extract_docstring_range(node)
         signature = extract_signature(node)
 
-        func_id = generate_id()
-
         func_fqn = f"{parent_fqn}.{name}" if parent_fqn else name
         
         func_obj = PythonFunctionLike(
-            id=func_id,
             fqn=func_fqn,
             parent_id=parent_id,
             name=name,
@@ -243,7 +234,14 @@ class PythonSourceParser(SourceParser):
     ) -> SymbolID:
         source_range = create_source_range(node)
         alias_ids = []
-        import_stmt_id = generate_id()
+
+        import_stmt = PythonImportStatement(
+            type="generic_import",
+            parent_id=parent_id,
+            source_range=source_range,
+            path="",
+            wildcard=False,
+        )
 
         for child in iter_children(node):
             if child.type == "dotted_name":
@@ -251,7 +249,7 @@ class PythonSourceParser(SourceParser):
                 import_alias = PythonImportAlias(
                     name=node_text(child),
                     alias=None,
-                    parent_id=import_stmt_id,
+                    parent_id=import_stmt.id,
                     source_range=child_source_range
                 )
                 context.entity_registry.add(import_alias)
@@ -265,21 +263,13 @@ class PythonSourceParser(SourceParser):
                     import_alias = PythonImportAlias(
                         name=node_text(name_node),
                         alias=node_text(alias_node) if alias_node else None,
-                        parent_id=import_stmt_id,
+                        parent_id=import_stmt.id,
                         source_range=child_source_range
                     )
                     context.entity_registry.add(import_alias)
                     alias_ids.append(import_alias.id)
 
-        import_stmt = PythonImportStatement(
-            id=import_stmt_id,
-            type="generic_import",
-            parent_id=parent_id,
-            source_range=source_range,
-            path="",
-            name_ids=alias_ids,
-            wildcard=False,
-        )
+        import_stmt.name_ids = alias_ids
         context.entity_registry.add(import_stmt)
         return import_stmt.id
     
@@ -294,20 +284,25 @@ class PythonSourceParser(SourceParser):
         module_name = node_text(module_node) if module_node else ""
 
         alias_ids: list[SymbolID] = []
-        wildcard = False
 
-        import_stmt_id = generate_id()
+        import_stmt = PythonImportStatement(
+            type="from_import",
+            parent_id=parent_id,
+            source_range=source_range,
+            path=module_name,
+            wildcard=False,
+        )
 
         for child in iter_children(node):
             if child.type == "wildcard_import":
-                wildcard = True
+                import_stmt.wildcard = True
             
             elif child.type == "dotted_name":
                 if child != module_node:
                     import_alias = PythonImportAlias(
                         name=node_text(child),
                         alias=None,
-                        parent_id=import_stmt_id,
+                        parent_id=import_stmt.id,
                         source_range=create_source_range(child)
                     )
                     context.entity_registry.add(import_alias)
@@ -321,21 +316,13 @@ class PythonSourceParser(SourceParser):
                     import_alias = PythonImportAlias(
                         name=node_text(name_node),
                         alias=node_text(alias_node) if alias_node else None,
-                        parent_id=import_stmt_id,
+                        parent_id=import_stmt.id,
                         source_range=child_source_range
                     )
                     context.entity_registry.add(import_alias)
                     alias_ids.append(import_alias.id)
 
-        import_stmt = PythonImportStatement(
-            id=import_stmt_id,
-            type="from_import",
-            parent_id=parent_id,
-            source_range=source_range,
-            path=module_name,
-            name_ids=alias_ids,
-            wildcard=wildcard,
-        )
+        import_stmt.name_ids = alias_ids
         context.entity_registry.add(import_stmt)
         return import_stmt.id
     
@@ -372,26 +359,22 @@ class PythonSourceParser(SourceParser):
         
         for child in iter_children(block_node):
             if child.type == "if_statement":
-                grp_id = generate_id()
                 grp = ControlFlowGroup(
-                    id=grp_id,
                     parent_id=parent_id,
                     group_type="if_statement",
                     source_range=create_source_range(child),
-                    block_ids=self._process_if_node(child, context, parent_id=grp_id, parent_fqn=parent_fqn),
                 )
+                grp.block_ids = self._process_if_node(child, context, parent_id=grp.id, parent_fqn=parent_fqn)
                 context.entity_registry.add(grp)
                 group_ids.append(grp.id)
             
             elif child.type == "try_statement":
-                grp_id = generate_id()
                 grp = ControlFlowGroup(
-                    id=grp_id,
                     parent_id=parent_id,
                     group_type="try_statement",
                     source_range=create_source_range(child),
-                    block_ids=self._process_try_node(child, context, parent_id=grp_id, parent_fqn=parent_fqn),
                 )
+                grp.block_ids = self._process_try_node(child, context, parent_id=grp.id, parent_fqn=parent_fqn)
                 context.entity_registry.add(grp)
                 group_ids.append(grp.id)
         
@@ -406,19 +389,19 @@ class PythonSourceParser(SourceParser):
         
         consequence_node = node.child_by_field_name("consequence")
         if consequence_node:
-            blk_id = generate_id()
             blk = ControlFlowBlock(
-                id=blk_id,
                 parent_id=parent_id,
                 branch="if",
                 source_range=source_range,
                 condition_range=condition_range,
-                import_stmt_ids=self._extract_import_statements(consequence_node, context, parent_id=blk_id),
-                type_ids=self._traverse_block_for_classes(consequence_node, context, parent_id=blk_id, parent_fqn=parent_fqn),
-                function_ids=self._extract_functions(consequence_node, context, type="FUNCTION", parent_id=blk_id, parent_fqn=parent_fqn),
-                variable_ids=self._extract_variables(consequence_node, context, parent_id=blk_id, parent_fqn=parent_fqn),
-                nested_group_ids=self._extract_control_flow_groups(consequence_node, context, parent_id=blk_id, parent_fqn=parent_fqn),
             )
+            
+            blk.import_stmt_ids = self._extract_import_statements(consequence_node, context, parent_id=blk.id)
+            blk.type_ids = self._traverse_block_for_classes(consequence_node, context, parent_id=blk.id, parent_fqn=parent_fqn)
+            blk.function_ids = self._extract_functions(consequence_node, context, type="FUNCTION", parent_id=blk.id, parent_fqn=parent_fqn)
+            blk.variable_ids = self._extract_variables(consequence_node, context, parent_id=blk.id, parent_fqn=parent_fqn)
+            blk.nested_group_ids = self._extract_control_flow_groups(consequence_node, context, parent_id=blk.id, parent_fqn=parent_fqn)
+            
             context.entity_registry.add(blk)
             result_ids.append(blk.id)
             
@@ -428,38 +411,38 @@ class PythonSourceParser(SourceParser):
                 alt_cond_range = create_source_range(alt_cond_node) if alt_cond_node else None
                 alt_body = child.child_by_field_name("consequence")
                 if alt_body:
-                    blk_id = generate_id()
                     blk = ControlFlowBlock(
-                        id=blk_id,
                         parent_id=parent_id,
                         branch="elif",
                         source_range=create_source_range(child),
                         condition_range=alt_cond_range,
-                        import_stmt_ids=self._extract_import_statements(alt_body, context, parent_id=blk_id),
-                        type_ids=self._traverse_block_for_classes(alt_body, context, parent_id=blk_id, parent_fqn=parent_fqn),
-                        function_ids=self._extract_functions(alt_body, context, type="FUNCTION", parent_id=blk_id, parent_fqn=parent_fqn),
-                        variable_ids=self._extract_variables(alt_body, context, parent_id=blk_id, parent_fqn=parent_fqn),
-                        nested_group_ids=self._extract_control_flow_groups(alt_body, context, parent_id=blk_id, parent_fqn=parent_fqn),
                     )
+                    
+                    blk.import_stmt_ids = self._extract_import_statements(alt_body, context, parent_id=blk.id)
+                    blk.type_ids = self._traverse_block_for_classes(alt_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.function_ids = self._extract_functions(alt_body, context, type="FUNCTION", parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.variable_ids = self._extract_variables(alt_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.nested_group_ids = self._extract_control_flow_groups(alt_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    
                     context.entity_registry.add(blk)
                     result_ids.append(blk.id)
             
             elif child.type == "else_clause":
                 alt_body = child.child_by_field_name("body")
                 if alt_body:
-                    blk_id = generate_id()
                     blk = ControlFlowBlock(
-                        id=blk_id,
                         parent_id=parent_id,
                         branch="else",
                         source_range=create_source_range(child),
                         condition_range=None,
-                        import_stmt_ids=self._extract_import_statements(alt_body, context, parent_id=blk_id),
-                        type_ids=self._traverse_block_for_classes(alt_body, context, parent_id=blk_id, parent_fqn=parent_fqn),
-                        function_ids=self._extract_functions(alt_body, context, type="FUNCTION", parent_id=blk_id, parent_fqn=parent_fqn),
-                        variable_ids=self._extract_variables(alt_body, context, parent_id=blk_id, parent_fqn=parent_fqn),
-                        nested_group_ids=self._extract_control_flow_groups(alt_body, context, parent_id=blk_id, parent_fqn=parent_fqn),
                     )
+                    
+                    blk.import_stmt_ids = self._extract_import_statements(alt_body, context, parent_id=blk.id)
+                    blk.type_ids = self._traverse_block_for_classes(alt_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.function_ids = self._extract_functions(alt_body, context, type="FUNCTION", parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.variable_ids = self._extract_variables(alt_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.nested_group_ids = self._extract_control_flow_groups(alt_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    
                     context.entity_registry.add(blk)
                     result_ids.append(blk.id)
         
@@ -470,19 +453,19 @@ class PythonSourceParser(SourceParser):
         source_range = create_source_range(node)
         body_node = node.child_by_field_name("body")
         if body_node:
-            blk_id = generate_id()
             blk = ControlFlowBlock(
-                id=blk_id,
                 parent_id=parent_id,
                 branch="try",
                 source_range=source_range,
                 condition_range=None,
-                import_stmt_ids=self._extract_import_statements(body_node, context, parent_id=blk_id),
-                type_ids=self._traverse_block_for_classes(body_node, context, parent_id=blk_id, parent_fqn=parent_fqn),
-                function_ids=self._extract_functions(body_node, context, type="FUNCTION", parent_id=blk_id, parent_fqn=parent_fqn),
-                variable_ids=self._extract_variables(body_node, context, parent_id=blk_id, parent_fqn=parent_fqn),
-                nested_group_ids=self._extract_control_flow_groups(body_node, context, parent_id=blk_id, parent_fqn=parent_fqn),
             )
+            
+            blk.import_stmt_ids = self._extract_import_statements(body_node, context, parent_id=blk.id)
+            blk.type_ids = self._traverse_block_for_classes(body_node, context, parent_id=blk.id, parent_fqn=parent_fqn)
+            blk.function_ids = self._extract_functions(body_node, context, type="FUNCTION", parent_id=blk.id, parent_fqn=parent_fqn)
+            blk.variable_ids = self._extract_variables(body_node, context, parent_id=blk.id, parent_fqn=parent_fqn)
+            blk.nested_group_ids = self._extract_control_flow_groups(body_node, context, parent_id=blk.id, parent_fqn=parent_fqn)
+            
             context.entity_registry.add(blk)
             result_ids.append(blk.id)
             
@@ -491,38 +474,38 @@ class PythonSourceParser(SourceParser):
                 body = child.child_by_field_name("body")
                 if body:
                     condition_range = create_source_range(child.child_by_field_name("condition")) if child.child_by_field_name("condition") else None
-                    blk_id = generate_id()
                     blk = ControlFlowBlock(
-                        id=blk_id,
                         parent_id=parent_id,
                         branch="except",
                         source_range=create_source_range(child),
                         condition_range=condition_range,
-                        import_stmt_ids=self._extract_import_statements(body, context, parent_id=blk_id),
-                        type_ids=self._traverse_block_for_classes(body, context, parent_id=blk_id, parent_fqn=parent_fqn),
-                        function_ids=self._extract_functions(body, context, type="FUNCTION", parent_id=blk_id, parent_fqn=parent_fqn),
-                        variable_ids=self._extract_variables(body, context, parent_id=blk_id, parent_fqn=parent_fqn),
-                        nested_group_ids=self._extract_control_flow_groups(body, context, parent_id=blk_id, parent_fqn=parent_fqn),
                     )
+
+                    blk.import_stmt_ids = self._extract_import_statements(body, context, parent_id=blk.id)
+                    blk.type_ids = self._traverse_block_for_classes(body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.function_ids = self._extract_functions(body, context, type="FUNCTION", parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.variable_ids = self._extract_variables(body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.nested_group_ids = self._extract_control_flow_groups(body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    
                     context.entity_registry.add(blk)
                     result_ids.append(blk.id)
             
             elif child.type == "else_clause":
                 alt_body = child.child_by_field_name("body")
                 if alt_body:
-                    blk_id = generate_id()
                     blk = ControlFlowBlock(
-                        id=blk_id,
                         parent_id=parent_id,
                         branch="else",
                         source_range=create_source_range(child),
                         condition_range=None,
-                        import_stmt_ids=self._extract_import_statements(alt_body, context, parent_id=blk_id, parent_fqn=parent_fqn),
-                        type_ids=self._traverse_block_for_classes(alt_body, context, parent_id=blk_id, parent_fqn=parent_fqn),
-                        function_ids=self._extract_functions(alt_body, context, type="FUNCTION", parent_id=blk_id, parent_fqn=parent_fqn),
-                        variable_ids=self._extract_variables(alt_body, context, parent_id=blk_id, parent_fqn=parent_fqn),
-                        nested_group_ids=self._extract_control_flow_groups(alt_body, context, parent_id=blk_id, parent_fqn=parent_fqn),
                     )
+
+                    blk.import_stmt_ids = self._extract_import_statements(alt_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.type_ids = self._traverse_block_for_classes(alt_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.function_ids = self._extract_functions(alt_body, context, type="FUNCTION", parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.variable_ids = self._extract_variables(alt_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.nested_group_ids = self._extract_control_flow_groups(alt_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    
                     context.entity_registry.add(blk)
                     result_ids.append(blk.id)
             
@@ -532,19 +515,19 @@ class PythonSourceParser(SourceParser):
                     if cc.type == "block":
                         fin_body = cc
                 if fin_body:
-                    blk_id = generate_id()
                     blk = ControlFlowBlock(
-                        id=blk_id,
                         parent_id=parent_id,
                         branch="finally",
                         source_range=create_source_range(child),
                         condition_range=None,
-                        import_stmt_ids=self._extract_import_statements(fin_body, context, parent_id=blk_id, parent_fqn=parent_fqn),
-                        type_ids=self._traverse_block_for_classes(fin_body, context, parent_id=blk_id, parent_fqn=parent_fqn),
-                        function_ids=self._extract_functions(fin_body, context, type="FUNCTION", parent_id=blk_id, parent_fqn=parent_fqn),
-                        variable_ids=self._extract_variables(fin_body, context, parent_id=blk_id, parent_fqn=parent_fqn),
-                        nested_group_ids=self._extract_control_flow_groups(fin_body, context, parent_id=blk_id, parent_fqn=parent_fqn),
                     )
+
+                    blk.import_stmt_ids = self._extract_import_statements(fin_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.type_ids = self._traverse_block_for_classes(fin_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.function_ids = self._extract_functions(fin_body, context, type="FUNCTION", parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.variable_ids = self._extract_variables(fin_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.nested_group_ids = self._extract_control_flow_groups(fin_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    
                     context.entity_registry.add(blk)
                     result_ids.append(blk.id)
         
