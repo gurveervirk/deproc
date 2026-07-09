@@ -3,7 +3,7 @@ Provisional data models for the parser interface.
 Please use these models either directly in the plugin implementations or as a reference for defining plugin-specific models.
 """
 from dataclasses import dataclass, field
-from uuid import uuid4
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 type SymbolID = str
 
@@ -12,8 +12,22 @@ def generate_id() -> SymbolID:
 
 @dataclass(kw_only=True)
 class Entity:
-    id: SymbolID = field(default_factory=generate_id)
-    parent_id: SymbolID | None = None
+    id: str | None = None
+    parent_id: str | None = None
+
+    def __post_init__(self):
+        if self.id is not None:
+            return
+        self.id = self._compute_id()
+
+    def _compute_id(self) -> str:
+        parent_id = getattr(self, "parent_id", None)
+        source_range = getattr(self, "source_range", None)
+        if parent_id and source_range:
+            namespace = UUID(hex=parent_id)
+            name = f"{type(self).__qualname__}:{source_range.lineno}:{source_range.end_lineno}:{source_range.col_offset}:{source_range.end_col_offset}"
+            return uuid5(namespace, name).hex
+        return uuid4().hex
 
 @dataclass
 class SourceRange:
@@ -108,6 +122,9 @@ class ControlFlowGroup(Entity):
 @dataclass
 class Node(Entity):
     path: str
+
+    def _compute_id(self) -> str:
+        return uuid5(NAMESPACE_URL, f"file://{self.path}").hex
 
 @dataclass(kw_only=True)
 class SourceFile(Docstring, Node):
