@@ -96,3 +96,38 @@ from typing import List
         for symbol_map in symbol_table.module_symbol_maps.values():
             assert "os" in symbol_map
             assert "List" in symbol_map
+
+    def test_class_methods_not_in_module_symbol_map(self):
+        code = '''
+class MyClass:
+    def my_method(self):
+        pass
+
+    class InnerClass:
+        pass
+
+    my_attr = 42
+
+def top_func():
+    pass
+'''
+        filepath = _create_temp_file(code)
+        ctx = Context()
+        ctx.set_language("python", [".py"])
+        ctx.set_parser("python", PythonSourceParser())
+        ctx.set_linker("python", PythonLinker())
+        ctx.set_symbol_table_builder("python", PythonSymbolTableBuilder())
+
+        parser = ctx.get_parser("python")
+        sf = parser.parse_file(filepath, ctx)
+
+        linker = ctx.get_linker("python")
+        linker.link_files([sf], ctx)
+
+        builder = ctx.get_symbol_table_builder("python")
+        symbol_table = builder.build(ctx)
+
+        for symbol_map in symbol_table.module_symbol_maps.values():
+            assert "MyClass" in symbol_map
+            assert "top_func" in symbol_map
+            assert len(symbol_map) == 2
