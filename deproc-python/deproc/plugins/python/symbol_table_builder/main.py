@@ -38,12 +38,17 @@ class PythonSymbolTableBuilder(SymbolTableBuilder):
     ) -> PythonModuleSymbolMap:
         symbol_map: PythonModuleSymbolMap = defaultdict(set)
         for entity in context.entity_registry.values():
-            # Find all immediately nested entities within the module
-            if hasattr(entity, "fqn") and entity.fqn.startswith(module_fqn) and entity.fqn != module_fqn and not entity.fqn[len(module_fqn):].find("."):
-                relative_fqn = entity.fqn[len(module_fqn):].lstrip(".")
-                if relative_fqn:
-                    top_level_symbol = relative_fqn.split(".")[0]
-                    symbol_map[top_level_symbol].add(entity.id)
+            if not hasattr(entity, "fqn"):
+                continue
+            suffix = entity.fqn
+            if not suffix.startswith(module_fqn) or suffix == module_fqn:
+                continue
+            relative = suffix[len(module_fqn):]
+            if not relative.startswith("."):
+                continue
+            relative = relative[1:]
+            if relative and "." not in relative:
+                symbol_map[relative].add(entity.id)
 
         # Process direct children of the module first
         for import_stmt_id in module.import_stmt_ids:
