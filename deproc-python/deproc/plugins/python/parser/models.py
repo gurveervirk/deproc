@@ -38,6 +38,7 @@ class PythonImportAlias(Entity):
     name: str
     alias: str | None
     source_range: SourceRange
+    fqn: str | None = None
 
 @dataclass(kw_only=True)
 class PythonImportStatement(ImportStatement):
