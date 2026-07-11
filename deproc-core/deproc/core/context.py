@@ -8,8 +8,6 @@ if TYPE_CHECKING:
     from .interfaces.parser import SourceParser
     from .interfaces.resolver import Resolver
     from .interfaces.symbol_cache import SymbolCache
-    from .interfaces.symbol_table_builder import SymbolTableBuilder
-    from .interfaces.symbol_table_builder.models import SymbolTable
 
 from .runtime import EntityRegistry
 
@@ -29,8 +27,6 @@ class Context:
             self._parsers = dict(copy_from._parsers)
             self._resolvers = dict(copy_from._resolvers)
             self._linkers = dict(copy_from._linkers)
-            self._symbol_table_builders = dict(copy_from._symbol_table_builders)
-            self.symbol_tables = dict(copy_from.symbol_tables)
             self.symbol_caches = dict(copy_from.symbol_caches)
         else:
             self.base_path = base_path
@@ -44,8 +40,6 @@ class Context:
             self._parsers: dict[str, SourceParser] = {}
             self._resolvers: dict[str, Resolver] = {}
             self._linkers: dict[str, Linker] = {}
-            self._symbol_table_builders: dict[str, SymbolTableBuilder] = {}
-            self.symbol_tables: dict[str, SymbolTable] = {}
             self.symbol_caches: dict[str, SymbolCache] = {}
 
     def set_language(
@@ -174,38 +168,6 @@ class Context:
         self._warn_if_language_missing(language)
         self._linkers.pop(language, None)
 
-    def set_symbol_table_builder(self, language: str, builder: SymbolTableBuilder) -> None:
-        self._require_language(language)
-        self._symbol_table_builders[language] = builder
-
-    def get_symbol_table_builder(self, language: str) -> SymbolTableBuilder | None:
-        self._warn_if_language_missing(language)
-        return self._symbol_table_builders.get(language)
-
-    def has_symbol_table_builder(self, language: str) -> bool:
-        self._warn_if_language_missing(language)
-        return language in self._symbol_table_builders
-
-    def remove_symbol_table_builder(self, language: str) -> None:
-        self._warn_if_language_missing(language)
-        self._symbol_table_builders.pop(language, None)
-
-    def set_symbol_table(self, symbol_table: SymbolTable) -> None:
-        self._require_language(symbol_table.language)
-        self.symbol_tables[symbol_table.language] = symbol_table
-
-    def get_symbol_table(self, language: str) -> SymbolTable | None:
-        self._warn_if_language_missing(language)
-        return self.symbol_tables.get(language)
-
-    def has_symbol_table(self, language: str) -> bool:
-        self._warn_if_language_missing(language)
-        return language in self.symbol_tables
-
-    def remove_symbol_table(self, language: str) -> None:
-        self._warn_if_language_missing(language)
-        self.symbol_tables.pop(language, None)
-
     def set_symbol_cache(self, cache: SymbolCache) -> None:
         self._require_language(cache.language)
         self.symbol_caches[cache.language] = cache
@@ -226,14 +188,11 @@ class Context:
         self,
         include_languages: bool = True,
         include_file_extensions: bool = True,
-        include_symbol_tables: bool = True,
         include_symbol_caches: bool = True,
     ) -> None:
         if include_languages:
             self._selected_languages = set(self._all_languages)
         if include_file_extensions:
             self._selected_file_extensions = set(self._all_file_extensions)
-        if include_symbol_tables:
-            self.symbol_tables = {}
         if include_symbol_caches:
             self.symbol_caches = {}
