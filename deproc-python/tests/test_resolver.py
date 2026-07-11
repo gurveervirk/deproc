@@ -352,28 +352,55 @@ class TestGetTargetModuleFqn:
         result = self.resolver._get_target_module_fqn("import_stmt_1", self.context)
         assert result == "some.module.path"
 
-    def test_get_target_module_relative_import(self):
+    def _setup_relative_import(self, path: str, parent_fqn: str, module_path: str = "/path/to/module.py") -> PythonImportStatement:
         parent_module = PythonModule(
             id="module_1",
-            fqn="package.subpackage.module",
-            path="/path/to/module.py",
+            fqn=parent_fqn,
+            path=module_path,
             docstring_range=None,
             source=""
         )
         import_stmt = PythonImportStatement(
             id="import_stmt_1",
-            path=".sibling",
+            path=path,
             name_ids=[],
             source_range=SourceRange(lineno=1, end_lineno=1, col_offset=0, end_col_offset=20),
             type="generic_import"
         )
         self.context.entity_registry.add(import_stmt)
         self.context.entity_registry.add(parent_module)
-
         import_stmt.parent_id = "module_1"
+        return import_stmt
 
+    def test_relative_import_single_dot(self):
+        self._setup_relative_import(".sibling", "package.subpackage.module")
         result = self.resolver._get_target_module_fqn("import_stmt_1", self.context)
-        assert result is not None
+        assert result == "package.subpackage.sibling"
+
+    def test_relative_import_single_dot_nested(self):
+        self._setup_relative_import(".subpkg.module", "package.subpackage.module")
+        result = self.resolver._get_target_module_fqn("import_stmt_1", self.context)
+        assert result == "package.subpackage.subpkg.module"
+
+    def test_relative_import_double_dot(self):
+        self._setup_relative_import("..sibling", "package.subpackage.module")
+        result = self.resolver._get_target_module_fqn("import_stmt_1", self.context)
+        assert result == "package.sibling"
+
+    def test_relative_import_triple_dot(self):
+        self._setup_relative_import("...sibling", "package.subpackage.module")
+        result = self.resolver._get_target_module_fqn("import_stmt_1", self.context)
+        assert result == "sibling"
+
+    def test_relative_import_top_level_single_dot(self):
+        self._setup_relative_import(".module", "package", module_path="/path/to/__init__.py")
+        result = self.resolver._get_target_module_fqn("import_stmt_1", self.context)
+        assert result == "package.module"
+
+    def test_relative_import_top_level_double_dot(self):
+        self._setup_relative_import("..other", "package.subpackage")
+        result = self.resolver._get_target_module_fqn("import_stmt_1", self.context)
+        assert result == "other"
 
     def test_get_target_module_missing_import_stmt(self):
         result = self.resolver._get_target_module_fqn("nonexistent", self.context)
