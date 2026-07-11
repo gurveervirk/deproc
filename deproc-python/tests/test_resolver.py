@@ -10,10 +10,6 @@ from deproc.core.interfaces.parser.models import (
     SourceRange
 )
 from deproc.plugins.python.resolver.main import PythonResolver
-from deproc.plugins.python.resolver.utils import (
-    _extract_alias_ids,
-    _get_target_module_fqn
-)
 from deproc.plugins.python.parser.models import (
     PythonImportAlias,
     PythonImportStatement,
@@ -29,11 +25,12 @@ class _FakeFqnEntity(Entity):
 
 class TestExtractAliasIds:
     def setup_method(self):
+        self.resolver = PythonResolver()
         self.context = MagicMock(spec=Context)
         self.context.entity_registry = EntityRegistry()
 
     def test_extract_alias_ids_empty(self):
-        alias_ids, non_alias_ids = _extract_alias_ids(set(), self.context)
+        alias_ids, non_alias_ids = self.resolver._extract_alias_ids(set(), self.context)
         assert alias_ids == set()
         assert non_alias_ids == set()
 
@@ -47,7 +44,7 @@ class TestExtractAliasIds:
         )
         self.context.entity_registry.add(alias)
 
-        alias_ids, non_alias_ids = _extract_alias_ids({"alias_1"}, self.context)
+        alias_ids, non_alias_ids = self.resolver._extract_alias_ids({"alias_1"}, self.context)
         assert "alias_1" in alias_ids
         assert len(non_alias_ids) == 0
 
@@ -62,15 +59,14 @@ class TestExtractAliasIds:
         self.context.entity_registry.add(alias)
         self.context.entity_registry.entities["class_1"] = Mock()
 
-        alias_ids, non_alias_ids = _extract_alias_ids({"alias_1", "class_1"}, self.context)
+        alias_ids, non_alias_ids = self.resolver._extract_alias_ids({"alias_1", "class_1"}, self.context)
         assert "alias_1" in alias_ids
         assert "class_1" in non_alias_ids
 
     def test_extract_missing_symbol(self):
-        alias_ids, non_alias_ids = _extract_alias_ids({"missing_id"}, self.context)
+        alias_ids, non_alias_ids = self.resolver._extract_alias_ids({"missing_id"}, self.context)
         assert "missing_id" in non_alias_ids
         assert len(alias_ids) == 0
-
 
 class TestResolveSymbol:
     def setup_method(self):
@@ -102,7 +98,6 @@ class TestResolveSymbol:
         resolved, unresolved = self.resolver.resolve_symbol("mymodule", "MyClass", self.context)
         assert resolved == ids
         assert len(unresolved) == 0
-
 
 class TestResolveAliasIds:
     def setup_method(self):
@@ -231,7 +226,6 @@ class TestResolveAliasIds:
         assert target_id in resolved
         assert unresolvable_alias_id in unresolved
 
-
 class TestResolveAlias:
     def setup_method(self):
         self.resolver = PythonResolver()
@@ -339,9 +333,9 @@ class TestResolveAlias:
         assert target_id in resolved
         assert len(unresolved) == 0
 
-
 class TestGetTargetModuleFqn:
     def setup_method(self):
+        self.resolver = PythonResolver()
         self.context = MagicMock(spec=Context)
         self.context.entity_registry = EntityRegistry()
 
@@ -355,7 +349,7 @@ class TestGetTargetModuleFqn:
         )
         self.context.entity_registry.add(import_stmt)
 
-        result = _get_target_module_fqn("import_stmt_1", self.context)
+        result = self.resolver._get_target_module_fqn("import_stmt_1", self.context)
         assert result == "some.module.path"
 
     def test_get_target_module_relative_import(self):
@@ -378,13 +372,12 @@ class TestGetTargetModuleFqn:
 
         import_stmt.parent_id = "module_1"
 
-        result = _get_target_module_fqn("import_stmt_1", self.context)
+        result = self.resolver._get_target_module_fqn("import_stmt_1", self.context)
         assert result is not None
 
     def test_get_target_module_missing_import_stmt(self):
-        result = _get_target_module_fqn("nonexistent", self.context)
+        result = self.resolver._get_target_module_fqn("nonexistent", self.context)
         assert result is None
-
 
 class TestResolveSymbolWithCache:
     def setup_method(self):
