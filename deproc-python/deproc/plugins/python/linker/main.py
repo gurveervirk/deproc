@@ -64,7 +64,6 @@ class PythonLinker(Linker[list[PythonModule], Node]):
 
         if relative_path in has_init:
             package = PythonPackage(
-                fqn=fqn,
                 submodule_ids=[],
                 **vars(has_init[relative_path])
             )
