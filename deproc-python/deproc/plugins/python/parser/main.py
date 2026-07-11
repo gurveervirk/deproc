@@ -51,6 +51,9 @@ class PythonSourceParser(SourceParser):
         relative_path = os.path.relpath(file_path, base_path)
         without_extension = os.path.splitext(relative_path)[0]
         fqn = without_extension.replace(os.sep, ".")
+        filename = os.path.basename(file_path)
+        if filename in ("__init__.py", "__init__.pyi") and fqn.endswith(".__init__"):
+            fqn = fqn[: -len(".__init__")]
         return fqn
 
     def parse_file(self, path: str, context: Context) -> PythonModule:
