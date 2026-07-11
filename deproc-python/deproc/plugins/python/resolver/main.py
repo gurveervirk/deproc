@@ -65,15 +65,15 @@ class PythonResolver(Resolver[PythonResolverResult]):
             if parent_module:
                 parent_fqn = parent_module.fqn
                 if parent_fqn:
-                    # Resolve relative path to absolute FQN
+                    is_package = getattr(parent_module, "path", "").endswith(("__init__.py", "__init__.pyi"))
                     relative_parts = path.split(".")
                     parent_parts = parent_fqn.split(".")
-                    # Remove the last part of the parent FQN for each leading dot in the relative path
-                    while relative_parts and relative_parts[0] == "":
-                        relative_parts.pop(0)
+                    num_leading_dots = len(path) - len(path.lstrip("."))
+                    levels_to_pop = num_leading_dots - (1 if is_package else 0)
+                    for _ in range(levels_to_pop):
                         if parent_parts:
                             parent_parts.pop()
-                    # Combine the remaining parts to form the target FQN
+                    relative_parts = [p for p in relative_parts if p]
                     target_fqn = ".".join(parent_parts + relative_parts)
                     return target_fqn
 
