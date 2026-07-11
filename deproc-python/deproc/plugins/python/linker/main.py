@@ -1,49 +1,32 @@
 from deproc.core.interfaces import Linker
 from deproc.core.context import Context
 from pathlib import Path
+from ..parser.models import PythonModule
 from .models import (
     Node,
-    PythonModule,
     PythonNamespacePackage,
     PythonPackage,
-    PythonSourceFile,
 )
 
-class PythonLinker(Linker[list[PythonSourceFile], Node]):
-    def link_files(self, nodes: list[PythonSourceFile], context: Context) -> Node:
+class PythonLinker(Linker[list[PythonModule], Node]):
+    def link_files(self, nodes: list[PythonModule], context: Context) -> Node:
         base_path = Path(context.base_path)
 
         # Map relative path to modules
         path_to_module: dict[str, PythonModule] = {}
 
         # Check if dir has an __init__.py file
-        has_init: dict[str, PythonSourceFile] = {}
+        has_init: dict[str, PythonModule] = {}
 
         for node in nodes:
             relative_path = node.path
             dir_path = str(Path(relative_path).parent)
-            
-            if dir_path == ".":
-                # handle special case where parent of root relative path is "."
-                pass
 
             if node.path.endswith("__init__.py"):
                 has_init[dir_path] = node
                 continue
 
-            node_fqn = None
-            if node.path.endswith(".py"):
-                node_fqn = relative_path[:-3].replace("/", ".")
-            elif node.path.endswith(".pyi"):
-                node_fqn = relative_path[:-4].replace("/", ".")
-            
-            if node_fqn is not None:
-                mod = PythonModule(
-                    fqn=node_fqn,
-                    **vars(node)
-                )
-                path_to_module[relative_path] = mod
-                context.entity_registry.add(mod)
+            path_to_module[relative_path] = node
         
         # Traverse the directory structure starting from the base path
         root_node = self.traverse_path(base_path, base_path, path_to_module, has_init, context)
@@ -62,7 +45,7 @@ class PythonLinker(Linker[list[PythonSourceFile], Node]):
         base_path: Path, 
         current_path: Path, 
         path_to_module: dict[str, PythonModule], 
-        has_init: dict[str, PythonSourceFile],
+        has_init: dict[str, PythonModule],
         context: Context
     ) -> Node | None:
         if not self.validate_path(str(current_path)):

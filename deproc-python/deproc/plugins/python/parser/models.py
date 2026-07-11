@@ -47,7 +47,8 @@ class PythonImportStatement(ImportStatement):
     wildcard: bool = False
 
 @dataclass(kw_only=True)
-class PythonSourceFile(SourceFile):
+class PythonModule(SourceFile):
+    fqn: str
     all_exports: list[str] | None = None
 
 __all__ = [
@@ -58,7 +59,7 @@ __all__ = [
     "PythonClass",
     "PythonConstant",
     "PythonFunctionLike",
-    "PythonSourceFile",
+    "PythonModule",
     "PythonTypeAlias",
     "SimpleBinding",
     "Signature",

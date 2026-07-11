@@ -1,13 +1,9 @@
 from deproc.core.interfaces.parser.models import Node
 from dataclasses import dataclass, field
 from ..parser.models import (
-    PythonSourceFile,
+    PythonModule,
     SymbolID,
 )
-
-@dataclass(kw_only=True)
-class PythonModule(PythonSourceFile):
-    fqn: str
 
 @dataclass
 class PythonNamespacePackage(Node):
@@ -20,8 +16,6 @@ class PythonPackage(PythonModule):
 
 __all__ = [
     "Node",
-    "PythonModule",
     "PythonNamespacePackage",
     "PythonPackage",
-    "PythonSourceFile",
 ]
