@@ -1,12 +1,8 @@
+from deproc.core.interfaces.parser.models import Entity
 from deproc.core.interfaces.resolver import Resolver
 from deproc.core.context import Context
 from .models import (
     PythonResolverResult
-)
-from .utils import (
-    _extract_alias_ids,
-    _get_symbol,
-    _get_target_module_fqn
 )
 from .models import (
     ResolvedIDs,
@@ -14,6 +10,7 @@ from .models import (
 )
 from ..symbol_cache import PythonSymbolCache
 from ..parser.models import (
+    PythonModule,
     PythonImportAlias,
     SymbolID,
 )
@@ -22,6 +19,83 @@ import logging
 logger = logging.getLogger(__name__)
 
 class PythonResolver(Resolver[PythonResolverResult]):
+    def _get_symbol(
+        self,
+        symbol_id: SymbolID,
+        context: Context
+    ) -> Entity | None:
+        symbol = context.entity_registry.get(symbol_id)
+        if not symbol:
+            logger.warning(f"Symbol not found for ID: {symbol_id}")
+            return None
+        return symbol
+    
+    def _get_module(
+        self,
+        symbol_id: SymbolID,
+        context: Context
+    ) -> PythonModule | None:
+        symbol = self._get_symbol(symbol_id, context)
+        if not symbol:
+            return None
+        
+        if isinstance(symbol, PythonModule):
+            return symbol
+        
+        parent_id = getattr(symbol, "parent_id", None)
+        if not parent_id:
+            return None
+        
+        return self._get_module(parent_id, context)
+
+    def _get_target_module_fqn(
+        self,
+        import_statement_id: SymbolID,
+        context: Context
+    ) -> str | None:
+        import_statement = self._get_symbol(import_statement_id, context)
+        if not import_statement:
+            return None
+        
+        path = getattr(import_statement, "path", None)
+
+        # Handle relative imports
+        if path and path.startswith("."):
+            parent_module = self._get_module(import_statement_id, context)
+            if parent_module:
+                parent_fqn = parent_module.fqn
+                if parent_fqn:
+                    # Resolve relative path to absolute FQN
+                    relative_parts = path.split(".")
+                    parent_parts = parent_fqn.split(".")
+                    # Remove the last part of the parent FQN for each leading dot in the relative path
+                    while relative_parts and relative_parts[0] == "":
+                        relative_parts.pop(0)
+                        if parent_parts:
+                            parent_parts.pop()
+                    # Combine the remaining parts to form the target FQN
+                    target_fqn = ".".join(parent_parts + relative_parts)
+                    return target_fqn
+
+        return path
+
+    def _extract_alias_ids(
+        self,
+        symbol_ids: set[SymbolID],
+        context: Context
+    ) -> tuple[ResolvedIDs, UnresolvedIDs]:
+        alias_ids = set()
+        non_alias_ids = set()
+
+        for symbol_id in symbol_ids:
+            symbol = self._get_symbol(symbol_id, context)
+            if isinstance(symbol, PythonImportAlias):
+                alias_ids.add(symbol_id)
+            else:
+                non_alias_ids.add(symbol_id)
+
+        return alias_ids, non_alias_ids
+
     def _populate_cache(
         self,
         module_fqn: str,
@@ -88,7 +162,7 @@ class PythonResolver(Resolver[PythonResolverResult]):
             self._populate_module_cache_key_maps(module_fqn, cache_keys or set(), symbol_cache)
             return set(), set()
 
-        found_alias_ids, resolved_ids = _extract_alias_ids(resolved_ids, context)
+        found_alias_ids, resolved_ids = self._extract_alias_ids(resolved_ids, context)
         unresolved_ids = set()
 
         if cache_keys is None:
@@ -125,7 +199,7 @@ class PythonResolver(Resolver[PythonResolverResult]):
                 continue
             visited.add(symbol_id)
 
-            symbol = _get_symbol(symbol_id, context)
+            symbol = self._get_symbol(symbol_id, context)
             if isinstance(symbol, PythonImportAlias):
                 resolved_ids_from_alias, unresolved_ids_from_alias = self.resolve_alias(symbol, context, visited, cache_keys)
                 if resolved_ids_from_alias:
@@ -148,7 +222,7 @@ class PythonResolver(Resolver[PythonResolverResult]):
         import_statement_id = alias.parent_id
 
         import_name = alias.name
-        target_module_path = _get_target_module_fqn(import_statement_id, context)
+        target_module_path = self._get_target_module_fqn(import_statement_id, context)
 
         if not target_module_path:
             logger.warning(f"Target module path not found for alias: {alias.name}")
