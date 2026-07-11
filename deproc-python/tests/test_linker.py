@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock
 from deproc.core.context import Context
-from deproc.plugins.python.linker.models import PythonModule
+from deproc.plugins.python.parser.models import PythonModule
 
 class TestLinker:
     """Test Python module linking."""
