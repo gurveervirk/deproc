@@ -5,9 +5,9 @@ from .models import (
 )
 from ..parser.models import (
     PythonImportAlias,
+    PythonModule,
     SymbolID
 )
-from ..linker.models import PythonModule
 import logging
 
 logger = logging.getLogger(__name__)
