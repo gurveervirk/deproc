@@ -12,7 +12,7 @@ from .models import (
     PythonClass,
     PythonImportStatement,
     PythonImportAlias,
-    PythonSourceFile,
+    PythonModule,
     SymbolID,
 )
 from .utils.misc import visibility_from_name
@@ -53,7 +53,7 @@ class PythonSourceParser(SourceParser):
         fqn = without_extension.replace(os.sep, ".")
         return fqn
 
-    def parse_file(self, path: str, context: Context) -> PythonSourceFile:
+    def parse_file(self, path: str, context: Context) -> PythonModule:
         if not os.path.exists(path):
             raise FileNotFoundError(f"File not found: {path}")
         
@@ -67,15 +67,15 @@ class PythonSourceParser(SourceParser):
         docstring_range = extract_docstring_range(root_node)
 
         relative_path = os.path.relpath(path, context.base_path).replace("\\", "/")
+        parent_fqn = self._compute_fqn(path, context)
 
-        source_file = PythonSourceFile(
+        source_file = PythonModule(
+            fqn=parent_fqn,
             path=relative_path,
             docstring_range=docstring_range,
             source=source_bytes.decode("utf-8"),
         )
 
-        parent_fqn = self._compute_fqn(path, context)
-        
         source_file.type_ids = self._extract_classes(root_node, context, parent_id=source_file.id, parent_fqn=parent_fqn)
         source_file.function_ids = self._extract_functions(root_node, context, type="FUNCTION", parent_id=source_file.id, parent_fqn=parent_fqn)
         source_file.variable_ids = self._extract_variables(root_node, context, parent_id=source_file.id, parent_fqn=parent_fqn)

@@ -16,9 +16,9 @@ from deproc.plugins.python.resolver.utils import (
 )
 from deproc.plugins.python.parser.models import (
     PythonImportAlias,
-    PythonImportStatement
+    PythonImportStatement,
+    PythonModule,
 )
-from deproc.plugins.python.linker.models import PythonModule
 from deproc.plugins.python.symbol_cache import PythonSymbolCache
 
 
