@@ -1,6 +1,5 @@
 import pytest
 from deproc.core.context import Context
-from deproc.core.interfaces.symbol_table_builder.models import SymbolTable
 from unittest.mock import MagicMock
 
 class TestSetLanguage:
@@ -165,59 +164,6 @@ class TestSetLinker:
         self.ctx.get_linker("unknown")
         assert "not registered" in caplog.text
 
-class TestSetSymbolTableBuilder:
-    def setup_method(self):
-        self.ctx = Context()
-        self.ctx.set_language("python", [".py"])
-
-    def test_set_and_get_symbol_table_builder(self):
-        self.ctx.set_symbol_table_builder("python", "fake_builder")
-        assert self.ctx.get_symbol_table_builder("python") == "fake_builder"
-
-    def test_has_symbol_table_builder(self):
-        assert not self.ctx.has_symbol_table_builder("python")
-        self.ctx.set_symbol_table_builder("python", "fake_builder")
-        assert self.ctx.has_symbol_table_builder("python")
-
-    def test_remove_symbol_table_builder(self):
-        self.ctx.set_symbol_table_builder("python", "fake_builder")
-        self.ctx.remove_symbol_table_builder("python")
-        assert not self.ctx.has_symbol_table_builder("python")
-
-    def test_set_symbol_table_builder_raises_for_unregistered_language(self):
-        with pytest.raises(KeyError, match="not registered"):
-            self.ctx.set_symbol_table_builder("unknown", "fake_builder")
-
-class TestSetSymbolTable:
-    def setup_method(self):
-        self.ctx = Context()
-        self.ctx.set_language("python", [".py"])
-        self.symbol_table = SymbolTable(language="python")
-
-    def test_set_and_get_symbol_table(self):
-        self.ctx.set_symbol_table(self.symbol_table)
-        assert self.ctx.get_symbol_table("python") is self.symbol_table
-
-    def test_has_symbol_table(self):
-        assert not self.ctx.has_symbol_table("python")
-        self.ctx.set_symbol_table(self.symbol_table)
-        assert self.ctx.has_symbol_table("python")
-
-    def test_remove_symbol_table(self):
-        self.ctx.set_symbol_table(self.symbol_table)
-        self.ctx.remove_symbol_table("python")
-        assert not self.ctx.has_symbol_table("python")
-
-    def test_set_symbol_table_raises_for_unregistered_language(self):
-        st = SymbolTable(language="unknown")
-        with pytest.raises(KeyError, match="not registered"):
-            self.ctx.set_symbol_table(st)
-
-    def test_get_symbol_table_missing_language_logs_warning(self, caplog):
-        caplog.set_level("WARNING")
-        self.ctx.get_symbol_table("unknown")
-        assert "not registered" in caplog.text
-
 class TestSetSymbolCache:
     def setup_method(self):
         self.ctx = Context()
@@ -297,13 +243,6 @@ class TestReset:
         ctx.reset(include_languages=False)
         assert ctx.selected_languages == set()
 
-    def test_reset_clears_symbol_tables(self):
-        ctx = Context()
-        ctx.set_language("python", [".py"])
-        ctx.set_symbol_table(SymbolTable(language="python"))
-        ctx.reset(include_languages=False, include_file_extensions=False)
-        assert not ctx.has_symbol_table("python")
-
 class TestEmptyContext:
     def test_empty_selected_languages(self):
         ctx = Context()
@@ -332,14 +271,6 @@ class TestEmptyContext:
     def test_get_linker_returns_none(self):
         ctx = Context()
         assert ctx.get_linker("anything") is None
-
-    def test_get_symbol_table_builder_returns_none(self):
-        ctx = Context()
-        assert ctx.get_symbol_table_builder("anything") is None
-
-    def test_get_symbol_table_returns_none(self):
-        ctx = Context()
-        assert ctx.get_symbol_table("anything") is None
 
     def test_get_symbol_cache_returns_none(self):
         ctx = Context()

@@ -79,7 +79,7 @@ class PythonSourceParser(SourceParser):
         source_file.type_ids = self._extract_classes(root_node, context, parent_id=source_file.id, parent_fqn=parent_fqn)
         source_file.function_ids = self._extract_functions(root_node, context, type="FUNCTION", parent_id=source_file.id, parent_fqn=parent_fqn)
         source_file.variable_ids = self._extract_variables(root_node, context, parent_id=source_file.id, parent_fqn=parent_fqn)
-        source_file.import_stmt_ids = self._extract_import_statements(root_node, context, parent_id=source_file.id)
+        source_file.import_stmt_ids = self._extract_import_statements(root_node, context, parent_id=source_file.id, module_fqn=parent_fqn)
         source_file.all_exports = self._extract_all_exports(root_node)
         source_file.control_flow_group_ids = self._extract_control_flow_groups(root_node, context, parent_id=source_file.id, parent_fqn=parent_fqn)
 
@@ -230,7 +230,8 @@ class PythonSourceParser(SourceParser):
         self, 
         node: Node, 
         context: Context,
-        parent_id: SymbolID | None = None
+        parent_id: SymbolID | None = None,
+        module_fqn: str | None = None
     ) -> SymbolID:
         source_range = create_source_range(node)
         alias_ids = []
@@ -250,7 +251,8 @@ class PythonSourceParser(SourceParser):
                     name=node_text(child),
                     alias=None,
                     parent_id=import_stmt.id,
-                    source_range=child_source_range
+                    source_range=child_source_range,
+                    fqn=f"{module_fqn}.{node_text(child)}" if module_fqn else None,
                 )
                 context.entity_registry.add(import_alias)
                 alias_ids.append(import_alias.id)
@@ -260,11 +262,13 @@ class PythonSourceParser(SourceParser):
                 alias_node = child.child_by_field_name("alias")
                 child_source_range = create_source_range(name_node) if name_node else source_range
                 if name_node:
+                    alias_name = node_text(alias_node) if alias_node else node_text(name_node)
                     import_alias = PythonImportAlias(
                         name=node_text(name_node),
                         alias=node_text(alias_node) if alias_node else None,
                         parent_id=import_stmt.id,
-                        source_range=child_source_range
+                        source_range=child_source_range,
+                        fqn=f"{module_fqn}.{alias_name}" if module_fqn else None,
                     )
                     context.entity_registry.add(import_alias)
                     alias_ids.append(import_alias.id)
@@ -277,7 +281,8 @@ class PythonSourceParser(SourceParser):
         self, 
         node: Node, 
         context: Context,
-        parent_id: SymbolID | None = None
+        parent_id: SymbolID | None = None,
+        module_fqn: str | None = None
     ) -> SymbolID:
         source_range = create_source_range(node)
         module_node = node.child_by_field_name("module_name")
@@ -303,7 +308,8 @@ class PythonSourceParser(SourceParser):
                         name=node_text(child),
                         alias=None,
                         parent_id=import_stmt.id,
-                        source_range=create_source_range(child)
+                        source_range=create_source_range(child),
+                        fqn=f"{module_fqn}.{node_text(child)}" if module_fqn else None,
                     )
                     context.entity_registry.add(import_alias)
                     alias_ids.append(import_alias.id)
@@ -313,11 +319,13 @@ class PythonSourceParser(SourceParser):
                 alias_node = child.child_by_field_name("alias")
                 child_source_range = create_source_range(name_node) if name_node else source_range
                 if name_node:
+                    alias_name = node_text(alias_node) if alias_node else node_text(name_node)
                     import_alias = PythonImportAlias(
                         name=node_text(name_node),
                         alias=node_text(alias_node) if alias_node else None,
                         parent_id=import_stmt.id,
-                        source_range=child_source_range
+                        source_range=child_source_range,
+                        fqn=f"{module_fqn}.{alias_name}" if module_fqn else None,
                     )
                     context.entity_registry.add(import_alias)
                     alias_ids.append(import_alias.id)
@@ -330,17 +338,18 @@ class PythonSourceParser(SourceParser):
         self, 
         root: Node,
         context: Context,
-        parent_id: SymbolID | None = None
+        parent_id: SymbolID | None = None,
+        module_fqn: str | None = None
     ) -> list[SymbolID]:
         import_stmt_ids: list[SymbolID] = []
 
         for child in iter_children(root):
             if child.type == "import_statement":
-                import_stmt_id = self._process_import_statement(child, context, parent_id)
+                import_stmt_id = self._process_import_statement(child, context, parent_id, module_fqn)
                 import_stmt_ids.append(import_stmt_id)
             
             elif child.type == "import_from_statement":
-                import_stmt_id = self._process_import_from_statement(child, context, parent_id)
+                import_stmt_id = self._process_import_from_statement(child, context, parent_id, module_fqn)
                 import_stmt_ids.append(import_stmt_id)
         
         return import_stmt_ids
