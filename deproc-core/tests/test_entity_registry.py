@@ -1,7 +1,11 @@
 """Tests for EntityRegistry."""
-
+from dataclasses import dataclass
 from deproc.core.runtime.registries.entity import EntityRegistry
 from deproc.core.interfaces.parser.models import Entity
+
+@dataclass(kw_only=True)
+class _FakeFqnEntity(Entity):
+    fqn: str
 
 class TestEntityRegistryValues:
     def test_empty_registry_values(self):
@@ -58,3 +62,43 @@ class TestEntityRegistryContains:
     def test_not_contains_missing(self):
         registry = EntityRegistry()
         assert "nonexistent" not in registry
+
+class TestEntityRegistryFqnMapping:
+    def test_add_entity_with_fqn_updates_mapping(self):
+        registry = EntityRegistry()
+        e = _FakeFqnEntity(id="id_1", fqn="mymodule.MyClass")
+        registry.add(e)
+        assert registry.get_ids_by_fqn("mymodule.MyClass") == {"id_1"}
+
+    def test_add_entity_without_fqn_does_not_update_mapping(self):
+        registry = EntityRegistry()
+        e = Entity(id="id_1")
+        registry.add(e)
+        assert registry.get_ids_by_fqn("anything") == set()
+
+    def test_get_ids_by_fqn_returns_empty_for_missing(self):
+        registry = EntityRegistry()
+        assert registry.get_ids_by_fqn("nonexistent") == set()
+
+    def test_get_ids_by_fqn_multiple_entities_same_fqn(self):
+        registry = EntityRegistry()
+        e1 = _FakeFqnEntity(id="id_1", fqn="mymodule.MyClass")
+        e2 = _FakeFqnEntity(id="id_2", fqn="mymodule.MyClass")
+        registry.add(e1)
+        registry.add(e2)
+        assert registry.get_ids_by_fqn("mymodule.MyClass") == {"id_1", "id_2"}
+
+    def test_remove_entity_cleans_up_fqn_mapping(self):
+        registry = EntityRegistry()
+        e = _FakeFqnEntity(id="id_1", fqn="mymodule.MyClass")
+        registry.add(e)
+        registry.remove("id_1")
+        assert registry.get_ids_by_fqn("mymodule.MyClass") == set()
+        assert "id_1" not in registry
+
+    def test_remove_entity_without_fqn_does_not_error(self):
+        registry = EntityRegistry()
+        e = Entity(id="id_1")
+        registry.add(e)
+        registry.remove("id_1")
+        assert "id_1" not in registry
