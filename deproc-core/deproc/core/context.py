@@ -28,6 +28,7 @@ class Context:
             self._resolvers = dict(copy_from._resolvers)
             self._linkers = dict(copy_from._linkers)
             self.symbol_caches = dict(copy_from.symbol_caches)
+            self._skip_paths = set(copy_from._skip_paths)
         else:
             self.base_path = base_path
             self.entity_registry = EntityRegistry()
@@ -37,6 +38,7 @@ class Context:
             self._all_file_extensions: set[str] = set()
             self._selected_languages: set[str] = set()
             self._selected_file_extensions: set[str] = set()
+            self._skip_paths: set[str] = set()
             self._parsers: dict[str, SourceParser] = {}
             self._resolvers: dict[str, Resolver] = {}
             self._linkers: dict[str, Linker] = {}
@@ -73,6 +75,13 @@ class Context:
     @property
     def selected_file_extensions(self) -> set[str]:
         return self._selected_file_extensions
+
+    @property
+    def skip_paths(self) -> set[str]:
+        return self._skip_paths
+
+    def set_skip_paths(self, paths: set[str]) -> None:
+        self._skip_paths = set(paths)
 
     def _normalize_language(self, language: str) -> str:
         normalized = language.strip().lower()

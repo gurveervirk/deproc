@@ -243,6 +243,36 @@ class TestReset:
         ctx.reset(include_languages=False)
         assert ctx.selected_languages == set()
 
+class TestSkipPaths:
+    def test_default_is_empty(self):
+        ctx = Context()
+        assert ctx.skip_paths == set()
+
+    def test_set_skip_paths(self):
+        ctx = Context()
+        ctx.set_skip_paths({".venv", ".git"})
+        assert ctx.skip_paths == {".venv", ".git"}
+
+    def test_set_skip_paths_replaces(self):
+        ctx = Context()
+        ctx.set_skip_paths({".venv"})
+        ctx.set_skip_paths({".git"})
+        assert ctx.skip_paths == {".git"}
+
+    def test_copy_preserves_skip_paths(self):
+        ctx = Context()
+        ctx.set_skip_paths({".venv", "__pycache__"})
+        copy = Context(copy_from=ctx)
+        assert copy.skip_paths == {".venv", "__pycache__"}
+
+    def test_copy_is_independent(self):
+        ctx = Context()
+        ctx.set_skip_paths({".venv"})
+        copy = Context(copy_from=ctx)
+        copy.set_skip_paths({".git"})
+        assert ctx.skip_paths == {".venv"}
+        assert copy.skip_paths == {".git"}
+
 class TestEmptyContext:
     def test_empty_selected_languages(self):
         ctx = Context()
