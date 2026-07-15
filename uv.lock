@@ -39,8 +39,8 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "deproc-core", editable = "deproc-core" },
-    { name = "tree-sitter", specifier = ">=0.25.0" },
-    { name = "tree-sitter-python", specifier = ">=0.25.0" },
+    { name = "tree-sitter", specifier = "==0.25.2" },
+    { name = "tree-sitter-python", specifier = "==0.25.0" },
 ]
 
 [[package]]
@@ -52,7 +52,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "tree-sitter", specifier = ">=0.25.0" }]
+requires-dist = [{ name = "tree-sitter", specifier = "==0.25.2" }]
 
 [[package]]
 name = "exceptiongroup"
