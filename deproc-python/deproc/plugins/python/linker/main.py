@@ -1,3 +1,4 @@
+import fnmatch
 from deproc.core.interfaces import Linker
 from deproc.core.context import Context
 from pathlib import Path
@@ -9,6 +10,9 @@ from .models import (
 )
 
 class PythonLinker(Linker[list[PythonModule], list[Node]]):
+    def _check_skip_patterns(self, path: str, skip_patterns: list[str]) -> bool:
+        return any(fnmatch.fnmatch(path, pattern) for pattern in skip_patterns)
+
     def link_files(self, nodes: list[PythonModule], context: Context) -> list[Node]:
         base_path = Path(context.base_path)
 
@@ -25,9 +29,12 @@ class PythonLinker(Linker[list[PythonModule], list[Node]]):
 
             path_to_module[relative_path] = node
 
+        skip_patterns = context.skip_paths
         top_level: list[Node] = []
         for sub_path in base_path.iterdir():
             if sub_path.name == "__pycache__":
+                continue
+            if self._check_skip_patterns(sub_path.name, skip_patterns):
                 continue
             if not self.validate_path(str(sub_path)):
                 continue
@@ -75,7 +82,8 @@ class PythonLinker(Linker[list[PythonModule], list[Node]]):
         for sub_path in current_path.iterdir():
             if sub_path.name == "__pycache__":
                 continue
-
+            if self._check_skip_patterns(sub_path.name, context.skip_paths):
+                continue
             sub_node = self.traverse_path(base_path, sub_path, path_to_module, has_init, context)
             if sub_node:
                 sub_node.parent_id = package.id
