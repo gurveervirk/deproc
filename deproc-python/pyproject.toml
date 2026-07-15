@@ -7,7 +7,7 @@ name = "deproc-python"
 version = "0.1.0"
 description = "Python language plugin for deproc."
 requires-python = ">=3.10"
-dependencies = ["deproc-core", "tree-sitter>=0.25.0", "tree-sitter-python>=0.25.0"]
+dependencies = ["deproc-core", "tree-sitter==0.25.2", "tree-sitter-python==0.25.0"]
 
 [tool.setuptools.packages.find]
 where = ["."]
