@@ -2,6 +2,7 @@
 Provisional data models for the parser interface.
 Please use these models either directly in the plugin implementations or as a reference for defining plugin-specific models.
 """
+import hashlib
 from dataclasses import dataclass, field
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
@@ -134,3 +135,7 @@ class SourceFile(Docstring, Node):
     variable_ids: list[SymbolID] = field(default_factory=list)
     control_flow_group_ids: list[SymbolID] = field(default_factory=list)
     source: str
+
+    def _compute_id(self) -> str:
+        h = hashlib.sha256(self.source.encode()).hexdigest()[:16]
+        return uuid5(NAMESPACE_URL, f"file://{self.path}#{h}").hex
