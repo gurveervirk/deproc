@@ -114,6 +114,16 @@ class TestNodeDeterministicId:
         n2 = NodeSubclass(path="foo.py", parent_id=_OTHER_PARENT, source_range=sr)
         assert n1.id == n2.id
 
+    def test_source_file_different_source_different_id(self):
+        sf1 = SourceFile(path="foo.py", docstring_range=None, source="a")
+        sf2 = SourceFile(path="foo.py", docstring_range=None, source="b")
+        assert sf1.id != sf2.id
+
+    def test_source_file_same_source_same_id(self):
+        sf1 = SourceFile(path="foo.py", docstring_range=None, source="hello")
+        sf2 = SourceFile(path="foo.py", docstring_range=None, source="hello")
+        assert sf1.id == sf2.id
+
 class TestConcreteSubclassDeterminism:
     def test_variable_declaration_with_parent_and_source_is_deterministic(self):
         sr = SourceRange(lineno=5, end_lineno=5, col_offset=0, end_col_offset=10)
