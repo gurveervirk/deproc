@@ -124,6 +124,28 @@ class TestNodeDeterministicId:
         sf2 = SourceFile(path="foo.py", docstring_range=None, source="hello")
         assert sf1.id == sf2.id
 
+class TestSourceRangeSourceId:
+    def test_source_id_defaults_to_none(self):
+        sr = SourceRange(lineno=1, end_lineno=10, col_offset=0, end_col_offset=5)
+        assert sr.source_id is None
+
+    def test_source_id_set_via_keyword(self):
+        sr = SourceRange(lineno=1, end_lineno=10, col_offset=0, end_col_offset=5, source_id="src123")
+        assert sr.source_id == "src123"
+
+    def test_source_id_not_in_entity_id_computation(self):
+        sr1 = SourceRange(lineno=5, end_lineno=5, col_offset=0, end_col_offset=10, source_id="file_a")
+        sr2 = SourceRange(lineno=5, end_lineno=5, col_offset=0, end_col_offset=10, source_id="file_b")
+        e1 = _EntityWithSource(parent_id=_PARENT, source_range=sr1)
+        e2 = _EntityWithSource(parent_id=_PARENT, source_range=sr2)
+        assert e1.id == e2.id
+
+    def test_source_id_mutable(self):
+        sr = SourceRange(lineno=1, end_lineno=1, col_offset=0, end_col_offset=0)
+        assert sr.source_id is None
+        sr.source_id = "assigned_later"
+        assert sr.source_id == "assigned_later"
+
 class TestConcreteSubclassDeterminism:
     def test_variable_declaration_with_parent_and_source_is_deterministic(self):
         sr = SourceRange(lineno=5, end_lineno=5, col_offset=0, end_col_offset=10)
