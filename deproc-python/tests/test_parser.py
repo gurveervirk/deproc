@@ -55,6 +55,47 @@ from . import local_module
         ast = parser.parse_file(temp_file, context)
         assert ast is not None
 
+    def test_entities_have_source_id(self):
+        """All entities with source_range get source_file_id set."""
+        code = """
+import os
+from typing import List
+
+class MyClass:
+    def method(self) -> None:
+        pass
+
+def func():
+    x = 1
+"""
+        temp_file = _create_temp_file(code)
+        ctx = Context()
+        source_file = parser.parse_file(temp_file, ctx)
+        for entity in ctx.entity_registry.values():
+            sr = getattr(entity, "source_range", None)
+            if sr is not None:
+                assert sr.source_id == source_file.id, f"{type(entity).__name__} missing source_id"
+
+    def test_source_id_on_control_flow_entities(self):
+        """Control flow entities also get source_id set on their source_range."""
+        code = """
+if True:
+    class X:
+        pass
+elif False:
+    def y():
+        pass
+else:
+    z = 1
+"""
+        temp_file = _create_temp_file(code)
+        ctx = Context()
+        source_file = parser.parse_file(temp_file, ctx)
+        for entity in ctx.entity_registry.values():
+            sr = getattr(entity, "source_range", None)
+            if sr is not None:
+                assert sr.source_id == source_file.id, f"{type(entity).__name__} missing source_id"
+
     def test_parse_empty_code(self):
         """Handle empty code."""
         code = ""

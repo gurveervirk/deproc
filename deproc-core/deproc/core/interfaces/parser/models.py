@@ -30,12 +30,13 @@ class Entity:
             return uuid5(namespace, name).hex
         return uuid4().hex
 
-@dataclass
+@dataclass(kw_only=True)
 class SourceRange:
     lineno: int
     end_lineno: int
     col_offset: int
     end_col_offset: int
+    source_id: str | None = None
 
 @dataclass
 class Docstring:

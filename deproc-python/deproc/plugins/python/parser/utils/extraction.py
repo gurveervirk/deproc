@@ -16,7 +16,7 @@ from .tree_sitter_python import (
 from tree_sitter import Node
 from deproc.utils import iter_children, first_child
 
-def extract_docstring_range(node: Node) -> SourceRange | None:
+def extract_docstring_range(node: Node, source_file_id: str | None = None) -> SourceRange | None:
     if node.type == "module":
         body = node
     elif node.type in ("class_definition", "function_definition"):
@@ -31,18 +31,18 @@ def extract_docstring_range(node: Node) -> SourceRange | None:
         if child.type == "expression_statement":
             first_child_node = first_child(child)
             if first_child_node and first_child_node.type == "string":
-                return create_source_range(first_child_node)
+                return create_source_range(first_child_node, source_id=source_file_id)
         elif child.type == "comment":
             continue
         else:
             break
     return None
 
-def extract_decorator_details(decorated_node: Node) -> list[Annotation]:
+def extract_decorator_details(decorated_node: Node, source_file_id: str | None = None) -> list[Annotation]:
     decorators: list[Annotation] = []
     for child in iter_children(decorated_node):
         if child.type == "decorator":
-            source_range = create_source_range(child)
+            source_range = create_source_range(child, source_id=source_file_id)
             decorators.append(
                 Annotation(
                     name=node_text(child).strip(),
@@ -51,12 +51,12 @@ def extract_decorator_details(decorated_node: Node) -> list[Annotation]:
             )
     return decorators
 
-def extract_signature(function_node: Node) -> Signature:
+def extract_signature(function_node: Node, source_file_id: str | None = None) -> Signature:
     params_node = function_node.child_by_field_name("parameters")
-    arguments_range = create_source_range(params_node) if params_node else None
+    arguments_range = create_source_range(params_node, source_id=source_file_id) if params_node else None
 
     return_node = function_node.child_by_field_name("return_type")
-    return_type_range = create_source_range(return_node) if return_node else None
+    return_type_range = create_source_range(return_node, source_id=source_file_id) if return_node else None
 
     # Preferably use colon as end of signature
     colon_node = None
@@ -70,7 +70,8 @@ def extract_signature(function_node: Node) -> Signature:
         lineno=function_node.start_point.row + 1,
         end_lineno=end_point.row + 1,
         col_offset=function_node.start_point.column,
-        end_col_offset=end_point.column
+        end_col_offset=end_point.column,
+        source_id=source_file_id,
     )
 
     return Signature(
@@ -88,19 +89,20 @@ def collect_from_assignment_node(
         node: Node,
         parent_fqn: str,
         parent_id: SymbolID,
+        source_file_id: str | None = None,
     ) -> list[VariableDeclaration]:
     variables: list[VariableDeclaration] = []
 
-    source_range = create_source_range(node)
+    source_range = create_source_range(node, source_id=source_file_id)
 
     left = node.child_by_field_name("left")
     name = node_text(left)
-    left_range = create_source_range(left) if left else None
+    left_range = create_source_range(left, source_id=source_file_id) if left else None
 
     if node.type == "assignment":
         if left and left.type in ("pattern_list", "tuple_pattern"):
             right = node.child_by_field_name("right")
-            value_range = create_source_range(right) if right else None
+            value_range = create_source_range(right, source_id=source_file_id) if right else None
             variable_binding = ComplexBinding(
                 source_range=left_range,
             )
@@ -123,10 +125,10 @@ def collect_from_assignment_node(
             )
 
             right = node.child_by_field_name("right")
-            value_range = create_source_range(right) if right else None
+            value_range = create_source_range(right, source_id=source_file_id) if right else None
 
             type_node = node.child_by_field_name("type")
-            type_range = create_source_range(type_node) if type_node else None
+            type_range = create_source_range(type_node, source_id=source_file_id) if type_node else None
 
             variable_declaration_type = _select_variable_declaration_type(name)
             variables.append(
@@ -147,10 +149,10 @@ def collect_from_assignment_node(
             )
 
             value_node = node.child_by_field_name("right")
-            value_range = create_source_range(value_node) if value_node else None
+            value_range = create_source_range(value_node, source_id=source_file_id) if value_node else None
 
             type_node = node.child_by_field_name("type")
-            type_range = create_source_range(type_node) if type_node else None
+            type_range = create_source_range(type_node, source_id=source_file_id) if type_node else None
 
             variable_declaration_type = _select_variable_declaration_type(name)
             variables.append(
@@ -172,7 +174,7 @@ def collect_from_assignment_node(
                 name=name,
                 fqn=f"{parent_fqn}.{name}"
             )
-            value_range = create_source_range(value_node) if value_node else None
+            value_range = create_source_range(value_node, source_id=source_file_id) if value_node else None
 
             variables.append(
                 PythonTypeAlias(
