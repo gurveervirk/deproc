@@ -13,6 +13,7 @@ from .models import (
     PythonImportStatement,
     PythonImportAlias,
     PythonModule,
+    SourceRange,
     SymbolID,
 )
 from .utils.misc import visibility_from_name
@@ -34,6 +35,7 @@ class PythonSourceParser(SourceParser):
     def __init__(self):
         self._parser = get_python_parser()
         self._language = get_python_language()
+        self._current_source_file_id: str | None = None
 
         self.all_exports_query = Query(
             self._language,
@@ -45,6 +47,9 @@ class PythonSourceParser(SourceParser):
                 )
             )"""
         )
+
+    def _sr(self, node: Node) -> SourceRange:
+        return create_source_range(node, source_id=self._current_source_file_id)
 
     def _compute_fqn(self, file_path: str, context: Context) -> str:
         base_path = context.base_path
@@ -79,6 +84,7 @@ class PythonSourceParser(SourceParser):
             source=source_bytes.decode("utf-8"),
         )
 
+        self._current_source_file_id = source_file.id
         source_file.type_ids = self._extract_classes(root_node, context, parent_id=source_file.id, parent_fqn=parent_fqn)
         source_file.function_ids = self._extract_functions(root_node, context, type="FUNCTION", parent_id=source_file.id, parent_fqn=parent_fqn)
         source_file.variable_ids = self._extract_variables(root_node, context, parent_id=source_file.id, parent_fqn=parent_fqn)
@@ -101,7 +107,7 @@ class PythonSourceParser(SourceParser):
             elif child.type == "decorated_definition":
                 definition = child.child_by_field_name("definition")
                 if definition and definition.type == "class_definition":
-                    decorator_details = extract_decorator_details(child)
+                    decorator_details = extract_decorator_details(child, source_file_id=self._current_source_file_id)
                     class_ids.append(self._process_class_node(definition, decorator_details, context, parent_id, parent_fqn))
 
         return class_ids
@@ -114,7 +120,7 @@ class PythonSourceParser(SourceParser):
         parent_id: SymbolID | None = None,
         parent_fqn: str | None = None
     ) -> SymbolID:
-        source_range = create_source_range(node)
+        source_range = self._sr(node)
         name_node = node.child_by_field_name("name")
         name = node_text(name_node)
 
@@ -127,7 +133,7 @@ class PythonSourceParser(SourceParser):
                 if part.type not in (",", "(", ")")
             ]
 
-        docstring_range = extract_docstring_range(node)
+        docstring_range = extract_docstring_range(node, source_file_id=self._current_source_file_id)
         
         cls_fqn = f"{parent_fqn}.{name}" if parent_fqn else name
         body_node = node.child_by_field_name("body")
@@ -160,7 +166,7 @@ class PythonSourceParser(SourceParser):
             elif child.type == "decorated_definition":
                 definition = child.child_by_field_name("definition")
                 if definition and definition.type == "function_definition":
-                    decorator_details = extract_decorator_details(child)
+                    decorator_details = extract_decorator_details(child, source_file_id=self._current_source_file_id)
                     function_ids.append(self._process_function_node(definition, decorator_details, context, type, parent_id, parent_fqn))
         return function_ids
 
@@ -173,12 +179,12 @@ class PythonSourceParser(SourceParser):
         parent_id: SymbolID | None = None,
         parent_fqn: str | None = None
     ) -> SymbolID:
-        source_range = create_source_range(node)
+        source_range = self._sr(node)
         name_node = node.child_by_field_name("name")
         name = node_text(name_node)
 
-        docstring_range = extract_docstring_range(node)
-        signature = extract_signature(node)
+        docstring_range = extract_docstring_range(node, source_file_id=self._current_source_file_id)
+        signature = extract_signature(node, source_file_id=self._current_source_file_id)
 
         func_fqn = f"{parent_fqn}.{name}" if parent_fqn else name
         
@@ -203,11 +209,11 @@ class PythonSourceParser(SourceParser):
             if child.type == "expression_statement":
                 inner = first_child(child)
                 if inner:
-                    for v in collect_from_assignment_node(node=inner, parent_fqn=parent_fqn, parent_id=parent_id):
+                    for v in collect_from_assignment_node(node=inner, parent_fqn=parent_fqn, parent_id=parent_id, source_file_id=self._current_source_file_id):
                         context.entity_registry.add(v)
                         variable_ids.append(v.id)
                 continue
-            for v in collect_from_assignment_node(node=child, parent_fqn=parent_fqn, parent_id=parent_id):
+            for v in collect_from_assignment_node(node=child, parent_fqn=parent_fqn, parent_id=parent_id, source_file_id=self._current_source_file_id):
                 context.entity_registry.add(v)
                 variable_ids.append(v.id)
         
@@ -236,7 +242,7 @@ class PythonSourceParser(SourceParser):
         parent_id: SymbolID | None = None,
         module_fqn: str | None = None
     ) -> SymbolID:
-        source_range = create_source_range(node)
+        source_range = self._sr(node)
         alias_ids = []
 
         import_stmt = PythonImportStatement(
@@ -249,7 +255,7 @@ class PythonSourceParser(SourceParser):
 
         for child in iter_children(node):
             if child.type == "dotted_name":
-                child_source_range = create_source_range(child)
+                child_source_range = self._sr(child)
                 import_alias = PythonImportAlias(
                     name=node_text(child),
                     alias=None,
@@ -263,7 +269,7 @@ class PythonSourceParser(SourceParser):
             elif child.type == "aliased_import":
                 name_node = child.child_by_field_name("name")
                 alias_node = child.child_by_field_name("alias")
-                child_source_range = create_source_range(name_node) if name_node else source_range
+                child_source_range = self._sr(name_node) if name_node else source_range
                 if name_node:
                     alias_name = node_text(alias_node) if alias_node else node_text(name_node)
                     import_alias = PythonImportAlias(
@@ -287,7 +293,7 @@ class PythonSourceParser(SourceParser):
         parent_id: SymbolID | None = None,
         module_fqn: str | None = None
     ) -> SymbolID:
-        source_range = create_source_range(node)
+        source_range = self._sr(node)
         module_node = node.child_by_field_name("module_name")
         module_name = node_text(module_node) if module_node else ""
 
@@ -311,7 +317,7 @@ class PythonSourceParser(SourceParser):
                         name=node_text(child),
                         alias=None,
                         parent_id=import_stmt.id,
-                        source_range=create_source_range(child),
+                        source_range=self._sr(child),
                         fqn=f"{module_fqn}.{node_text(child)}" if module_fqn else None,
                     )
                     context.entity_registry.add(import_alias)
@@ -320,7 +326,7 @@ class PythonSourceParser(SourceParser):
             elif child.type == "aliased_import":
                 name_node = child.child_by_field_name("name")
                 alias_node = child.child_by_field_name("alias")
-                child_source_range = create_source_range(name_node) if name_node else source_range
+                child_source_range = self._sr(name_node) if name_node else source_range
                 if name_node:
                     alias_name = node_text(alias_node) if alias_node else node_text(name_node)
                     import_alias = PythonImportAlias(
@@ -374,7 +380,7 @@ class PythonSourceParser(SourceParser):
                 grp = ControlFlowGroup(
                     parent_id=parent_id,
                     group_type="if_statement",
-                    source_range=create_source_range(child),
+                    source_range=self._sr(child),
                 )
                 grp.block_ids = self._process_if_node(child, context, parent_id=grp.id, parent_fqn=parent_fqn)
                 context.entity_registry.add(grp)
@@ -384,7 +390,7 @@ class PythonSourceParser(SourceParser):
                 grp = ControlFlowGroup(
                     parent_id=parent_id,
                     group_type="try_statement",
-                    source_range=create_source_range(child),
+                    source_range=self._sr(child),
                 )
                 grp.block_ids = self._process_try_node(child, context, parent_id=grp.id, parent_fqn=parent_fqn)
                 context.entity_registry.add(grp)
@@ -394,10 +400,10 @@ class PythonSourceParser(SourceParser):
 
     def _process_if_node(self, node: Node, context: Context, parent_id: SymbolID | None = None, parent_fqn: str | None = None) -> list[SymbolID]:
         result_ids: list[SymbolID] = []
-        source_range = create_source_range(node)
+        source_range = self._sr(node)
 
         condition_node = node.child_by_field_name("condition")
-        condition_range = create_source_range(condition_node) if condition_node else None
+        condition_range = self._sr(condition_node) if condition_node else None
         
         consequence_node = node.child_by_field_name("consequence")
         if consequence_node:
@@ -420,13 +426,13 @@ class PythonSourceParser(SourceParser):
         for child in iter_children(node):
             if child.type == "elif_clause":
                 alt_cond_node = child.child_by_field_name("condition")
-                alt_cond_range = create_source_range(alt_cond_node) if alt_cond_node else None
+                alt_cond_range = self._sr(alt_cond_node) if alt_cond_node else None
                 alt_body = child.child_by_field_name("consequence")
                 if alt_body:
                     blk = ControlFlowBlock(
                         parent_id=parent_id,
                         branch="elif",
-                        source_range=create_source_range(child),
+                        source_range=self._sr(child),
                         condition_range=alt_cond_range,
                     )
                     
@@ -445,7 +451,7 @@ class PythonSourceParser(SourceParser):
                     blk = ControlFlowBlock(
                         parent_id=parent_id,
                         branch="else",
-                        source_range=create_source_range(child),
+                        source_range=self._sr(child),
                         condition_range=None,
                     )
                     
@@ -462,7 +468,7 @@ class PythonSourceParser(SourceParser):
 
     def _process_try_node(self, node: Node, context: Context, parent_id: SymbolID | None = None, parent_fqn: str | None = None) -> list[SymbolID]:
         result_ids: list[SymbolID] = []
-        source_range = create_source_range(node)
+        source_range = self._sr(node)
         body_node = node.child_by_field_name("body")
         if body_node:
             blk = ControlFlowBlock(
@@ -485,11 +491,11 @@ class PythonSourceParser(SourceParser):
             if child.type in ("except_clause", "except_group_clause"):
                 body = child.child_by_field_name("body")
                 if body:
-                    condition_range = create_source_range(child.child_by_field_name("condition")) if child.child_by_field_name("condition") else None
+                    condition_range = self._sr(child.child_by_field_name("condition")) if child.child_by_field_name("condition") else None
                     blk = ControlFlowBlock(
                         parent_id=parent_id,
                         branch="except",
-                        source_range=create_source_range(child),
+                        source_range=self._sr(child),
                         condition_range=condition_range,
                     )
 
@@ -508,7 +514,7 @@ class PythonSourceParser(SourceParser):
                     blk = ControlFlowBlock(
                         parent_id=parent_id,
                         branch="else",
-                        source_range=create_source_range(child),
+                        source_range=self._sr(child),
                         condition_range=None,
                     )
 
@@ -530,7 +536,7 @@ class PythonSourceParser(SourceParser):
                     blk = ControlFlowBlock(
                         parent_id=parent_id,
                         branch="finally",
-                        source_range=create_source_range(child),
+                        source_range=self._sr(child),
                         condition_range=None,
                     )
 
