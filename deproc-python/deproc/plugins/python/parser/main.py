@@ -414,7 +414,7 @@ class PythonSourceParser(SourceParser):
                 condition_range=condition_range,
             )
             
-            blk.import_stmt_ids = self._extract_import_statements(consequence_node, context, parent_id=blk.id)
+            blk.import_stmt_ids = self._extract_import_statements(consequence_node, context, parent_id=blk.id, module_fqn=parent_fqn)
             blk.type_ids = self._traverse_block_for_classes(consequence_node, context, parent_id=blk.id, parent_fqn=parent_fqn)
             blk.function_ids = self._extract_functions(consequence_node, context, type="FUNCTION", parent_id=blk.id, parent_fqn=parent_fqn)
             blk.variable_ids = self._extract_variables(consequence_node, context, parent_id=blk.id, parent_fqn=parent_fqn)
@@ -436,7 +436,7 @@ class PythonSourceParser(SourceParser):
                         condition_range=alt_cond_range,
                     )
                     
-                    blk.import_stmt_ids = self._extract_import_statements(alt_body, context, parent_id=blk.id)
+                    blk.import_stmt_ids = self._extract_import_statements(alt_body, context, parent_id=blk.id, module_fqn=parent_fqn)
                     blk.type_ids = self._traverse_block_for_classes(alt_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
                     blk.function_ids = self._extract_functions(alt_body, context, type="FUNCTION", parent_id=blk.id, parent_fqn=parent_fqn)
                     blk.variable_ids = self._extract_variables(alt_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
@@ -455,7 +455,7 @@ class PythonSourceParser(SourceParser):
                         condition_range=None,
                     )
                     
-                    blk.import_stmt_ids = self._extract_import_statements(alt_body, context, parent_id=blk.id)
+                    blk.import_stmt_ids = self._extract_import_statements(alt_body, context, parent_id=blk.id, module_fqn=parent_fqn)
                     blk.type_ids = self._traverse_block_for_classes(alt_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
                     blk.function_ids = self._extract_functions(alt_body, context, type="FUNCTION", parent_id=blk.id, parent_fqn=parent_fqn)
                     blk.variable_ids = self._extract_variables(alt_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
@@ -478,7 +478,7 @@ class PythonSourceParser(SourceParser):
                 condition_range=None,
             )
             
-            blk.import_stmt_ids = self._extract_import_statements(body_node, context, parent_id=blk.id)
+            blk.import_stmt_ids = self._extract_import_statements(body_node, context, parent_id=blk.id, module_fqn=parent_fqn)
             blk.type_ids = self._traverse_block_for_classes(body_node, context, parent_id=blk.id, parent_fqn=parent_fqn)
             blk.function_ids = self._extract_functions(body_node, context, type="FUNCTION", parent_id=blk.id, parent_fqn=parent_fqn)
             blk.variable_ids = self._extract_variables(body_node, context, parent_id=blk.id, parent_fqn=parent_fqn)
@@ -499,7 +499,7 @@ class PythonSourceParser(SourceParser):
                         condition_range=condition_range,
                     )
 
-                    blk.import_stmt_ids = self._extract_import_statements(body, context, parent_id=blk.id)
+                    blk.import_stmt_ids = self._extract_import_statements(body, context, parent_id=blk.id, module_fqn=parent_fqn)
                     blk.type_ids = self._traverse_block_for_classes(body, context, parent_id=blk.id, parent_fqn=parent_fqn)
                     blk.function_ids = self._extract_functions(body, context, type="FUNCTION", parent_id=blk.id, parent_fqn=parent_fqn)
                     blk.variable_ids = self._extract_variables(body, context, parent_id=blk.id, parent_fqn=parent_fqn)
@@ -518,7 +518,7 @@ class PythonSourceParser(SourceParser):
                         condition_range=None,
                     )
 
-                    blk.import_stmt_ids = self._extract_import_statements(alt_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.import_stmt_ids = self._extract_import_statements(alt_body, context, parent_id=blk.id, module_fqn=parent_fqn)
                     blk.type_ids = self._traverse_block_for_classes(alt_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
                     blk.function_ids = self._extract_functions(alt_body, context, type="FUNCTION", parent_id=blk.id, parent_fqn=parent_fqn)
                     blk.variable_ids = self._extract_variables(alt_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
@@ -540,7 +540,7 @@ class PythonSourceParser(SourceParser):
                         condition_range=None,
                     )
 
-                    blk.import_stmt_ids = self._extract_import_statements(fin_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
+                    blk.import_stmt_ids = self._extract_import_statements(fin_body, context, parent_id=blk.id, module_fqn=parent_fqn)
                     blk.type_ids = self._traverse_block_for_classes(fin_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
                     blk.function_ids = self._extract_functions(fin_body, context, type="FUNCTION", parent_id=blk.id, parent_fqn=parent_fqn)
                     blk.variable_ids = self._extract_variables(fin_body, context, parent_id=blk.id, parent_fqn=parent_fqn)
