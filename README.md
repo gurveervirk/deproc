@@ -181,3 +181,22 @@ uv run pytest
 uv run pytest deproc-python/tests/
 uv run pytest deproc-core/tests/
 ```
+
+## Agent Skills
+
+deproc ships an [Agent Skills](https://agentskills.io) definition at `.agents/skills/deproc/SKILL.md`. This teaches AI coding agents how to use deproc for programmatic source code analysis.
+
+**Supported agents:** Claude Code, OpenCode, Cursor, GitHub Copilot, VS Code, Codex, Gemini CLI, Junie, and 20+ others.
+
+**Auto-discovery:** When an agent works in this repository, the skill is discovered automatically.
+
+**Install in other projects:**
+
+```bash
+npx skills add gurveervirk/deproc
+```
+
+
+## License
+
+See [LICENSE](LICENSE).
