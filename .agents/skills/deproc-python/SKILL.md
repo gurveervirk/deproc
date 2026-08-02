@@ -76,6 +76,17 @@ from deproc.plugins.python.utils.exports import build_module_exports
 exports = build_module_exports(registry)  # → {"pkg.mod": {"ClassA", "func"}}
 ```
 
+## Relative import resolution
+
+```python
+from deproc.plugins.python.utils.imports import resolve_relative_import_path
+
+resolve_relative_import_path(".sibling", "pkg.sub.mod", False)  # → "pkg.sub.sibling"
+resolve_relative_import_path("..other", "package.subpackage", True)  # → "package.other"
+```
+
+Pure function — takes `relative_path`, `parent_fqn`, `parent_is_package` and returns the resolved absolute FQN string.
+
 ## Entity serialization
 
 ```python
