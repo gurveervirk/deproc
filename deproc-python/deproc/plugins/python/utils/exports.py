@@ -1,10 +1,11 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING
 from collections import defaultdict
+from ..parser.models import PythonModule
 
 if TYPE_CHECKING:
     from deproc.core.runtime.registries.entity import EntityRegistry
-    from ..parser.models import PythonModule
+
 
 def build_module_exports(registry: EntityRegistry) -> dict[str, set[str]]:
     exports: dict[str, set[str]] = defaultdict(set)
