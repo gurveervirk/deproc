@@ -1,3 +1,4 @@
+from .inheritance import c3_merge, compute_mro_from_bases
 from .linker import PythonLinker
 from .parser import PythonSourceParser
 from .resolver import PythonResolver
@@ -8,4 +9,6 @@ __all__ = [
     "PythonResolver",
     "PythonSourceParser",
     "PythonSymbolCache",
+    "c3_merge",
+    "compute_mro_from_bases",
 ]
