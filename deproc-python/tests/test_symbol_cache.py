@@ -1,7 +1,5 @@
 """Tests for Python symbol cache."""
-
 from deproc.plugins.python.symbol_cache.main import PythonSymbolCache
-
 
 class TestSymbolCache:
     """Test symbol caching."""

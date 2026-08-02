@@ -55,7 +55,7 @@ result = ctx.get_resolver("python").resolve("mymodule", "MyClass", ctx)
 ## MRO / inheritance utilities
 
 ```python
-from deproc.plugins.python.inheritance import c3_merge, compute_mro_from_bases
+from deproc.plugins.python.utils.mro import c3_merge, compute_mro_from_bases
 
 # C3 linearization merge
 c3_merge([["B", "O"], ["C", "O"], ["B", "C"]])  # → ["B", "C", "O"]
@@ -66,6 +66,14 @@ compute_mro_from_bases(
     base_mros={"Base": ["Base", "object"]},
     base_fqns=["Base"],
 )  # → ["Child", "Base", "object"]
+```
+
+## Module exports
+
+```python
+from deproc.plugins.python.utils.exports import build_module_exports
+
+exports = build_module_exports(registry)  # → {"pkg.mod": {"ClassA", "func"}}
 ```
 
 ## Resolver result type

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 def c3_merge(seqs: list[list[str]]) -> list[str]:
     result: list[str] = []
     while True:

@@ -96,6 +96,22 @@ registry.get_ids_by_fqn(fqn) # FQN → set of entity IDs
 registry.values()            # all entities
 ```
 
+## Entity utilities
+
+```python
+from deproc.core.runtime.registries.entity.utils import (
+    entity_fqn,
+    parent_chain,
+    find_first_ancestor_of_type,
+    classify_entity_scope,
+)
+
+entity_fqn(entity)  # → "pkg.mod.ClassName" or None (falls back to variable_binding.fqn)
+parent_chain(registry, entity_id)  # → [entity, parent, grandparent, ...]
+find_first_ancestor_of_type(registry, entity_id, {"MODULE", "PACKAGE"})  # → Entity or None
+classify_entity_scope(registry, entity_id)  # → "module_level" or "conditional:<branch>"
+```
+
 ## File discovery
 ```python
 from deproc.core.discovery import find_source_files

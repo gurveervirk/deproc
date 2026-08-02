@@ -1,6 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
-from ...interfaces.parser.models import (
+from ....interfaces.parser.models import (
     Entity,
     SymbolID,
 )
