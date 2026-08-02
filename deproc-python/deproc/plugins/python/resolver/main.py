@@ -14,6 +14,7 @@ from ..parser.models import (
     PythonImportAlias,
     SymbolID,
 )
+from ..utils.imports import resolve_relative_import_path
 import logging
 
 logger = logging.getLogger(__name__)
@@ -66,16 +67,7 @@ class PythonResolver(Resolver[PythonResolverResult]):
                 parent_fqn = parent_module.fqn
                 if parent_fqn:
                     is_package = getattr(parent_module, "path", "").endswith(("__init__.py", "__init__.pyi"))
-                    relative_parts = path.split(".")
-                    parent_parts = parent_fqn.split(".")
-                    num_leading_dots = len(path) - len(path.lstrip("."))
-                    levels_to_pop = num_leading_dots - (1 if is_package else 0)
-                    for _ in range(levels_to_pop):
-                        if parent_parts:
-                            parent_parts.pop()
-                    relative_parts = [p for p in relative_parts if p]
-                    target_fqn = ".".join(parent_parts + relative_parts)
-                    return target_fqn
+                    return resolve_relative_import_path(path, parent_fqn, is_package)
 
         return path
 
