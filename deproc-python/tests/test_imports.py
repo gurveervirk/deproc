@@ -1,6 +1,4 @@
-import pytest
 from deproc.plugins.python.utils.imports import resolve_relative_import_path
-
 
 class TestResolveRelativeImportPath:
     def test_single_dot_module(self):
