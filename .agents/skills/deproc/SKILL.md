@@ -8,18 +8,21 @@ metadata:
 
 # deproc — Source Code Analysis Framework
 
+## Packages
+
+| Package | Purpose |
+|---|---|
+| `deproc-core` | Plugin interfaces, entity models, context, entity registry |
+| `deproc-python` | Python language plugin (tree-sitter based) |
+| `deproc-utils-tree-sitter` | Shared tree-sitter AST walking utilities |
+
 ## Installation
 ```bash
 pip install deproc-core deproc-python deproc-utils-tree-sitter
 ```
 
-## Core interfaces
-- **SourceParser** — `parse_file(path, ctx)` → `SourceFile` with entities
-- **Linker** — `link_files(modules, ctx)` → hierarchical package tree
-- **Resolver** — `resolve(module, symbol, ctx)` → entity IDs
-- **SymbolCache** — `get`/`set` for caching results
+## Quick start
 
-## Basic pipeline
 ```python
 from deproc.core.context import Context
 from deproc.core.discovery import find_source_files
@@ -40,6 +43,11 @@ modules = [parser.parse_file(f, ctx) for f in files]
 root = ctx.get_linker("python").link_files(modules, ctx)
 result = ctx.get_resolver("python").resolve("mymodule", "MyClass", ctx)
 ```
+
+## Learn more
+
+- **Building a language plugin?** See `deproc-core` skill — covers `Context`, `EntityRegistry`, protocol interfaces (`SourceParser`, `Linker`, `Resolver`, `SymbolCache`), and entity models.
+- **Using deproc for Python analysis?** See `deproc-python` skill — covers Python plugin setup, Python-specific models, and MRO/inheritance utilities.
 
 ## When to use me
 - Building a code intelligence tool or language server
