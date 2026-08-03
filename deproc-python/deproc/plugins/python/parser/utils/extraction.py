@@ -14,7 +14,7 @@ from .tree_sitter_python import (
     create_source_range
 )
 from tree_sitter import Node
-from deproc.utils import iter_children, first_child
+from deproc.utils.tree_walk import iter_children, first_child
 
 def extract_docstring_range(node: Node, source_file_id: str | None = None) -> SourceRange | None:
     if node.type == "module":
