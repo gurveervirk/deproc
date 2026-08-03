@@ -6,6 +6,7 @@ requires-python = ">=3.10"
 members = [
     "deproc-core",
     "deproc-python",
+    "deproc-utils-python-env",
     "deproc-utils-tree-sitter",
 ]
 
@@ -42,6 +43,11 @@ requires-dist = [
     { name = "tree-sitter", specifier = "==0.25.2" },
     { name = "tree-sitter-python", specifier = "==0.25.0" },
 ]
+
+[[package]]
+name = "deproc-utils-python-env"
+version = "0.1.0"
+source = { editable = "deproc-utils-python-env" }
 
 [[package]]
 name = "deproc-utils-tree-sitter"

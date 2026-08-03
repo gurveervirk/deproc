@@ -1,6 +1,6 @@
 from deproc.core.interfaces import SourceParser
 from deproc.core.context import Context
-from deproc.utils import iter_children, first_child
+from deproc.utils.tree_walk import iter_children, first_child
 from tree_sitter import Query, Node, QueryCursor
 import os
 
