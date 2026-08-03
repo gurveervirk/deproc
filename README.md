@@ -10,6 +10,9 @@ pip install deproc-core
 
 # Python plugin (tree-sitter-based parser, linker, and resolver)
 pip install deproc-python
+
+# Virtual environment utilities (venv detection, package discovery)
+pip install deproc-utils-python-env
 ```
 
 ### Dependencies
@@ -133,6 +136,11 @@ deproc/
   deproc-utils-tree-sitter/      # Shared tree-sitter tree-walking utilities
     deproc/utils/
       tree_walk.py               # iter_children, first_child, walk_preorder
+
+  deproc-utils-python-env/        # Virtual environment utilities
+    deproc/utils/python_env/
+      detect.py                   # detect_venv, parse_pyvenv_cfg
+      discovery.py                # find_site_packages, list_installed_packages, PackageInfo
 ```
 
 ## Core Concepts
