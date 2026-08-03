@@ -4,7 +4,8 @@
   "python.analysis.extraPaths": [
     "deproc-core",
     "deproc-python",
-    "deproc-utils-tree-sitter"
+    "deproc-utils-tree-sitter",
+    "deproc-utils-python-env"
   ],
 
   "python.analysis.packageIndexDepths": [

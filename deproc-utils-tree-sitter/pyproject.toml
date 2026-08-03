@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deproc-utils-tree-sitter"
-version = "0.1.0"
+version = "0.1.1"
 description = "Tree Sitter utilities for deproc."
 authors = [
     { name = "Gurveer Singh Virk", email = "gurveervirk.15517@gmail.com" }

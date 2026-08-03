@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deproc-python"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python language plugin for deproc."
 authors = [
     { name = "Gurveer Singh Virk", email = "gurveervirk.15517@gmail.com" }
@@ -13,7 +13,7 @@ license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
 dependencies = [
     "deproc-core==0.1.0",
-    "deproc-utils-tree-sitter==0.1.0",
+    "deproc-utils-tree-sitter==0.1.1",
     "tree-sitter==0.25.2",
     "tree-sitter-python==0.25.0",
 ]
