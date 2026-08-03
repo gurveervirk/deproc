@@ -13,6 +13,7 @@ license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
 dependencies = [
     "deproc-core==0.1.0",
+    "deproc-utils-tree-sitter==0.1.0",
     "tree-sitter==0.25.2",
     "tree-sitter-python==0.25.0",
 ]
@@ -39,3 +40,4 @@ include = ["deproc.plugins.python*"]
 
 [tool.uv.sources]
 deproc-core = { workspace = true }
+deproc-utils-tree-sitter = { workspace = true }

@@ -33,6 +33,7 @@ version = "0.1.0"
 source = { editable = "deproc-python" }
 dependencies = [
     { name = "deproc-core" },
+    { name = "deproc-utils-tree-sitter" },
     { name = "tree-sitter" },
     { name = "tree-sitter-python" },
 ]
@@ -40,6 +41,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "deproc-core", editable = "deproc-core" },
+    { name = "deproc-utils-tree-sitter", editable = "deproc-utils-tree-sitter" },
     { name = "tree-sitter", specifier = "==0.25.2" },
     { name = "tree-sitter-python", specifier = "==0.25.0" },
 ]
