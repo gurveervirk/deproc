@@ -26,6 +26,7 @@ jobs:
           - { name: deproc-core, path: deproc-core, env: pypi-deproc-core }
           - { name: deproc-python, path: deproc-python, env: pypi-deproc-python }
           - { name: deproc-utils-tree-sitter, path: deproc-utils-tree-sitter, env: pypi-deproc-utils-tree-sitter }
+          - { name: deproc-utils-python-env, path: deproc-utils-python-env, env: pypi-deproc-utils-python-env }
     environment:
       name: ${{ matrix.package.env }}
     permissions:
