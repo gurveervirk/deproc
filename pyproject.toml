@@ -4,13 +4,14 @@ members = [
     "deproc-python",
     "deproc-utils-tree-sitter",
     "deproc-utils-python-env",
+    "deproc-java",
 ]
 
 [tool.uv]
 package = false
 
 [tool.pytest.ini_options]
-testpaths = ["deproc-python", "deproc-core", "deproc-utils-python-env"]
+testpaths = ["deproc-python", "deproc-core", "deproc-utils-python-env", "deproc-java"]
 
 [dependency-groups]
 dev = [

@@ -11,6 +11,9 @@ pip install deproc-core
 # Python plugin (tree-sitter-based parser, linker, and resolver)
 pip install deproc-python
 
+# Java plugin (tree-sitter-based parser, linker, resolver, and symbol cache)
+pip install deproc-java
+
 # Virtual environment utilities (venv detection, package discovery)
 pip install deproc-utils-python-env
 ```
@@ -133,6 +136,13 @@ deproc/
       resolver/                  # PythonResolver (symbol resolution with caching)
       symbol_cache/              # PythonSymbolCache (bidirectional FQN cache)
 
+  deproc-java/                   # Java language plugin
+    deproc/plugins/java/
+      parser/                    # JavaSourceParser (tree-sitter based)
+      linker/                    # JavaLinker (package hierarchy builder)
+      resolver/                  # JavaResolver (short-name resolution via imports)
+      symbol_cache/              # JavaSymbolCache (per-compilation-unit cache)
+
   deproc-utils-tree-sitter/      # Shared tree-sitter tree-walking utilities
     deproc/utils/
       tree_walk.py               # iter_children, first_child, walk_preorder
@@ -188,6 +198,7 @@ uv run pytest
 # Run tests for a specific package
 uv run pytest deproc-python/tests/
 uv run pytest deproc-core/tests/
+uv run pytest deproc-java/tests/
 ```
 
 ## Agent Skills
