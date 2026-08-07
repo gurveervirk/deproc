@@ -68,6 +68,59 @@ class TestSerialization:
         assert back.implements == ["I1"]
         assert back.is_final is True
 
+    def test_class_inner_types_roundtrip(self):
+        cls = JavaClass(
+            id="cls_1",
+            name="Outer",
+            fqn="com.example.Outer",
+            source_range=_sr(),
+            docstring_range=None,
+            visibility="public",
+            inner_type_ids=["inner_1"],
+        )
+        record, back = self._roundtrip(cls)
+        assert back.inner_type_ids == ["inner_1"]
+
+    def test_static_nested_class_roundtrip(self):
+        cls = JavaClass(
+            id="cls_1",
+            name="StaticNested",
+            fqn="com.example.Outer.StaticNested",
+            source_range=_sr(),
+            docstring_range=None,
+            visibility="package-private",
+            is_static=True,
+        )
+        record, back = self._roundtrip(cls)
+        assert record["type"] == "CLASS"
+        assert back.is_static is True
+
+    def test_interface_inner_types_roundtrip(self):
+        iface = JavaInterface(
+            id="if_1",
+            name="Outer",
+            fqn="com.example.Outer",
+            source_range=_sr(),
+            docstring_range=None,
+            visibility="public",
+            inner_type_ids=["inner_1"],
+        )
+        record, back = self._roundtrip(iface)
+        assert back.inner_type_ids == ["inner_1"]
+
+    def test_enum_inner_types_roundtrip(self):
+        enum = JavaEnum(
+            id="en_1",
+            name="Outer",
+            fqn="com.example.Outer",
+            source_range=_sr(),
+            docstring_range=None,
+            visibility="public",
+            inner_type_ids=["inner_1"],
+        )
+        record, back = self._roundtrip(enum)
+        assert back.inner_type_ids == ["inner_1"]
+
     def test_interface_roundtrip(self):
         iface = JavaInterface(
             id="if_1",
@@ -180,6 +233,21 @@ class TestSerialization:
         assert record["type"] == "FIELD"
         assert back.variable_binding.name == "count"
         assert back.is_static is True
+
+    def test_field_modifiers_roundtrip(self):
+        field = JavaField(
+            id="f_1",
+            type="FIELD",
+            source_range=_sr(),
+            variable_binding=SimpleBinding(name="cache", fqn="com.example.MyClass.cache"),
+            value_range=None,
+            type_annotation=None,
+            is_transient=True,
+            is_volatile=True,
+        )
+        _, back = self._roundtrip(field)
+        assert back.is_transient is True
+        assert back.is_volatile is True
 
     def test_enum_constant_roundtrip(self):
         const = JavaField(

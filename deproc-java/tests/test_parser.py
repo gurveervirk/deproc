@@ -361,3 +361,165 @@ class MyClass {
 """
         cu, _ = _parse(code)
         assert cu.docstring_range is not None
+
+class TestInnerTypes:
+    def _class_by_fqn(self, ctx: Context, fqn: str) -> JavaClass:
+        for e in ctx.entity_registry.values():
+            if isinstance(e, JavaClass) and e.fqn == fqn:
+                return e
+        raise AssertionError(f"class not found: {fqn}")
+
+    def test_static_nested_class(self):
+        code = """
+class Outer {
+    static class StaticNested {
+        int a;
+    }
+}
+"""
+        _, ctx = _parse(code)
+        outer = self._class_by_fqn(ctx, "Outer")
+        assert len(outer.inner_type_ids) == 1
+        nested = ctx.entity_registry.get(outer.inner_type_ids[0])
+        assert isinstance(nested, JavaClass)
+        assert nested.name == "StaticNested"
+        assert nested.fqn == "Outer.StaticNested"
+        assert nested.is_static is True
+
+    def test_member_class(self):
+        code = """
+class Outer {
+    class Inner {
+    }
+}
+"""
+        _, ctx = _parse(code)
+        outer = self._class_by_fqn(ctx, "Outer")
+        assert len(outer.inner_type_ids) == 1
+        inner = ctx.entity_registry.get(outer.inner_type_ids[0])
+        assert isinstance(inner, JavaClass)
+        assert inner.fqn == "Outer.Inner"
+        assert inner.is_static is False
+
+    def test_nested_interface(self):
+        code = """
+class Outer {
+    interface NestedIface {
+    }
+}
+"""
+        _, ctx = _parse(code)
+        outer = self._class_by_fqn(ctx, "Outer")
+        assert len(outer.inner_type_ids) == 1
+        nested = ctx.entity_registry.get(outer.inner_type_ids[0])
+        assert isinstance(nested, JavaInterface)
+        assert nested.fqn == "Outer.NestedIface"
+
+    def test_deep_nested_chain_fqn(self):
+        code = """
+class Outer {
+    static class A {
+        class B {
+        }
+    }
+}
+"""
+        _, ctx = _parse(code)
+        outer = self._class_by_fqn(ctx, "Outer")
+        a = ctx.entity_registry.get(outer.inner_type_ids[0])
+        assert a.fqn == "Outer.A"
+        assert len(a.inner_type_ids) == 1
+        b = ctx.entity_registry.get(a.inner_type_ids[0])
+        assert b.fqn == "Outer.A.B"
+
+    def test_anonymous_class_in_field_initializer(self):
+        code = """
+class Main {
+    Runnable r = new Runnable() {
+        public void run() {}
+    };
+}
+"""
+        _, ctx = _parse(code)
+        main = self._class_by_fqn(ctx, "Main")
+        assert len(main.inner_type_ids) == 1
+        anon = ctx.entity_registry.get(main.inner_type_ids[0])
+        assert isinstance(anon, JavaClass)
+        assert anon.name == "r"
+        assert anon.fqn == "Main$1"
+
+    def test_multiple_anonymous_classes_ordinal(self):
+        code = """
+class Main {
+    Runnable r = new Runnable() { public void run() {} };
+    Runnable r2 = new Runnable() { public void run() {} };
+}
+"""
+        _, ctx = _parse(code)
+        main = self._class_by_fqn(ctx, "Main")
+        assert len(main.inner_type_ids) == 2
+        anon1 = ctx.entity_registry.get(main.inner_type_ids[0])
+        anon2 = ctx.entity_registry.get(main.inner_type_ids[1])
+        assert anon1.fqn == "Main$1"
+        assert anon1.name == "r"
+        assert anon2.fqn == "Main$2"
+        assert anon2.name == "r2"
+
+    def test_anonymous_class_members(self):
+        code = """
+class Main {
+    Runnable r = new Runnable() {
+        int count = 0;
+        public void run() {}
+    };
+}
+"""
+        _, ctx = _parse(code)
+        main = self._class_by_fqn(ctx, "Main")
+        anon = ctx.entity_registry.get(main.inner_type_ids[0])
+        methods = [ctx.entity_registry.get(i) for i in anon.method_ids]
+        assert [m.name for m in methods] == ["run"]
+        fields = [ctx.entity_registry.get(i) for i in anon.field_ids]
+        assert [f.variable_binding.name for f in fields] == ["count"]
+
+    def test_anonymous_class_in_method_not_extracted(self):
+        code = """
+class Main {
+    void m() {
+        Runnable r = new Runnable() { public void run() {} };
+    }
+}
+"""
+        _, ctx = _parse(code)
+        main = self._class_by_fqn(ctx, "Main")
+        assert main.inner_type_ids == []
+
+    def test_local_class_not_extracted(self):
+        code = """
+class Main {
+    void m() {
+        class Local {}
+    }
+}
+"""
+        _, ctx = _parse(code)
+        main = self._class_by_fqn(ctx, "Main")
+        assert main.inner_type_ids == []
+
+    def test_transient_volatile_field_modifiers(self):
+        code = """
+class MyClass {
+    transient int cache;
+    volatile boolean flag;
+    int normal;
+}
+"""
+        _, ctx = _parse(code)
+        fields = _entity_of_type(ctx, JavaField)
+        by_name = {f.variable_binding.name: f for f in fields}
+        assert by_name["cache"].is_transient is True
+        assert by_name["cache"].is_volatile is False
+        assert by_name["flag"].is_volatile is True
+        assert by_name["flag"].is_transient is False
+        assert by_name["normal"].is_transient is False
+        assert by_name["normal"].is_volatile is False
