@@ -126,6 +126,8 @@ def entity_to_record(entity, language: str = "java", module_exports: dict[str, s
             dr = entity.docstring_range
             metadata["docstring_lineno"] = dr.lineno
             metadata["docstring_end_lineno"] = dr.end_lineno
+        if hasattr(entity, "inner_type_ids") and entity.inner_type_ids:
+            metadata["inner_type_ids"] = entity.inner_type_ids
     if isinstance(entity, JavaClass):
         if entity.superclass:
             metadata["superclass"] = entity.superclass
@@ -133,6 +135,7 @@ def entity_to_record(entity, language: str = "java", module_exports: dict[str, s
             metadata["implements"] = entity.implements
         metadata["is_abstract"] = entity.is_abstract
         metadata["is_final"] = entity.is_final
+        metadata["is_static"] = entity.is_static
         metadata["field_ids"] = entity.field_ids
         metadata["constructor_ids"] = entity.constructor_ids
         if entity.method_ids:
@@ -314,12 +317,14 @@ def record_to_entity(record: dict) -> Entity | None:
             "docstring_range": docstring_range,
             "annotations": [],
             "visibility": meta.get("visibility"),
+            "inner_type_ids": meta.get("inner_type_ids", []),
         }
         if entity_class is JavaClass:
             return JavaClass(
                 **kwargs,
                 is_abstract=meta.get("is_abstract", False),
                 is_final=meta.get("is_final", False),
+                is_static=meta.get("is_static", False),
                 superclass=meta.get("superclass"),
                 implements=meta.get("implements", []),
                 field_ids=meta.get("field_ids", []),

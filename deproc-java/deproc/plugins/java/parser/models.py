@@ -23,6 +23,7 @@ class JavaClass(TypeDefinition):
     type: str = field(default="CLASS")
     is_abstract: bool = False
     is_final: bool = False
+    is_static: bool = False
     superclass: str | None = None
     implements: list[str] = field(default_factory=list)
     field_ids: list[SymbolID] = field(default_factory=list)

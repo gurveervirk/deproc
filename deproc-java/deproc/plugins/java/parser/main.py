@@ -224,6 +224,7 @@ class JavaSourceParser(SourceParser):
             visibility=visibility_from_modifiers(modifier_names),
             is_abstract="abstract" in modifier_names,
             is_final="final" in modifier_names,
+            is_static="static" in modifier_names,
             superclass=superclass,
             implements=implements,
         )
@@ -231,6 +232,7 @@ class JavaSourceParser(SourceParser):
         cls_obj.method_ids = self._extract_methods(body_node, context, parent_id=cls_obj.id, parent_fqn=type_fqn) if body_node else []
         cls_obj.constructor_ids = self._extract_constructors(body_node, context, parent_id=cls_obj.id, parent_fqn=type_fqn) if body_node else []
         cls_obj.field_ids = self._extract_fields(body_node, context, parent_id=cls_obj.id, parent_fqn=type_fqn) if body_node else []
+        cls_obj.inner_type_ids = self._extract_inner_types(body_node, context, parent_id=cls_obj.id, parent_fqn=type_fqn) if body_node else []
         context.entity_registry.add(cls_obj)
         return cls_obj.id
 
@@ -264,6 +266,7 @@ class JavaSourceParser(SourceParser):
 
         iface_obj.method_ids = self._extract_methods(body_node, context, parent_id=iface_obj.id, parent_fqn=type_fqn) if body_node else []
         iface_obj.field_ids = self._extract_fields(body_node, context, parent_id=iface_obj.id, parent_fqn=type_fqn) if body_node else []
+        iface_obj.inner_type_ids = self._extract_inner_types(body_node, context, parent_id=iface_obj.id, parent_fqn=type_fqn) if body_node else []
         context.entity_registry.add(iface_obj)
         return iface_obj.id
 
@@ -299,6 +302,7 @@ class JavaSourceParser(SourceParser):
         enum_obj.method_ids = self._extract_methods(body_node, context, parent_id=enum_obj.id, parent_fqn=type_fqn) if body_node else []
         enum_obj.constructor_ids = self._extract_constructors(body_node, context, parent_id=enum_obj.id, parent_fqn=type_fqn) if body_node else []
         enum_obj.field_ids = self._extract_fields(body_node, context, parent_id=enum_obj.id, parent_fqn=type_fqn) if body_node else []
+        enum_obj.inner_type_ids = self._extract_inner_types(body_node, context, parent_id=enum_obj.id, parent_fqn=type_fqn) if body_node else []
         context.entity_registry.add(enum_obj)
         return enum_obj.id
 
@@ -334,6 +338,7 @@ class JavaSourceParser(SourceParser):
         record_obj.method_ids = self._extract_methods(body_node, context, parent_id=record_obj.id, parent_fqn=type_fqn) if body_node else []
         record_obj.constructor_ids = self._extract_constructors(body_node, context, parent_id=record_obj.id, parent_fqn=type_fqn) if body_node else []
         record_obj.field_ids = self._extract_fields(body_node, context, parent_id=record_obj.id, parent_fqn=type_fqn) if body_node else []
+        record_obj.inner_type_ids = self._extract_inner_types(body_node, context, parent_id=record_obj.id, parent_fqn=type_fqn) if body_node else []
         context.entity_registry.add(record_obj)
         return record_obj.id
 
@@ -360,8 +365,77 @@ class JavaSourceParser(SourceParser):
         )
 
         anno_obj.method_ids = self._extract_methods(body_node, context, parent_id=anno_obj.id, parent_fqn=type_fqn) if body_node else []
+        anno_obj.inner_type_ids = self._extract_inner_types(body_node, context, parent_id=anno_obj.id, parent_fqn=type_fqn) if body_node else []
         context.entity_registry.add(anno_obj)
         return anno_obj.id
+
+    _TYPE_DECLARATION_NODES = {
+        "class_declaration": "_process_class",
+        "interface_declaration": "_process_interface",
+        "enum_declaration": "_process_enum",
+        "record_declaration": "_process_record",
+        "annotation_type_declaration": "_process_annotation_type",
+    }
+
+    def _extract_inner_types(self, block_node: Node, context: Context, parent_id: SymbolID | None = None, parent_fqn: str | None = None) -> list[SymbolID]:
+        inner_ids: list[SymbolID] = []
+        if not block_node:
+            return inner_ids
+
+        anon_counter = 0
+        for child in iter_children(block_node):
+            handler_name = self._TYPE_DECLARATION_NODES.get(child.type)
+            if handler_name is not None:
+                handler = getattr(self, handler_name)
+                inner_ids.append(handler(child, context, parent_id, parent_fqn))
+                continue
+            if child.type == "field_declaration":
+                for oce in self._find_anonymous_class_nodes(child):
+                    anon_counter += 1
+                    inner_ids.append(self._process_anonymous_class(oce, context, parent_id, parent_fqn, anon_counter))
+        return inner_ids
+
+    def _find_anonymous_class_nodes(self, node: Node) -> list[Node]:
+        found: list[Node] = []
+        for child in iter_children(node):
+            if child.type in ("class_body", "method_declaration", "constructor_declaration", "block"):
+                continue
+            if child.type == "object_creation_expression":
+                if self._child_by_type(child, "class_body") is not None:
+                    found.append(child)
+                    continue
+            found.extend(self._find_anonymous_class_nodes(child))
+        return found
+
+    def _process_anonymous_class(self, node: Node, context: Context, parent_id: SymbolID | None = None, parent_fqn: str | None = None, ordinal: int = 1) -> SymbolID:
+        source_range = self._sr(node)
+
+        name = None
+        parent = node.parent
+        if parent is not None:
+            declarator_name = parent.child_by_field_name("name")
+            if declarator_name is not None:
+                name = node_text(declarator_name)
+        if not name:
+            name = f"${ordinal}"
+
+        anon_fqn = f"{parent_fqn}${ordinal}" if parent_fqn else f"${ordinal}"
+
+        body_node = self._child_by_type(node, "class_body")
+
+        anon_obj = JavaClass(
+            name=name,
+            fqn=anon_fqn,
+            parent_id=parent_id,
+            source_range=source_range,
+            docstring_range=None,
+            visibility="package-private",
+        )
+
+        anon_obj.method_ids = self._extract_methods(body_node, context, parent_id=anon_obj.id, parent_fqn=anon_fqn) if body_node else []
+        anon_obj.field_ids = self._extract_fields(body_node, context, parent_id=anon_obj.id, parent_fqn=anon_fqn) if body_node else []
+        context.entity_registry.add(anon_obj)
+        return anon_obj.id
 
     def _extract_methods(self, block_node: Node, context: Context, type: str = "METHOD", parent_id: SymbolID | None = None, parent_fqn: str | None = None) -> list[SymbolID]:
         method_ids: list[SymbolID] = []
