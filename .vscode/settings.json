@@ -4,6 +4,7 @@
   "python.analysis.extraPaths": [
     "deproc-core",
     "deproc-python",
+    "deproc-java",
     "deproc-utils-tree-sitter",
     "deproc-utils-python-env"
   ],
@@ -12,6 +13,13 @@
     {
       "name": "",
       "depth": 2
+    }
+  ],
+  "python-envs.pythonProjects": [
+    {
+      "path": ".",
+      "envManager": "ms-python.python:venv",
+      "packageManager": "ms-python.python:pip"
     }
   ]
 }

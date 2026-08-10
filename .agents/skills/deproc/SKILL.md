@@ -14,12 +14,13 @@ metadata:
 |---|---|
 | `deproc-core` | Plugin interfaces, entity models, context, entity registry |
 | `deproc-python` | Python language plugin (tree-sitter based) |
+| `deproc-java` | Java language plugin (tree-sitter based) |
 | `deproc-utils-tree-sitter` | Shared tree-sitter AST walking utilities |
 | `deproc-utils-python-env` | Virtual environment detection and package discovery |
 
 ## Installation
 ```bash
-pip install deproc-core deproc-python deproc-utils-tree-sitter deproc-utils-python-env
+pip install deproc-core deproc-python deproc-java deproc-utils-tree-sitter deproc-utils-python-env
 ```
 
 ## Quick start
