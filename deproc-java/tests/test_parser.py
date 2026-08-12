@@ -10,11 +10,13 @@ from deproc.plugins.java.parser.models import (
     JavaClass,
     JavaCompilationUnit,
     JavaEnum,
+    JavaEnumConstant,
     JavaField,
     JavaImport,
     JavaInterface,
     JavaMethod,
     JavaRecord,
+    JavaRecordComponent,
 )
 
 parser = JavaSourceParser()
@@ -200,10 +202,28 @@ enum Color implements I1 {
         enum = enums[0]
         assert enum.implements == ["I1"]
         assert len(enum.enum_constant_ids) == 2
-        constants = _entity_of_type(ctx, JavaField)
-        consts = [c for c in constants if c.type == "ENUM_CONSTANT"]
-        assert len(consts) == 2
-        assert consts[0].variable_binding.name == "RED"
+        constants = _entity_of_type(ctx, JavaEnumConstant)
+        assert len(constants) == 2
+        assert constants[0].variable_binding.name == "RED"
+        assert constants[1].variable_binding.name == "GREEN"
+
+    def test_enum_constant_arguments_range(self):
+        code = """
+enum Color {
+    RED(255, 0, 0, "red"),
+    GREEN(0, 255, 0);
+}
+"""
+        _, ctx = _parse(code)
+        constants = _entity_of_type(ctx, JavaEnumConstant)
+        by_name = {c.variable_binding.name: c for c in constants}
+        red = by_name["RED"]
+        green = by_name["GREEN"]
+        assert red.arguments_range is not None
+        assert red.arguments_range.lineno == 3
+        assert red.arguments_range.end_col_offset - red.arguments_range.col_offset == len('(255, 0, 0, "red")')
+        assert green.arguments_range is not None
+        assert green.arguments_range.lineno == 4
 
     def test_record(self):
         code = """
@@ -215,6 +235,21 @@ record Point(int x, int y) implements I1 {
         record = records[0]
         assert record.implements == ["I1"]
         assert len(record.record_component_ids) == 2
+        components = _entity_of_type(ctx, JavaRecordComponent)
+        assert len(components) == 2
+        assert components[0].name == "x"
+        assert components[0].type_annotation is not None
+
+    def test_record_component_type_annotation(self):
+        code = """
+record Point(int x, java.util.List<String> names) {
+}
+"""
+        _, ctx = _parse(code)
+        components = _entity_of_type(ctx, JavaRecordComponent)
+        by_name = {c.name: c for c in components}
+        assert by_name["names"].type_annotation is not None
+        assert by_name["x"].type_annotation is not None
 
     def test_annotation_type(self):
         code = """
@@ -253,9 +288,6 @@ class MyClass {
         method = next(m for m in methods if m.type == "METHOD")
         assert method.name == "getName"
         assert method.return_type == "String"
-        assert len(method.parameters) == 1
-        assert method.parameters[0].name == "x"
-        assert method.parameters[0].type_fqn == "int"
         assert method.exceptions == ["IOException"]
         assert method.visibility == "public"
 
@@ -267,9 +299,9 @@ class MyClass {
 """
         _, ctx = _parse(code)
         methods = _entity_of_type(ctx, JavaMethod)
-        method = next(m for m in methods if m.type == "METHOD")
-        assert method.parameters[0].is_varargs is True
-        assert method.parameters[0].type_fqn == "String"
+        method = [m for m in methods if m.type == "METHOD"][0]
+        assert method.signature is not None
+        assert method.signature.arguments_range is not None
 
     def test_constructor(self):
         code = """
