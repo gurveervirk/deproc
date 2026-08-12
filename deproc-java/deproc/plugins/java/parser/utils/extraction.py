@@ -3,7 +3,6 @@ from tree_sitter import Node
 
 from ..models import (
     Annotation,
-    JavaParameter,
     Signature,
     SourceRange,
 )
@@ -112,55 +111,6 @@ def extract_signature(node: Node, source_file_id: str | None = None) -> Signatur
         arguments_range=arguments_range,
         return_type_range=return_type_range,
     )
-
-
-def extract_parameters(
-    node: Node, source_file_id: str | None = None
-) -> list[JavaParameter]:
-    parameters: list[JavaParameter] = []
-    params_node = node.child_by_field_name("parameters")
-    if params_node is None:
-        return parameters
-
-    for child in iter_children(params_node):
-        if child.type not in ("formal_parameter", "spread_parameter"):
-            continue
-
-        name_node = child.child_by_field_name("name")
-        type_node = child.child_by_field_name("type")
-
-        if child.type == "spread_parameter":
-            if type_node is None:
-                for sub in iter_children(child):
-                    if sub.type in (
-                        "type_identifier",
-                        "scoped_type_identifier",
-                        "generic_type",
-                    ):
-                        type_node = sub
-                        break
-            declarator = first_child_of_type(child, "variable_declarator")
-            if declarator is not None:
-                name_node = declarator.child_by_field_name("name")
-
-        modifiers_node = child.child_by_field_name("modifiers")
-        modifier_names: list[str] = []
-        from .misc import extract_modifier_names
-
-        if modifiers_node is not None:
-            modifier_names = extract_modifier_names(modifiers_node)
-
-        parameters.append(
-            JavaParameter(
-                name=node_text(name_node),
-                type_fqn=type_text(type_node),
-                is_final="final" in modifier_names,
-                is_varargs=child.type == "spread_parameter",
-                source_range=create_source_range(child, source_id=source_file_id),
-            )
-        )
-    return parameters
-
 
 def first_child_of_type(node: Node, node_type: str) -> Node | None:
     for child in iter_children(node):

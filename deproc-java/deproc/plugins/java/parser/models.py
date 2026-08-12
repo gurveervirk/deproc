@@ -62,21 +62,10 @@ class JavaRecord(TypeDefinition):
 class JavaAnnotationType(TypeDefinition):
     type: str = field(default="ANNOTATION_TYPE")
 
-
-@dataclass
-class JavaParameter:
-    name: str
-    type_fqn: str
-    is_final: bool = False
-    is_varargs: bool = False
-    source_range: SourceRange | None = None
-
-
 @dataclass(kw_only=True)
 class JavaMethod(FunctionLike):
     type: str = field(default="METHOD")
     return_type: str | None = None
-    parameters: list[JavaParameter] = field(default_factory=list)
     exceptions: list[str] = field(default_factory=list)
     is_abstract: bool = False
     is_final: bool = False
@@ -96,6 +85,19 @@ class JavaField(VariableDeclaration):
     is_transient: bool = False
     is_volatile: bool = False
 
+@dataclass(kw_only=True)
+class JavaEnumConstant(JavaField):
+    type: str = field(default="ENUM_CONSTANT")
+    is_static: bool = True
+    is_final: bool = True
+    arguments_range: SourceRange | None = None
+
+@dataclass(kw_only=True)
+class JavaRecordComponent(Entity):
+    name: str
+    fqn: str
+    source_range: SourceRange
+    type_annotation: SourceRange | None = None
 
 @dataclass(kw_only=True)
 class JavaImport(Entity):
@@ -113,12 +115,13 @@ __all__ = [
     "JavaClass",
     "JavaCompilationUnit",
     "JavaEnum",
+    "JavaEnumConstant",
     "JavaField",
     "JavaImport",
     "JavaInterface",
     "JavaMethod",
-    "JavaParameter",
     "JavaRecord",
+    "JavaRecordComponent",
     "Signature",
     "SimpleBinding",
     "SourceFile",

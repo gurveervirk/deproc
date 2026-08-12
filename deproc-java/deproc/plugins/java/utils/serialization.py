@@ -18,12 +18,17 @@ from ..parser.models import (
     JavaClass,
     JavaCompilationUnit,
     JavaEnum,
+    JavaEnumConstant,
     JavaField,
     JavaImport,
     JavaInterface,
     JavaMethod,
-    JavaParameter,
     JavaRecord,
+    JavaRecordComponent,
+    SimpleBinding,
+)
+from ..linker.models import (
+    JavaPackage,
 )
 
 TYPE_TO_CLASS = {
@@ -35,8 +40,8 @@ TYPE_TO_CLASS = {
     "METHOD": JavaMethod,
     "CONSTRUCTOR": JavaMethod,
     "FIELD": JavaField,
-    "ENUM_CONSTANT": JavaField,
-    "RECORD_COMPONENT": JavaField,
+    "ENUM_CONSTANT": JavaEnumConstant,
+    "RECORD_COMPONENT": JavaRecordComponent,
     "IMPORT": JavaImport,
     "COMPILATION_UNIT": JavaCompilationUnit,
     "PACKAGE": JavaPackage,
@@ -49,13 +54,19 @@ def _module_fqn(full_path: str) -> str | None:
     parts = full_path.rsplit(".", 1)
     return parts[0] if len(parts) > 1 else None
 
+def _source_range_from_meta(meta: dict, prefix: str) -> SourceRange | None:
+    lineno = meta.get(f"{prefix}_lineno")
+    end_lineno = meta.get(f"{prefix}_end_lineno")
+    if lineno is None or end_lineno is None:
+        return None
+    return SourceRange(
+        lineno=lineno,
+        end_lineno=end_lineno,
+        col_offset=meta.get(f"{prefix}_col_offset", 0),
+        end_col_offset=meta.get(f"{prefix}_end_col_offset", 0),
+    )
 
-def entity_to_record(
-    entity,
-    language: str = "java",
-    module_exports: dict[str, set[str]] | None = None,
-    registry=None,
-) -> dict | None:
+def entity_to_record(entity, language: str = "java", module_exports: dict[str, set[str]] | None = None, registry=None) -> dict | None:
     if isinstance(entity, JavaImport):
         name = entity.imported_name or entity.import_path
         full_path = entity.import_path
@@ -68,13 +79,17 @@ def entity_to_record(
         name = entity.fqn.split(".")[-1]
         full_path = entity.fqn
         entity_type = "PACKAGE"
-    elif isinstance(entity, JavaField):
+    elif isinstance(entity, (JavaField, JavaEnumConstant)):
         vb = getattr(entity, "variable_binding", None)
         if not vb:
             return None
         name = vb.name
         full_path = vb.fqn or name
         entity_type = entity.type
+    elif isinstance(entity, JavaRecordComponent):
+        name = entity.name
+        full_path = entity.fqn or name
+        entity_type = "RECORD_COMPONENT"
     elif isinstance(entity, (FunctionLike, TypeDefinition)):
         name = entity.name
         full_path = entity.fqn
@@ -196,16 +211,6 @@ def entity_to_record(
         metadata["is_default"] = entity.is_default
         metadata["is_synchronized"] = entity.is_synchronized
         metadata["is_native"] = entity.is_native
-        if entity.parameters:
-            metadata["parameters"] = [
-                {
-                    "name": p.name,
-                    "type_fqn": p.type_fqn,
-                    "is_final": p.is_final,
-                    "is_varargs": p.is_varargs,
-                }
-                for p in entity.parameters
-            ]
         if entity.annotations:
             metadata["annotations"] = [a.name for a in entity.annotations]
         if entity.docstring_range:
@@ -227,12 +232,24 @@ def entity_to_record(
         metadata["is_final"] = entity.is_final
         metadata["is_transient"] = entity.is_transient
         metadata["is_volatile"] = entity.is_volatile
+    if isinstance(entity, (JavaField, JavaEnumConstant)):
         if hasattr(entity, "modifiers") and entity.modifiers:
             metadata["modifiers"] = entity.modifiers
         if hasattr(entity, "type_annotation") and entity.type_annotation:
             ta = entity.type_annotation
             metadata["type_annotation_lineno"] = ta.lineno
             metadata["type_annotation_end_lineno"] = ta.end_lineno
+    if isinstance(entity, JavaRecordComponent):
+        if entity.type_annotation:
+            ta = entity.type_annotation
+            metadata["type_annotation_lineno"] = ta.lineno
+            metadata["type_annotation_end_lineno"] = ta.end_lineno
+    if isinstance(entity, JavaEnumConstant) and entity.arguments_range:
+        ar = entity.arguments_range
+        metadata["arguments_lineno"] = ar.lineno
+        metadata["arguments_end_lineno"] = ar.end_lineno
+        metadata["arguments_col_offset"] = ar.col_offset
+        metadata["arguments_end_col_offset"] = ar.end_col_offset
     if isinstance(entity, ControlFlowBlock):
         if entity.condition_range:
             cr = entity.condition_range
@@ -377,15 +394,6 @@ def record_to_entity(record: dict) -> Entity | None:
             )
         return JavaAnnotationType(**kwargs, method_ids=meta.get("method_ids", []))
     if entity_class is JavaMethod:
-        parameters = [
-            JavaParameter(
-                name=p.get("name", ""),
-                type_fqn=p.get("type_fqn", ""),
-                is_final=p.get("is_final", False),
-                is_varargs=p.get("is_varargs", False),
-            )
-            for p in meta.get("parameters", [])
-        ]
         docstring_range = None
         if "docstring_lineno" in meta:
             docstring_range = SourceRange(
@@ -404,7 +412,6 @@ def record_to_entity(record: dict) -> Entity | None:
             docstring_range=docstring_range,
             signature=None,
             return_type=meta.get("return_type"),
-            parameters=parameters,
             exceptions=meta.get("exceptions", []),
             is_abstract=meta.get("is_abstract", False),
             is_final=meta.get("is_final", False),
@@ -415,8 +422,6 @@ def record_to_entity(record: dict) -> Entity | None:
             annotations=[],
         )
     if entity_class is JavaField:
-        from ..parser.models import SimpleBinding
-
         return JavaField(
             id=record["id"],
             parent_id=parent_id,
@@ -432,6 +437,31 @@ def record_to_entity(record: dict) -> Entity | None:
             is_final=meta.get("is_final", False),
             is_transient=meta.get("is_transient", False),
             is_volatile=meta.get("is_volatile", False),
+        )
+    if entity_class is JavaEnumConstant:
+        return JavaEnumConstant(
+            id=record["id"],
+            parent_id=parent_id,
+            type=record["type"],
+            source_range=sr,
+            variable_binding=SimpleBinding(name=record["name"], fqn=meta.get("fqn") or record["full_path"]),
+            value_range=None,
+            type_annotation=_source_range_from_meta(meta, "type_annotation"),
+            modifiers=meta.get("modifiers", []),
+            is_static=meta.get("is_static", True),
+            is_final=meta.get("is_final", True),
+            is_transient=meta.get("is_transient", False),
+            is_volatile=meta.get("is_volatile", False),
+            arguments_range=_source_range_from_meta(meta, "arguments"),
+        )
+    if entity_class is JavaRecordComponent:
+        return JavaRecordComponent(
+            id=record["id"],
+            parent_id=parent_id,
+            name=record["name"],
+            fqn=meta.get("fqn") or record["full_path"],
+            source_range=sr,
+            type_annotation=_source_range_from_meta(meta, "type_annotation"),
         )
     if entity_class is ControlFlowBlock:
         condition_range = None
