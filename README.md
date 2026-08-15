@@ -20,7 +20,7 @@ pip install deproc-utils-python-env
 
 ### Dependencies
 
-- Python >= 3.10
+- Python >= 3.12
 - `deproc-python` requires `tree-sitter>=0.25.0` and `tree-sitter-python>=0.25.0`
 
 ## Quick Start

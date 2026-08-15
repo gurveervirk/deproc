@@ -10,7 +10,7 @@ authors = [
     { name = "Gurveer Singh Virk", email = "gurveervirk.15517@gmail.com" }
 ]
 license = {text = "Apache-2.0"}
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = [
     "deproc-core>=0.1.0",
     "deproc-utils-tree-sitter>=0.1.1",
@@ -24,8 +24,8 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries",
 ]
 
