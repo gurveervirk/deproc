@@ -1,9 +1,12 @@
 import fnmatch
 import os
+
 from .context import Context
+
 
 def _match_any(name: str, patterns: set[str]) -> bool:
     return any(fnmatch.fnmatch(name, p) for p in patterns)
+
 
 def find_source_files(context: Context) -> list[str]:
     root = context.base_path

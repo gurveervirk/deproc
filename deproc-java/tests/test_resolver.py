@@ -1,20 +1,24 @@
 """Tests for Java symbol resolver."""
 
 from deproc.core.context import Context
-from deproc.core.runtime.registries.entity import EntityRegistry
 from deproc.core.interfaces.parser.models import SourceRange
-from deproc.plugins.java.resolver.main import JavaResolver
-from deproc.plugins.java.symbol_cache import JavaSymbolCache
+from deproc.core.runtime.registries.entity import EntityRegistry
 from deproc.plugins.java.parser.models import (
     JavaClass,
     JavaCompilationUnit,
     JavaImport,
 )
+from deproc.plugins.java.resolver.main import JavaResolver
+from deproc.plugins.java.symbol_cache import JavaSymbolCache
+
 
 def _sr() -> SourceRange:
     return SourceRange(lineno=1, end_lineno=1, col_offset=0, end_col_offset=1)
 
-def _make_cu(cu_fqn: str, package_fqn: str | None, imports: list[JavaImport], cu_id: str = "cu_1") -> JavaCompilationUnit:
+
+def _make_cu(
+    cu_fqn: str, package_fqn: str | None, imports: list[JavaImport], cu_id: str = "cu_1"
+) -> JavaCompilationUnit:
     cu = JavaCompilationUnit(
         id=cu_id,
         fqn=cu_fqn,
@@ -29,6 +33,7 @@ def _make_cu(cu_fqn: str, package_fqn: str | None, imports: list[JavaImport], cu
     cu.import_stmt_ids = import_ids
     return cu
 
+
 def _make_class(fqn: str, class_id: str) -> JavaClass:
     return JavaClass(
         id=class_id,
@@ -39,7 +44,13 @@ def _make_class(fqn: str, class_id: str) -> JavaClass:
         visibility="public",
     )
 
-def _context(cu: JavaCompilationUnit, classes: list[JavaClass] | None = None, imports: list[JavaImport] | None = None, use_cache: bool = False) -> Context:
+
+def _context(
+    cu: JavaCompilationUnit,
+    classes: list[JavaClass] | None = None,
+    imports: list[JavaImport] | None = None,
+    use_cache: bool = False,
+) -> Context:
     ctx = Context()
     ctx.entity_registry = EntityRegistry()
     ctx._all_languages.add("java")
@@ -55,6 +66,7 @@ def _context(cu: JavaCompilationUnit, classes: list[JavaClass] | None = None, im
         cache = JavaSymbolCache()
         ctx.set_symbol_cache(cache)
     return ctx
+
 
 class TestResolveSingleType:
     def test_resolves_single_type_import(self):
@@ -103,6 +115,7 @@ class TestResolveSingleType:
         assert result.resolved_ids == set()
         assert result.unresolved_ids == set()
 
+
 class TestResolveOnDemand:
     def test_resolves_on_demand_import(self):
         imp = JavaImport(
@@ -134,6 +147,7 @@ class TestResolveOnDemand:
         result = resolver.resolve("com.example.Foo", "List", ctx)
         assert result.resolved_ids == set()
         assert result.unresolved_ids == {"imp_1"}
+
 
 class TestResolveStatic:
     def test_resolves_single_static_import(self):
@@ -168,6 +182,7 @@ class TestResolveStatic:
         assert result.resolved_ids == {"cls_1"}
         assert result.unresolved_ids == set()
 
+
 class TestImplicitScopes:
     def test_same_package_visibility(self):
         cu = _make_cu("com.example.Foo", "com.example", [])
@@ -200,6 +215,7 @@ class TestImplicitScopes:
         result = resolver.resolve("com.example.Missing", "List", ctx)
         assert result.resolved_ids == set()
         assert result.unresolved_ids == set()
+
 
 class TestResolveCaching:
     def test_result_cached(self):

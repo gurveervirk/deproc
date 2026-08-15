@@ -1,6 +1,7 @@
 import pytest
 from deproc.plugins.python.utils.mro import c3_merge, compute_mro_from_bases
 
+
 class TestC3Merge:
     def test_simple_merge(self):
         assert c3_merge([["B", "O"], ["C", "O"], ["B", "C"]]) == ["B", "C", "O"]
@@ -14,6 +15,7 @@ class TestC3Merge:
 
     def test_single_list(self):
         assert c3_merge([["A", "B", "C"]]) == ["A", "B", "C"]
+
 
 class TestComputeMroFromBases:
     def test_single_inheritance(self):

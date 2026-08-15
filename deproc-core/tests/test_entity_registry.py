@@ -1,11 +1,15 @@
 """Tests for EntityRegistry."""
+
 from dataclasses import dataclass
-from deproc.core.runtime.registries.entity import EntityRegistry
+
 from deproc.core.interfaces.parser.models import Entity
+from deproc.core.runtime.registries.entity import EntityRegistry
+
 
 @dataclass(kw_only=True)
 class _FakeFqnEntity(Entity):
     fqn: str
+
 
 class TestEntityRegistryValues:
     def test_empty_registry_values(self):
@@ -26,6 +30,7 @@ class TestEntityRegistryValues:
         e2 = Entity(id="id_2")
         registry.add_all([e1, e2])
         assert list(registry.values()) == [e1, e2]
+
 
 class TestEntityRegistryGet:
     def test_get_returns_entity(self):
@@ -52,6 +57,7 @@ class TestEntityRegistryGet:
         registry.add(e)
         assert registry.get("id_1", "fallback") is e
 
+
 class TestEntityRegistryContains:
     def test_contains_added(self):
         registry = EntityRegistry()
@@ -62,6 +68,7 @@ class TestEntityRegistryContains:
     def test_not_contains_missing(self):
         registry = EntityRegistry()
         assert "nonexistent" not in registry
+
 
 class TestEntityRegistryFqnMapping:
     def test_add_entity_with_fqn_updates_mapping(self):

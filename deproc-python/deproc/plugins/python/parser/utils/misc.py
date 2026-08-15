@@ -5,4 +5,3 @@ def visibility_from_name(name: str) -> str:
         return "protected"
     else:
         return "public"
-    

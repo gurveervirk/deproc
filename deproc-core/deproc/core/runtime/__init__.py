@@ -1,7 +1,3 @@
-from .registries import (
-    EntityRegistry
-)
+from .registries import EntityRegistry
 
-__all__ = [
-    "EntityRegistry"
-]
+__all__ = ["EntityRegistry"]

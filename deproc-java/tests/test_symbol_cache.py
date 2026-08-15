@@ -2,6 +2,7 @@
 
 from deproc.plugins.java.symbol_cache.main import JavaSymbolCache
 
+
 class TestSymbolCache:
     def setup_method(self):
         self.cache = JavaSymbolCache()
@@ -32,7 +33,10 @@ class TestSymbolCache:
         self.cache.set("cu_a", "sym1", {"a"}, set())
         self.cache.set("cu_a", "sym2", {"b"}, set())
         self.cache.set("cu_b", "sym3", {"c"}, set())
-        assert self.cache.compilation_unit_to_cache_keys["cu_a"] == {("cu_a", "sym1"), ("cu_a", "sym2")}
+        assert self.cache.compilation_unit_to_cache_keys["cu_a"] == {
+            ("cu_a", "sym1"),
+            ("cu_a", "sym2"),
+        }
 
     def test_clear_compilation_unit(self):
         self.cache.set("cu_a", "sym1", {"a"}, set())

@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+
 from deproc.core.interfaces.parser.models import (
     ControlFlowBlock,
     ControlFlowGroup,
@@ -7,6 +8,10 @@ from deproc.core.interfaces.parser.models import (
     FunctionLike,
     SourceRange,
     TypeDefinition,
+)
+
+from ..linker.models import (
+    JavaPackage,
 )
 from ..parser.models import (
     JavaAnnotationType,
@@ -19,9 +24,6 @@ from ..parser.models import (
     JavaMethod,
     JavaParameter,
     JavaRecord,
-)
-from ..linker.models import (
-    JavaPackage,
 )
 
 TYPE_TO_CLASS = {
@@ -42,11 +44,18 @@ TYPE_TO_CLASS = {
     "CONTROL_FLOW_GROUP": ControlFlowGroup,
 }
 
+
 def _module_fqn(full_path: str) -> str | None:
     parts = full_path.rsplit(".", 1)
     return parts[0] if len(parts) > 1 else None
 
-def entity_to_record(entity, language: str = "java", module_exports: dict[str, set[str]] | None = None, registry=None) -> dict | None:
+
+def entity_to_record(
+    entity,
+    language: str = "java",
+    module_exports: dict[str, set[str]] | None = None,
+    registry=None,
+) -> dict | None:
     if isinstance(entity, JavaImport):
         name = entity.imported_name or entity.import_path
         full_path = entity.import_path
@@ -76,14 +85,22 @@ def entity_to_record(entity, language: str = "java", module_exports: dict[str, s
         module_fqn = None
         if entity.parent_id and registry:
             module_fqn = _get_module_fqn_from_registry(entity.parent_id, registry)
-        full_path = f"{module_fqn}.__branch__.{entity.branch}.{entity.source_range.lineno}" if module_fqn else f"__branch__.{entity.branch}.{entity.source_range.lineno}"
+        full_path = (
+            f"{module_fqn}.__branch__.{entity.branch}.{entity.source_range.lineno}"
+            if module_fqn
+            else f"__branch__.{entity.branch}.{entity.source_range.lineno}"
+        )
     elif isinstance(entity, ControlFlowGroup):
         name = entity.group_type
         entity_type = "CONTROL_FLOW_GROUP"
         module_fqn = None
         if entity.parent_id and registry:
             module_fqn = _get_module_fqn_from_registry(entity.parent_id, registry)
-        full_path = f"{module_fqn}.__group__.{entity.group_type}.{entity.source_range.lineno}" if module_fqn else f"__group__.{entity.group_type}.{entity.source_range.lineno}"
+        full_path = (
+            f"{module_fqn}.__group__.{entity.group_type}.{entity.source_range.lineno}"
+            if module_fqn
+            else f"__group__.{entity.group_type}.{entity.source_range.lineno}"
+        )
     else:
         return None
 
@@ -91,7 +108,7 @@ def entity_to_record(entity, language: str = "java", module_exports: dict[str, s
         return None
 
     metadata = {}
-    sr = entity.source_range if hasattr(entity, "source_range") else None
+    sr = getattr(entity, "source_range", None)
     if sr:
         metadata["lineno"] = sr.lineno
         metadata["end_lineno"] = sr.end_lineno
@@ -102,8 +119,9 @@ def entity_to_record(entity, language: str = "java", module_exports: dict[str, s
         metadata["import_path"] = entity.import_path
         metadata["import_kind"] = entity.import_kind
         metadata["imported_name"] = entity.imported_name
-    if hasattr(entity, "fqn") and entity.fqn:
-        metadata["fqn"] = entity.fqn
+    fqn = getattr(entity, "fqn", None)
+    if fqn:
+        metadata["fqn"] = fqn
     if isinstance(entity, JavaCompilationUnit):
         if entity.package_fqn:
             metadata["package_fqn"] = entity.package_fqn
@@ -115,8 +133,9 @@ def entity_to_record(entity, language: str = "java", module_exports: dict[str, s
     if isinstance(entity, JavaPackage):
         metadata["subpackage_ids"] = entity.subpackage_ids
         metadata["compilation_unit_ids"] = entity.compilation_unit_ids
-    if hasattr(entity, "path"):
-        metadata["path"] = entity.path
+    path = getattr(entity, "path", None)
+    if path is not None:
+        metadata["path"] = path
     if isinstance(entity, TypeDefinition):
         if hasattr(entity, "visibility") and entity.visibility:
             metadata["visibility"] = entity.visibility
@@ -239,6 +258,7 @@ def entity_to_record(entity, language: str = "java", module_exports: dict[str, s
         "parent_id": getattr(entity, "parent_id", None),
     }
 
+
 def _get_module_fqn_from_registry(entity_id: str, registry: dict) -> str | None:
     seen: set[str] = set()
     current = entity_id
@@ -252,6 +272,7 @@ def _get_module_fqn_from_registry(entity_id: str, registry: dict) -> str | None:
         current = getattr(entity, "parent_id", None)
     return None
 
+
 def record_to_entity(record: dict) -> Entity | None:
     entity_class = TYPE_TO_CLASS.get(record["type"])
     if entity_class is None:
@@ -263,10 +284,6 @@ def record_to_entity(record: dict) -> Entity | None:
         col_offset=meta.get("col_offset", 0),
         end_col_offset=meta.get("end_col_offset", 0),
     )
-    common = {
-        "id": record["id"],
-        "fqn": meta.get("fqn") or record["full_path"],
-    }
     parent_id = record.get("parent_id") or meta.get("parent_id")
 
     if entity_class is JavaImport:
@@ -299,7 +316,13 @@ def record_to_entity(record: dict) -> Entity | None:
             subpackage_ids=meta.get("subpackage_ids", []),
             compilation_unit_ids=meta.get("compilation_unit_ids", []),
         )
-    if entity_class in (JavaClass, JavaInterface, JavaEnum, JavaRecord, JavaAnnotationType):
+    if entity_class in (
+        JavaClass,
+        JavaInterface,
+        JavaEnum,
+        JavaRecord,
+        JavaAnnotationType,
+    ):
         docstring_range = None
         if "docstring_lineno" in meta:
             docstring_range = SourceRange(
@@ -393,12 +416,15 @@ def record_to_entity(record: dict) -> Entity | None:
         )
     if entity_class is JavaField:
         from ..parser.models import SimpleBinding
+
         return JavaField(
             id=record["id"],
             parent_id=parent_id,
             type=record["type"],
             source_range=sr,
-            variable_binding=SimpleBinding(name=record["name"], fqn=meta.get("fqn") or record["full_path"]),
+            variable_binding=SimpleBinding(
+                name=record["name"], fqn=meta.get("fqn") or record["full_path"]
+            ),
             value_range=None,
             type_annotation=None,
             modifiers=meta.get("modifiers", []),

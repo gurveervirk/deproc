@@ -1,6 +1,8 @@
+from pathlib import Path
+
 from deproc.core.context import Context
 from deproc.core.discovery import find_source_files
-from pathlib import Path
+
 
 class TestFindSourceFiles:
     def test_skips_dirs_in_skip_paths(self, tmp_path):

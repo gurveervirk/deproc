@@ -1,22 +1,26 @@
 """Tests for deterministic entity ID generation."""
+
 from dataclasses import dataclass
 from uuid import uuid4
+
 from deproc.core.interfaces.parser.models import (
     Entity,
     ImportStatement,
     Node,
+    SimpleBinding,
     SourceFile,
     SourceRange,
-    SimpleBinding,
     VariableDeclaration,
 )
 
 _PARENT = uuid4().hex
 _OTHER_PARENT = uuid4().hex
 
+
 @dataclass(kw_only=True)
 class _EntityWithSource(Entity):
     source_range: SourceRange
+
 
 class TestEntityDeterministicId:
     def test_same_parent_and_source_range_produces_same_id(self):
@@ -56,11 +60,15 @@ class TestEntityDeterministicId:
     def test_entity_without_parent_id_is_not_deterministic(self):
         e1 = _EntityWithSource(
             parent_id=None,
-            source_range=SourceRange(lineno=1, end_lineno=1, col_offset=0, end_col_offset=5),
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=5
+            ),
         )
         e2 = _EntityWithSource(
             parent_id=None,
-            source_range=SourceRange(lineno=1, end_lineno=1, col_offset=0, end_col_offset=5),
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=5
+            ),
         )
         assert e1.id != e2.id
 
@@ -77,6 +85,7 @@ class TestEntityDeterministicId:
         sr = SourceRange(lineno=1, end_lineno=1, col_offset=0, end_col_offset=5)
         e = _EntityWithSource(id="explicit", parent_id=_PARENT, source_range=sr)
         assert e.id == "explicit"
+
 
 class TestNodeDeterministicId:
     def test_same_path_produces_same_id(self):
@@ -124,18 +133,25 @@ class TestNodeDeterministicId:
         sf2 = SourceFile(path="foo.py", docstring_range=None, source="hello")
         assert sf1.id == sf2.id
 
+
 class TestSourceRangeSourceId:
     def test_source_id_defaults_to_none(self):
         sr = SourceRange(lineno=1, end_lineno=10, col_offset=0, end_col_offset=5)
         assert sr.source_id is None
 
     def test_source_id_set_via_keyword(self):
-        sr = SourceRange(lineno=1, end_lineno=10, col_offset=0, end_col_offset=5, source_id="src123")
+        sr = SourceRange(
+            lineno=1, end_lineno=10, col_offset=0, end_col_offset=5, source_id="src123"
+        )
         assert sr.source_id == "src123"
 
     def test_source_id_not_in_entity_id_computation(self):
-        sr1 = SourceRange(lineno=5, end_lineno=5, col_offset=0, end_col_offset=10, source_id="file_a")
-        sr2 = SourceRange(lineno=5, end_lineno=5, col_offset=0, end_col_offset=10, source_id="file_b")
+        sr1 = SourceRange(
+            lineno=5, end_lineno=5, col_offset=0, end_col_offset=10, source_id="file_a"
+        )
+        sr2 = SourceRange(
+            lineno=5, end_lineno=5, col_offset=0, end_col_offset=10, source_id="file_b"
+        )
         e1 = _EntityWithSource(parent_id=_PARENT, source_range=sr1)
         e2 = _EntityWithSource(parent_id=_PARENT, source_range=sr2)
         assert e1.id == e2.id
@@ -145,6 +161,7 @@ class TestSourceRangeSourceId:
         assert sr.source_id is None
         sr.source_id = "assigned_later"
         assert sr.source_id == "assigned_later"
+
 
 class TestConcreteSubclassDeterminism:
     def test_variable_declaration_with_parent_and_source_is_deterministic(self):

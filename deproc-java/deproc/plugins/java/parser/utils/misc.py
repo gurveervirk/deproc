@@ -1,8 +1,17 @@
 ACCESS_MODIFIERS = {"public", "protected", "private"}
 MODIFIER_KEYWORDS = {
-    "abstract", "default", "final", "native", "sealed", "static",
-    "strictfp", "synchronized", "transient", "volatile",
+    "abstract",
+    "default",
+    "final",
+    "native",
+    "sealed",
+    "static",
+    "strictfp",
+    "synchronized",
+    "transient",
+    "volatile",
 }
+
 
 def extract_modifier_names(modifiers_node) -> list[str]:
     if modifiers_node is None:
@@ -15,6 +24,7 @@ def extract_modifier_names(modifiers_node) -> list[str]:
         if name in ACCESS_MODIFIERS or name in MODIFIER_KEYWORDS:
             modifiers.append(name)
     return modifiers
+
 
 def visibility_from_modifiers(modifiers: list[str]) -> str:
     if "public" in modifiers:

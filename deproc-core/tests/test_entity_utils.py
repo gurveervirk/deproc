@@ -1,25 +1,31 @@
-from deproc.core.runtime.registries.entity import EntityRegistry
-from deproc.core.runtime.registries.entity.utils import (
-    entity_fqn,
-    parent_chain,
-    find_first_ancestor_of_type,
-    classify_entity_scope,
-)
 from deproc.core.interfaces.parser.models import (
     Entity,
-    SourceRange,
     FunctionLike,
     Signature,
+    SourceRange,
 )
+from deproc.core.runtime.registries.entity import EntityRegistry
+from deproc.core.runtime.registries.entity.utils import (
+    classify_entity_scope,
+    entity_fqn,
+    find_first_ancestor_of_type,
+    parent_chain,
+)
+
 
 class TestEntityFqn:
     def test_entity_with_fqn(self):
         e = FunctionLike(
-            name="foo", fqn="pkg.mod.foo",
+            name="foo",
+            fqn="pkg.mod.foo",
             docstring_range=None,
-            source_range=SourceRange(lineno=1, end_lineno=1, col_offset=0, end_col_offset=5),
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=5
+            ),
             signature=Signature(
-                signature_range=SourceRange(lineno=1, end_lineno=1, col_offset=5, end_col_offset=10),
+                signature_range=SourceRange(
+                    lineno=1, end_lineno=1, col_offset=5, end_col_offset=10
+                ),
                 arguments_range=None,
                 return_type_range=None,
             ),
@@ -30,12 +36,14 @@ class TestEntityFqn:
         e = Entity()
         assert entity_fqn(e) is None
 
+
 def _make_entity(id, parent_id=None, type=None):
     e = Entity()
     e.id = id
     e.parent_id = parent_id
     e.type = type
     return e
+
 
 class TestParentChain:
     def test_single_entity(self):
@@ -68,6 +76,7 @@ class TestParentChain:
         chain = parent_chain(reg, "a")
         assert [e.id for e in chain] == ["a", "b"]
 
+
 class TestFindFirstAncestorOfType:
     def test_finds_ancestor(self):
         reg = EntityRegistry()
@@ -86,6 +95,7 @@ class TestFindFirstAncestorOfType:
         reg.add_all([e1, e2])
         result = find_first_ancestor_of_type(reg, "method", {"MODULE"})
         assert result is None
+
 
 class TestClassifyEntityScope:
     def test_module_level(self):

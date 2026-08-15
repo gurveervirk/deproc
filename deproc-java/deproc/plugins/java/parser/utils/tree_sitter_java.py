@@ -1,22 +1,26 @@
-from tree_sitter import (
-    Language,
-    Node,
-    Parser
-)
-from ..models import SourceRange
 import tree_sitter_java
+from tree_sitter import Language, Node, Parser
+
+from ..models import SourceRange
+
 
 def get_java_language() -> Language:
     return Language(tree_sitter_java.language())
+
 
 def get_java_parser() -> Parser:
     parser = Parser(get_java_language())
     return parser
 
+
 def node_text(node: Node | None) -> str:
     if not node:
         return ""
-    return node.text.decode("utf-8")
+    text = node.text
+    if text is None:
+        return ""
+    return text.decode("utf-8")
+
 
 def create_source_range(node: Node, source_id: str | None = None) -> SourceRange:
     return SourceRange(

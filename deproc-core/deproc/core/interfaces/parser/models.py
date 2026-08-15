@@ -2,22 +2,25 @@
 Provisional data models for the parser interface.
 Please use these models either directly in the plugin implementations or as a reference for defining plugin-specific models.
 """
+
 import hashlib
 from dataclasses import dataclass, field
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 type SymbolID = str
 
+
 def generate_id() -> SymbolID:
     return uuid4().hex
 
+
 @dataclass(kw_only=True)
 class Entity:
-    id: str | None = None
+    id: SymbolID = ""
     parent_id: str | None = None
 
     def __post_init__(self):
-        if self.id is not None:
+        if self.id:
             return
         self.id = self._compute_id()
 
@@ -30,6 +33,7 @@ class Entity:
             return uuid5(namespace, name).hex
         return uuid4().hex
 
+
 @dataclass(kw_only=True)
 class SourceRange:
     lineno: int
@@ -38,9 +42,11 @@ class SourceRange:
     end_col_offset: int
     source_id: str | None = None
 
+
 @dataclass
 class Docstring:
     docstring_range: SourceRange | None
+
 
 @dataclass
 class Signature:
@@ -48,15 +54,18 @@ class Signature:
     arguments_range: SourceRange | None
     return_type_range: SourceRange | None
 
+
 @dataclass
 class Annotation:
     source_range: SourceRange
     name: str
 
+
 @dataclass
 class ImportStatement(Entity):
     source_range: SourceRange
     type: str
+
 
 @dataclass
 class Argument:
@@ -65,22 +74,26 @@ class Argument:
     default_value: str | None
     type_annotation: str | None
 
+
 @dataclass(kw_only=True)
 class FunctionLike(Docstring, Entity):
     name: str
     fqn: str
     source_range: SourceRange
     type: str = field(default="FUNCTION")
-    signature: Signature
+    signature: Signature | None = None
+
 
 @dataclass
 class SimpleBinding:
     name: str
     fqn: str
 
+
 @dataclass
 class ComplexBinding:
     source_range: SourceRange | None
+
 
 @dataclass(kw_only=True)
 class VariableDeclaration(Entity):
@@ -90,6 +103,7 @@ class VariableDeclaration(Entity):
     value_range: SourceRange | None
     type_annotation: SourceRange | None
     modifiers: list[str] = field(default_factory=list)
+
 
 @dataclass(kw_only=True)
 class TypeDefinition(Docstring, Entity):
@@ -104,6 +118,7 @@ class TypeDefinition(Docstring, Entity):
     property_ids: list[str] = field(default_factory=list)
     visibility: str | None
 
+
 @dataclass
 class ControlFlowBlock(Entity):
     branch: str
@@ -115,11 +130,13 @@ class ControlFlowBlock(Entity):
     variable_ids: list[SymbolID] = field(default_factory=list)
     nested_group_ids: list[SymbolID] = field(default_factory=list)
 
+
 @dataclass
 class ControlFlowGroup(Entity):
     group_type: str
     source_range: SourceRange
     block_ids: list[SymbolID] = field(default_factory=list)
+
 
 @dataclass
 class Node(Entity):
@@ -127,6 +144,7 @@ class Node(Entity):
 
     def _compute_id(self) -> str:
         return uuid5(NAMESPACE_URL, f"file://{self.path}").hex
+
 
 @dataclass(kw_only=True)
 class SourceFile(Docstring, Node):

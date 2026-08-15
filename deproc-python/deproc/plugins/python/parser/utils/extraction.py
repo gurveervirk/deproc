@@ -1,22 +1,23 @@
+from deproc.utils.tree_walk import first_child, iter_children
+from tree_sitter import Node
+
 from ..models import (
     Annotation,
     ComplexBinding,
     PythonConstant,
     PythonTypeAlias,
-    SimpleBinding,
     Signature,
+    SimpleBinding,
     SourceRange,
     SymbolID,
     VariableDeclaration,
 )
-from .tree_sitter_python import (
-    node_text,
-    create_source_range
-)
-from tree_sitter import Node
-from deproc.utils.tree_walk import iter_children, first_child
+from .tree_sitter_python import create_source_range, node_text
 
-def extract_docstring_range(node: Node, source_file_id: str | None = None) -> SourceRange | None:
+
+def extract_docstring_range(
+    node: Node, source_file_id: str | None = None
+) -> SourceRange | None:
     if node.type == "module":
         body = node
     elif node.type in ("class_definition", "function_definition"):
@@ -38,25 +39,36 @@ def extract_docstring_range(node: Node, source_file_id: str | None = None) -> So
             break
     return None
 
-def extract_decorator_details(decorated_node: Node, source_file_id: str | None = None) -> list[Annotation]:
+
+def extract_decorator_details(
+    decorated_node: Node, source_file_id: str | None = None
+) -> list[Annotation]:
     decorators: list[Annotation] = []
     for child in iter_children(decorated_node):
         if child.type == "decorator":
             source_range = create_source_range(child, source_id=source_file_id)
             decorators.append(
-                Annotation(
-                    name=node_text(child).strip(),
-                    source_range=source_range
-                )
+                Annotation(name=node_text(child).strip(), source_range=source_range)
             )
     return decorators
 
-def extract_signature(function_node: Node, source_file_id: str | None = None) -> Signature:
+
+def extract_signature(
+    function_node: Node, source_file_id: str | None = None
+) -> Signature:
     params_node = function_node.child_by_field_name("parameters")
-    arguments_range = create_source_range(params_node, source_id=source_file_id) if params_node else None
+    arguments_range = (
+        create_source_range(params_node, source_id=source_file_id)
+        if params_node
+        else None
+    )
 
     return_node = function_node.child_by_field_name("return_type")
-    return_type_range = create_source_range(return_node, source_id=source_file_id) if return_node else None
+    return_type_range = (
+        create_source_range(return_node, source_id=source_file_id)
+        if return_node
+        else None
+    )
 
     # Preferably use colon as end of signature
     colon_node = None
@@ -65,7 +77,15 @@ def extract_signature(function_node: Node, source_file_id: str | None = None) ->
             colon_node = child
             break
 
-    end_point = colon_node.end_point if colon_node else (return_node.end_point if return_node else (params_node.end_point if params_node else function_node.start_point))
+    end_point = (
+        colon_node.end_point
+        if colon_node
+        else (
+            return_node.end_point
+            if return_node
+            else (params_node.end_point if params_node else function_node.start_point)
+        )
+    )
     signature_range = SourceRange(
         lineno=function_node.start_point.row + 1,
         end_lineno=end_point.row + 1,
@@ -77,20 +97,22 @@ def extract_signature(function_node: Node, source_file_id: str | None = None) ->
     return Signature(
         signature_range=signature_range,
         arguments_range=arguments_range,
-        return_type_range=return_type_range
+        return_type_range=return_type_range,
     )
+
 
 def _select_variable_declaration_type(name: str) -> type[VariableDeclaration]:
     if name.isupper() and len(name) > 0:
         return PythonConstant
     return VariableDeclaration
 
+
 def collect_from_assignment_node(
-        node: Node,
-        parent_fqn: str,
-        parent_id: SymbolID,
-        source_file_id: str | None = None,
-    ) -> list[VariableDeclaration]:
+    node: Node,
+    parent_fqn: str | None,
+    parent_id: SymbolID | None,
+    source_file_id: str | None = None,
+) -> list[VariableDeclaration]:
     variables: list[VariableDeclaration] = []
 
     source_range = create_source_range(node, source_id=source_file_id)
@@ -102,7 +124,9 @@ def collect_from_assignment_node(
     if node.type == "assignment":
         if left and left.type in ("pattern_list", "tuple_pattern"):
             right = node.child_by_field_name("right")
-            value_range = create_source_range(right, source_id=source_file_id) if right else None
+            value_range = (
+                create_source_range(right, source_id=source_file_id) if right else None
+            )
             variable_binding = ComplexBinding(
                 source_range=left_range,
             )
@@ -117,18 +141,21 @@ def collect_from_assignment_node(
                     type_annotation=None,
                 )
             )
-            
+
         elif left and left.type == "identifier":
-            variable_binding = SimpleBinding(
-                name=name,
-                fqn=f"{parent_fqn}.{name}"
-            )
+            variable_binding = SimpleBinding(name=name, fqn=f"{parent_fqn}.{name}")
 
             right = node.child_by_field_name("right")
-            value_range = create_source_range(right, source_id=source_file_id) if right else None
+            value_range = (
+                create_source_range(right, source_id=source_file_id) if right else None
+            )
 
             type_node = node.child_by_field_name("type")
-            type_range = create_source_range(type_node, source_id=source_file_id) if type_node else None
+            type_range = (
+                create_source_range(type_node, source_id=source_file_id)
+                if type_node
+                else None
+            )
 
             variable_declaration_type = _select_variable_declaration_type(name)
             variables.append(
@@ -143,16 +170,21 @@ def collect_from_assignment_node(
 
     elif node.type == "annotated_assignment":
         if left and left.type == "identifier":
-            variable_binding = SimpleBinding(
-                name=name,
-                fqn=f"{parent_fqn}.{name}"
-            )
+            variable_binding = SimpleBinding(name=name, fqn=f"{parent_fqn}.{name}")
 
             value_node = node.child_by_field_name("right")
-            value_range = create_source_range(value_node, source_id=source_file_id) if value_node else None
+            value_range = (
+                create_source_range(value_node, source_id=source_file_id)
+                if value_node
+                else None
+            )
 
             type_node = node.child_by_field_name("type")
-            type_range = create_source_range(type_node, source_id=source_file_id) if type_node else None
+            type_range = (
+                create_source_range(type_node, source_id=source_file_id)
+                if type_node
+                else None
+            )
 
             variable_declaration_type = _select_variable_declaration_type(name)
             variables.append(
@@ -170,11 +202,12 @@ def collect_from_assignment_node(
         value_node = node.child_by_field_name("value")
         if name_node:
             name = node_text(name_node)
-            variable_binding = SimpleBinding(
-                name=name,
-                fqn=f"{parent_fqn}.{name}"
+            variable_binding = SimpleBinding(name=name, fqn=f"{parent_fqn}.{name}")
+            value_range = (
+                create_source_range(value_node, source_id=source_file_id)
+                if value_node
+                else None
             )
-            value_range = create_source_range(value_node, source_id=source_file_id) if value_node else None
 
             variables.append(
                 PythonTypeAlias(
@@ -185,5 +218,5 @@ def collect_from_assignment_node(
                     type_annotation=None,
                 )
             )
-    
+
     return variables

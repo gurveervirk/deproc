@@ -1,12 +1,12 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
+
 from . import EntityRegistry
 
 if TYPE_CHECKING:
-    from ....interfaces.parser.models import (
-        Entity,
-        SymbolID
-    )
+    from ....interfaces.parser.models import Entity, SymbolID
+
 
 def entity_fqn(entity: Entity) -> str | None:
     fqn = getattr(entity, "fqn", None)
@@ -16,6 +16,7 @@ def entity_fqn(entity: Entity) -> str | None:
     if vb:
         return getattr(vb, "fqn", None)
     return None
+
 
 def parent_chain(registry: EntityRegistry, entity_id: SymbolID) -> list[Entity]:
     chain: list[Entity] = []
@@ -29,6 +30,7 @@ def parent_chain(registry: EntityRegistry, entity_id: SymbolID) -> list[Entity]:
         chain.append(entity)
         current_id = getattr(entity, "parent_id", None)
     return chain
+
 
 def find_first_ancestor_of_type(
     registry: EntityRegistry, entity_id: SymbolID, types: set[str]
@@ -45,6 +47,7 @@ def find_first_ancestor_of_type(
             return entity
         current_id = getattr(entity, "parent_id", None)
     return None
+
 
 def classify_entity_scope(registry: EntityRegistry, entity_id: SymbolID) -> str:
     module_types = {"MODULE", "PACKAGE", "NAMESPACE_PACKAGE"}

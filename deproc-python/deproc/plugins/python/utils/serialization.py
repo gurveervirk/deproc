@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+
 from deproc.core.interfaces.parser.models import (
     ControlFlowBlock,
     ControlFlowGroup,
@@ -9,6 +10,10 @@ from deproc.core.interfaces.parser.models import (
     TypeDefinition,
     VariableDeclaration,
 )
+from deproc.plugins.python.linker.models import (
+    PythonNamespacePackage,
+    PythonPackage,
+)
 from deproc.plugins.python.parser.models import (
     PythonClass,
     PythonConstant,
@@ -17,10 +22,6 @@ from deproc.plugins.python.parser.models import (
     PythonImportStatement,
     PythonModule,
     PythonTypeAlias,
-)
-from deproc.plugins.python.linker.models import (
-    PythonNamespacePackage,
-    PythonPackage,
 )
 
 TYPE_TO_CLASS = {
@@ -39,9 +40,11 @@ TYPE_TO_CLASS = {
     "CONTROL_FLOW_GROUP": ControlFlowGroup,
 }
 
+
 def _module_fqn(full_path: str) -> str | None:
     parts = full_path.rsplit(".", 1)
     return parts[0] if len(parts) > 1 else None
+
 
 def _get_module_fqn_from_registry(entity_id: str, registry: dict) -> str | None:
     seen: set[str] = set()
@@ -56,7 +59,13 @@ def _get_module_fqn_from_registry(entity_id: str, registry: dict) -> str | None:
         current = getattr(entity, "parent_id", None)
     return None
 
-def entity_to_record(entity, language: str = "python", module_exports: dict[str, set[str]] | None = None, registry=None) -> dict | None:
+
+def entity_to_record(
+    entity,
+    language: str = "python",
+    module_exports: dict[str, set[str]] | None = None,
+    registry=None,
+) -> dict | None:
     if isinstance(entity, PythonImportAlias):
         name = entity.alias or entity.name
         if not entity.fqn:
@@ -104,14 +113,22 @@ def entity_to_record(entity, language: str = "python", module_exports: dict[str,
         module_fqn = None
         if entity.parent_id and registry:
             module_fqn = _get_module_fqn_from_registry(entity.parent_id, registry)
-        full_path = f"{module_fqn}.__branch__.{entity.branch}.{entity.source_range.lineno}" if module_fqn else f"__branch__.{entity.branch}.{entity.source_range.lineno}"
+        full_path = (
+            f"{module_fqn}.__branch__.{entity.branch}.{entity.source_range.lineno}"
+            if module_fqn
+            else f"__branch__.{entity.branch}.{entity.source_range.lineno}"
+        )
     elif isinstance(entity, ControlFlowGroup):
         name = entity.group_type
         entity_type = "CONTROL_FLOW_GROUP"
         module_fqn = None
         if entity.parent_id and registry:
             module_fqn = _get_module_fqn_from_registry(entity.parent_id, registry)
-        full_path = f"{module_fqn}.__group__.{entity.group_type}.{entity.source_range.lineno}" if module_fqn else f"__group__.{entity.group_type}.{entity.source_range.lineno}"
+        full_path = (
+            f"{module_fqn}.__group__.{entity.group_type}.{entity.source_range.lineno}"
+            if module_fqn
+            else f"__group__.{entity.group_type}.{entity.source_range.lineno}"
+        )
     else:
         return None
 
@@ -119,7 +136,7 @@ def entity_to_record(entity, language: str = "python", module_exports: dict[str,
         return None
 
     metadata = {}
-    sr = entity.source_range if hasattr(entity, "source_range") else None
+    sr = getattr(entity, "source_range", None)
     if sr:
         metadata["lineno"] = sr.lineno
         metadata["end_lineno"] = sr.end_lineno
@@ -148,21 +165,26 @@ def entity_to_record(entity, language: str = "python", module_exports: dict[str,
         metadata["nested_group_ids"] = entity.nested_group_ids
     if isinstance(entity, ControlFlowGroup):
         metadata["block_ids"] = entity.block_ids
-    if hasattr(entity, "fqn") and entity.fqn:
-        metadata["fqn"] = entity.fqn
-    if hasattr(entity, "path"):
-        metadata["path"] = entity.path
+    fqn = getattr(entity, "fqn", None)
+    if fqn:
+        metadata["fqn"] = fqn
+    path = getattr(entity, "path", None)
+    if path is not None:
+        metadata["path"] = path
     if isinstance(entity, PythonModule) and entity.all_exports:
         metadata["all_exports"] = entity.all_exports
-    if hasattr(entity, "visibility") and entity.visibility:
-        metadata["visibility"] = entity.visibility
-    if hasattr(entity, "docstring_range") and entity.docstring_range:
-        dr = entity.docstring_range
+    visibility = getattr(entity, "visibility", None)
+    if visibility:
+        metadata["visibility"] = visibility
+    docstring_range = getattr(entity, "docstring_range", None)
+    if docstring_range:
+        dr = docstring_range
         metadata["docstring_lineno"] = dr.lineno
         metadata["docstring_end_lineno"] = dr.end_lineno
     if isinstance(entity, FunctionLike):
-        if hasattr(entity, "signature") and entity.signature:
-            sig = entity.signature
+        signature = getattr(entity, "signature", None)
+        if signature:
+            sig = signature
             metadata["signature_lineno"] = sig.signature_range.lineno
             metadata["signature_end_lineno"] = sig.signature_range.end_lineno
             if sig.arguments_range:
@@ -171,8 +193,9 @@ def entity_to_record(entity, language: str = "python", module_exports: dict[str,
             if sig.return_type_range:
                 metadata["return_type_lineno"] = sig.return_type_range.lineno
                 metadata["return_type_end_lineno"] = sig.return_type_range.end_lineno
-        if hasattr(entity, "annotations") and entity.annotations:
-            metadata["decorators"] = [a.name for a in entity.annotations]
+        annotations = getattr(entity, "annotations", None)
+        if annotations:
+            metadata["decorators"] = [a.name for a in annotations]
     if isinstance(entity, TypeDefinition):
         if hasattr(entity, "inherits") and entity.inherits:
             metadata["parent_classes"] = entity.inherits
@@ -190,7 +213,11 @@ def entity_to_record(entity, language: str = "python", module_exports: dict[str,
         if hasattr(entity, "modifiers") and entity.modifiers:
             metadata["modifiers"] = entity.modifiers
 
-    mfqn = entity.fqn if isinstance(entity, (PythonModule, PythonNamespacePackage)) else _module_fqn(full_path)
+    mfqn = (
+        entity.fqn
+        if isinstance(entity, (PythonModule, PythonNamespacePackage))
+        else _module_fqn(full_path)
+    )
     if mfqn and name in (module_exports or {}).get(mfqn, set()):
         metadata["exported"] = True
 
@@ -203,6 +230,7 @@ def entity_to_record(entity, language: str = "python", module_exports: dict[str,
         "metadata_json": json.dumps(metadata, default=str),
         "parent_id": getattr(entity, "parent_id", None),
     }
+
 
 def record_to_entity(record: dict) -> Entity | None:
     entity_class = TYPE_TO_CLASS.get(record["type"])
@@ -280,7 +308,12 @@ def record_to_entity(record: dict) -> Entity | None:
             submodule_ids=meta.get("submodule_ids", []),
             **common,
         )
-    null_fields = {"variable_binding": None, "value_range": None, "type_annotation": None, "modifiers": []}
+    null_fields = {
+        "variable_binding": None,
+        "value_range": None,
+        "type_annotation": None,
+        "modifiers": [],
+    }
     if entity_class is PythonConstant:
         return PythonConstant(source_range=sr, **null_fields, **common)
     if entity_class is PythonTypeAlias:

@@ -1,20 +1,24 @@
 import os
 import tempfile
 from unittest.mock import patch
-from deproc.utils.python_env.detect import detect_venv, parse_pyvenv_cfg, _is_venv
+
+from deproc.utils.python_env.detect import _is_venv, detect_venv, parse_pyvenv_cfg
 from deproc.utils.python_env.discovery import (
-    find_site_packages,
-    list_installed_packages,
     _parse_metadata,
     _parse_top_level,
+    find_site_packages,
+    list_installed_packages,
 )
+
 
 class TestDetectVenv:
     def test_detect_venv_no_venv(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            with patch.dict(os.environ, {}, clear=True):
-                result = detect_venv(tmp, {})
-                assert result is None
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch.dict(os.environ, {}, clear=True),
+        ):
+            result = detect_venv(tmp, {})
+            assert result is None
 
     def test_detect_venv_from_config(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -43,7 +47,9 @@ class TestDetectVenv:
         with tempfile.TemporaryDirectory() as tmp:
             cfg_path = os.path.join(tmp, "pyvenv.cfg")
             with open(cfg_path, "w") as f:
-                f.write("home = /usr/bin\nversion = 3.12\ninclude-system-site-packages = false\n")
+                f.write(
+                    "home = /usr/bin\nversion = 3.12\ninclude-system-site-packages = false\n"
+                )
             result = parse_pyvenv_cfg(tmp)
             assert result["home"] == "/usr/bin"
             assert result["version"] == "3.12"
@@ -53,6 +59,7 @@ class TestDetectVenv:
         with tempfile.TemporaryDirectory() as tmp:
             result = parse_pyvenv_cfg(tmp)
             assert result == {}
+
 
 class TestDiscovery:
     def test_find_site_packages(self):

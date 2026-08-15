@@ -13,6 +13,7 @@ from .runtime import EntityRegistry
 
 logger = logging.getLogger(__name__)
 
+
 class Context:
     def __init__(self, base_path: str = "", copy_from: Context | None = None):
         if copy_from:
@@ -56,7 +57,12 @@ class Context:
             e = ext.strip().lower()
             if not e.startswith("."):
                 e = f".{e}"
-                logger.warning("Normalized file extension '%s' to '%s' for language '%s'", ext, e, normalized)
+                logger.warning(
+                    "Normalized file extension '%s' to '%s' for language '%s'",
+                    ext,
+                    e,
+                    normalized,
+                )
             normalized_extensions.append(e)
         self._language_extensions[normalized] = normalized_extensions
         if aliases:
@@ -123,11 +129,16 @@ class Context:
 
     def _require_language(self, language: str) -> None:
         if language not in self._all_languages:
-            raise KeyError(f"Language '{language}' is not registered. Call set_language() first.")
+            raise KeyError(
+                f"Language '{language}' is not registered. Call set_language() first."
+            )
 
     def _warn_if_language_missing(self, language: str) -> None:
         if language not in self._all_languages:
-            logger.warning("Language '%s' is not registered. Did you forget to call set_language()?", language)
+            logger.warning(
+                "Language '%s' is not registered. Did you forget to call set_language()?",
+                language,
+            )
 
     def set_parser(self, language: str, parser: SourceParser) -> None:
         self._require_language(language)

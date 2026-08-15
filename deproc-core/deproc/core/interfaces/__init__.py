@@ -6,6 +6,6 @@ from .symbol_cache import SymbolCache
 __all__ = [
     "Linker",
     "Resolver",
-	"SourceParser",
+    "SourceParser",
     "SymbolCache",
 ]

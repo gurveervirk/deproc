@@ -2,15 +2,18 @@
 
 from pathlib import Path
 from unittest.mock import MagicMock
+
 from deproc.core.context import Context
 from deproc.core.runtime import EntityRegistry
 from deproc.plugins.python.linker.main import PythonLinker
 from deproc.plugins.python.parser.models import PythonModule
 
+
 def _write_file(path: Path, content: str = "") -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
     return path
+
 
 def _make_context(base_path: str, skip_paths: set[str] | None = None) -> Context:
     ctx = Context(base_path=base_path)
@@ -19,8 +22,10 @@ def _make_context(base_path: str, skip_paths: set[str] | None = None) -> Context
         ctx.set_skip_paths(skip_paths)
     return ctx
 
+
 def _registry_fqns(registry: EntityRegistry) -> set[str]:
     return {e.fqn for e in registry.values() if hasattr(e, "fqn")}
+
 
 class TestLinker:
     """Test Python module linking."""
@@ -39,7 +44,7 @@ class TestLinker:
             path="/path/to/mymodule.py",
             parent_id=None,
             docstring_range=None,
-            source=""
+            source="",
         )
         assert module.fqn == "mypackage.mymodule"
         assert module.path == "/path/to/mymodule.py"
@@ -52,7 +57,7 @@ class TestLinker:
             path="/path/to",
             parent_id=None,
             docstring_range=None,
-            source=""
+            source="",
         )
         child = PythonModule(
             id="mod_1",
@@ -60,7 +65,7 @@ class TestLinker:
             path="/path/to/mymodule.py",
             parent_id="pkg_1",
             docstring_range=None,
-            source=""
+            source="",
         )
         assert child.parent_id == "pkg_1"
         assert child.fqn.startswith(parent.fqn)
@@ -113,7 +118,7 @@ class TestLinker:
         _write_file(tmp_path / "pkg" / "build.dist-info" / "METADATA")
 
         ctx = _make_context(str(tmp_path), {"*.dist-info"})
-        result = self.linker.link_files([], ctx)
+        self.linker.link_files([], ctx)
 
         fqns = _registry_fqns(ctx.entity_registry)
         assert "pkg" in fqns
@@ -173,8 +178,10 @@ class TestLinker:
         _write_file(tmp_path / "node_modules" / "dep.js")
         _write_file(tmp_path / "src.egg-info" / "PKG-INFO")
 
-        ctx = _make_context(str(tmp_path), {"*.egg-info", "build", "dist", "node_modules"})
-        result = self.linker.link_files([], ctx)
+        ctx = _make_context(
+            str(tmp_path), {"*.egg-info", "build", "dist", "node_modules"}
+        )
+        self.linker.link_files([], ctx)
 
         fqns = _registry_fqns(ctx.entity_registry)
         assert "src" in fqns

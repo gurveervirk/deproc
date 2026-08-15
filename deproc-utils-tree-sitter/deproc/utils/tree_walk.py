@@ -1,5 +1,7 @@
+from collections.abc import Iterable
+
 from tree_sitter import Node, TreeCursor
-from typing import Iterable
+
 
 def iter_children(node: Node | None) -> Iterable[Node]:
     if not node:
@@ -8,14 +10,18 @@ def iter_children(node: Node | None) -> Iterable[Node]:
     if not cursor.goto_first_child():
         return
     while True:
-        yield cursor.node
+        child = cursor.node
+        if child is not None:
+            yield child
         if not cursor.goto_next_sibling():
             break
+
 
 def first_child(node: Node | None) -> Node | None:
     for child in iter_children(node):
         return child
     return None
+
 
 def walk_preorder(node: Node | None) -> Iterable[Node]:
     if not node:
@@ -24,7 +30,9 @@ def walk_preorder(node: Node | None) -> Iterable[Node]:
     visited = False
     while True:
         if not visited:
-            yield cursor.node
+            node_at_cursor = cursor.node
+            if node_at_cursor is not None:
+                yield node_at_cursor
             if cursor.goto_first_child():
                 visited = False
                 continue

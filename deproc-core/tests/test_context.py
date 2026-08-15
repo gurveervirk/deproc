@@ -1,6 +1,8 @@
+from unittest.mock import MagicMock
+
 import pytest
 from deproc.core.context import Context
-from unittest.mock import MagicMock
+
 
 class TestSetLanguage:
     def test_set_language_adds_to_selected(self):
@@ -31,6 +33,7 @@ class TestSetLanguage:
         assert ctx.selected_languages == {"python", "javascript"}
         assert ctx.selected_file_extensions == {".py", ".js"}
 
+
 class TestSelectLanguages:
     def setup_method(self):
         self.ctx = Context()
@@ -56,6 +59,7 @@ class TestSelectLanguages:
         self.ctx.select_languages(["unknown"])
         assert self.ctx.selected_languages == {"javascript"}
 
+
 class TestSelectFileExtensions:
     def setup_method(self):
         self.ctx = Context()
@@ -74,6 +78,7 @@ class TestSelectFileExtensions:
         self.ctx.select_file_extensions(["!.py"])
         self.ctx.select_file_extensions([".unknown"])
         assert self.ctx.selected_file_extensions == {".pyi"}
+
 
 class TestSetParser:
     def setup_method(self):
@@ -108,6 +113,7 @@ class TestSetParser:
         self.ctx.has_parser("unknown")
         assert "not registered" in caplog.text
 
+
 class TestSetResolver:
     def setup_method(self):
         self.ctx = Context()
@@ -136,6 +142,7 @@ class TestSetResolver:
         self.ctx.get_resolver("unknown")
         assert "not registered" in caplog.text
 
+
 class TestSetLinker:
     def setup_method(self):
         self.ctx = Context()
@@ -163,6 +170,7 @@ class TestSetLinker:
         caplog.set_level("WARNING")
         self.ctx.get_linker("unknown")
         assert "not registered" in caplog.text
+
 
 class TestSetSymbolCache:
     def setup_method(self):
@@ -196,6 +204,7 @@ class TestSetSymbolCache:
         self.ctx.get_symbol_cache("unknown")
         assert "not registered" in caplog.text
 
+
 class TestCopyFrom:
     def test_copy_preserves_language_config(self):
         ctx = Context()
@@ -220,6 +229,7 @@ class TestCopyFrom:
         assert ctx.selected_languages == set()
         assert ctx.selected_file_extensions == set()
 
+
 class TestReset:
     def test_reset_restores_all_languages(self):
         ctx = Context()
@@ -242,6 +252,7 @@ class TestReset:
         ctx.select_languages(["!python"])
         ctx.reset(include_languages=False)
         assert ctx.selected_languages == set()
+
 
 class TestSkipPaths:
     def test_default_is_empty(self):
@@ -272,6 +283,7 @@ class TestSkipPaths:
         copy.set_skip_paths({".git"})
         assert ctx.skip_paths == {".venv"}
         assert copy.skip_paths == {".git"}
+
 
 class TestEmptyContext:
     def test_empty_selected_languages(self):

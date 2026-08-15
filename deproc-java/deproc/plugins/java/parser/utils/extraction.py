@@ -1,5 +1,6 @@
-from tree_sitter import Node
 from deproc.utils.tree_walk import iter_children
+from tree_sitter import Node
+
 from ..models import (
     Annotation,
     JavaParameter,
@@ -7,9 +8,10 @@ from ..models import (
     SourceRange,
 )
 from .tree_sitter_java import (
-    node_text,
     create_source_range,
+    node_text,
 )
+
 
 def is_javadoc(node: Node) -> bool:
     if node.type != "block_comment" or node.text is None:
@@ -17,7 +19,10 @@ def is_javadoc(node: Node) -> bool:
     text = node.text.decode("utf-8")
     return text.startswith("/**")
 
-def extract_javadoc_range(node: Node, source_file_id: str | None = None) -> SourceRange | None:
+
+def extract_javadoc_range(
+    node: Node, source_file_id: str | None = None
+) -> SourceRange | None:
     parent = node.parent
     if parent is None:
         return None
@@ -33,7 +38,10 @@ def extract_javadoc_range(node: Node, source_file_id: str | None = None) -> Sour
         return create_source_range(previous, source_id=source_file_id)
     return None
 
-def extract_annotations(modifiers_node: Node | None, source_file_id: str | None = None) -> list[Annotation]:
+
+def extract_annotations(
+    modifiers_node: Node | None, source_file_id: str | None = None
+) -> list[Annotation]:
     annotations: list[Annotation] = []
     if modifiers_node is None:
         return annotations
@@ -48,6 +56,7 @@ def extract_annotations(modifiers_node: Node | None, source_file_id: str | None 
             )
     return annotations
 
+
 def type_text(node: Node | None) -> str:
     if node is None:
         return ""
@@ -55,6 +64,7 @@ def type_text(node: Node | None) -> str:
         inner = node.child_by_field_name("type")
         return type_text(inner)
     return node_text(node)
+
 
 def extract_type_names(node: Node | None) -> list[str]:
     if node is None:
@@ -67,13 +77,20 @@ def extract_type_names(node: Node | None) -> list[str]:
             names.extend(extract_type_names(child))
     return names
 
+
 def extract_signature(node: Node, source_file_id: str | None = None) -> Signature:
     name_node = node.child_by_field_name("name")
     params_node = node.child_by_field_name("parameters")
     type_node = node.child_by_field_name("type")
 
-    arguments_range = create_source_range(params_node, source_id=source_file_id) if params_node else None
-    return_type_range = create_source_range(type_node, source_id=source_file_id) if type_node else None
+    arguments_range = (
+        create_source_range(params_node, source_id=source_file_id)
+        if params_node
+        else None
+    )
+    return_type_range = (
+        create_source_range(type_node, source_id=source_file_id) if type_node else None
+    )
 
     if params_node is not None:
         end_point = params_node.end_point
@@ -96,7 +113,10 @@ def extract_signature(node: Node, source_file_id: str | None = None) -> Signatur
         return_type_range=return_type_range,
     )
 
-def extract_parameters(node: Node, source_file_id: str | None = None) -> list[JavaParameter]:
+
+def extract_parameters(
+    node: Node, source_file_id: str | None = None
+) -> list[JavaParameter]:
     parameters: list[JavaParameter] = []
     params_node = node.child_by_field_name("parameters")
     if params_node is None:
@@ -112,7 +132,11 @@ def extract_parameters(node: Node, source_file_id: str | None = None) -> list[Ja
         if child.type == "spread_parameter":
             if type_node is None:
                 for sub in iter_children(child):
-                    if sub.type in ("type_identifier", "scoped_type_identifier", "generic_type"):
+                    if sub.type in (
+                        "type_identifier",
+                        "scoped_type_identifier",
+                        "generic_type",
+                    ):
                         type_node = sub
                         break
             declarator = first_child_of_type(child, "variable_declarator")
@@ -122,6 +146,7 @@ def extract_parameters(node: Node, source_file_id: str | None = None) -> list[Ja
         modifiers_node = child.child_by_field_name("modifiers")
         modifier_names: list[str] = []
         from .misc import extract_modifier_names
+
         if modifiers_node is not None:
             modifier_names = extract_modifier_names(modifiers_node)
 
@@ -136,11 +161,13 @@ def extract_parameters(node: Node, source_file_id: str | None = None) -> list[Ja
         )
     return parameters
 
+
 def first_child_of_type(node: Node, node_type: str) -> Node | None:
     for child in iter_children(node):
         if child.type == node_type:
             return child
     return None
+
 
 def extract_exceptions(node: Node) -> list[str]:
     exceptions: list[str] = []
