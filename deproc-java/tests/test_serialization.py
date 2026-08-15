@@ -147,10 +147,14 @@ class TestSerialization:
             visibility="public",
             implements=["I1"],
             enum_constant_ids=["ec1", "ec2"],
+            property_ids=["f1"],
+            method_ids=["c1"],
         )
         record, back = self._roundtrip(enum)
         assert record["type"] == "ENUM"
         assert back.enum_constant_ids == ["ec1", "ec2"]
+        assert back.property_ids == ["f1"]
+        assert back.method_ids == ["c1"]
 
     def test_record_roundtrip(self):
         record_obj = JavaRecord(
@@ -161,10 +165,14 @@ class TestSerialization:
             docstring_range=None,
             visibility="public",
             record_component_ids=["rc1"],
+            property_ids=["f1"],
+            method_ids=["c1"],
         )
         record, back = self._roundtrip(record_obj)
         assert record["type"] == "RECORD"
         assert back.record_component_ids == ["rc1"]
+        assert back.property_ids == ["f1"]
+        assert back.method_ids == ["c1"]
 
     def test_annotation_type_roundtrip(self):
         anno = JavaAnnotationType(
@@ -252,19 +260,16 @@ class TestSerialization:
     def test_enum_constant_roundtrip(self):
         const = JavaEnumConstant(
             id="ec_1",
-            type="ENUM_CONSTANT",
+            name="RED",
+            fqn="com.example.Color.RED",
             source_range=_sr(),
-            variable_binding=SimpleBinding(name="RED", fqn="com.example.Color.RED"),
-            value_range=None,
-            type_annotation=None,
             arguments_range=_sr(2, 2),
         )
         record, _ = self._roundtrip(const)
         assert record["type"] == "ENUM_CONSTANT"
         assert back.arguments_range is not None
         assert back.arguments_range.lineno == 2
-        assert back.is_static is True
-        assert back.is_final is True
+        assert back.name == "RED"
 
     def test_record_component_roundtrip(self):
         comp = JavaRecordComponent(

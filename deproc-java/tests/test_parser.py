@@ -194,7 +194,8 @@ interface MyInterface extends I1, I2 {
         code = """
 enum Color implements I1 {
     RED(1), GREEN(2);
-    Color(int c) {}
+    private final int code;
+    Color(int c) { this.code = c; }
 }
 """
         _, ctx = _parse(code)
@@ -202,10 +203,13 @@ enum Color implements I1 {
         enum = enums[0]
         assert enum.implements == ["I1"]
         assert len(enum.enum_constant_ids) == 2
+        assert len(enum.property_ids) == 1
+        constructors = _entity_of_type(ctx, JavaMethod)
+        assert len([c for c in constructors if c.type == "CONSTRUCTOR"]) == 1
         constants = _entity_of_type(ctx, JavaEnumConstant)
         assert len(constants) == 2
-        assert constants[0].variable_binding.name == "RED"
-        assert constants[1].variable_binding.name == "GREEN"
+        assert constants[0].name == "RED"
+        assert constants[1].name == "GREEN"
 
     def test_enum_constant_arguments_range(self):
         code = """
@@ -216,7 +220,7 @@ enum Color {
 """
         _, ctx = _parse(code)
         constants = _entity_of_type(ctx, JavaEnumConstant)
-        by_name = {c.variable_binding.name: c for c in constants}
+        by_name = {c.name: c for c in constants}
         red = by_name["RED"]
         green = by_name["GREEN"]
         assert red.arguments_range is not None
@@ -314,9 +318,9 @@ class MyClass {
         _, ctx = _parse(code)
         classes = _entity_of_type(ctx, JavaClass)
         cls = classes[0]
-        assert len(cls.constructor_ids) == 1
         constructors = _entity_of_type(ctx, JavaMethod)
-        ctor = next(c for c in constructors if c.type == "CONSTRUCTOR")
+        ctor = [c for c in constructors if c.type == "CONSTRUCTOR"][0]
+        assert len(cls.method_ids) == 1
         assert ctor.return_type is None
         assert ctor.name == "MyClass"
 
@@ -526,7 +530,7 @@ class Main {
         anon = ctx.entity_registry.get(main.inner_type_ids[0])
         methods = [ctx.entity_registry.get(i) for i in anon.method_ids]
         assert [m.name for m in methods] == ["run"]
-        fields = [ctx.entity_registry.get(i) for i in anon.field_ids]
+        fields = [ctx.entity_registry.get(i) for i in anon.property_ids]
         assert [f.variable_binding.name for f in fields] == ["count"]
 
     def test_anonymous_class_in_method_not_extracted(self):
