@@ -79,17 +79,17 @@ def entity_to_record(entity, language: str = "java", module_exports: dict[str, s
         name = entity.fqn.split(".")[-1]
         full_path = entity.fqn
         entity_type = "PACKAGE"
-    elif isinstance(entity, (JavaField, JavaEnumConstant)):
+    elif isinstance(entity, JavaField):
         vb = getattr(entity, "variable_binding", None)
         if not vb:
             return None
         name = vb.name
         full_path = vb.fqn or name
         entity_type = entity.type
-    elif isinstance(entity, JavaRecordComponent):
+    elif isinstance(entity, (JavaEnumConstant, JavaRecordComponent)):
         name = entity.name
         full_path = entity.fqn or name
-        entity_type = "RECORD_COMPONENT"
+        entity_type = "ENUM_CONSTANT" if isinstance(entity, JavaEnumConstant) else "RECORD_COMPONENT"
     elif isinstance(entity, (FunctionLike, TypeDefinition)):
         name = entity.name
         full_path = entity.fqn
@@ -170,34 +170,31 @@ def entity_to_record(entity, language: str = "java", module_exports: dict[str, s
         metadata["is_abstract"] = entity.is_abstract
         metadata["is_final"] = entity.is_final
         metadata["is_static"] = entity.is_static
-        metadata["field_ids"] = entity.field_ids
-        metadata["constructor_ids"] = entity.constructor_ids
+        if entity.property_ids:
+            metadata["property_ids"] = entity.property_ids
         if entity.method_ids:
             metadata["method_ids"] = entity.method_ids
     if isinstance(entity, JavaInterface):
         if entity.extends_interfaces:
             metadata["extends_interfaces"] = entity.extends_interfaces
-        metadata["field_ids"] = entity.field_ids
+        if entity.property_ids:
+            metadata["property_ids"] = entity.property_ids
         if entity.method_ids:
             metadata["method_ids"] = entity.method_ids
     if isinstance(entity, JavaEnum):
         if entity.implements:
             metadata["implements"] = entity.implements
         metadata["enum_constant_ids"] = entity.enum_constant_ids
-        if getattr(entity, "field_ids", None):
-            metadata["field_ids"] = entity.field_ids
-        if getattr(entity, "constructor_ids", None):
-            metadata["constructor_ids"] = entity.constructor_ids
+        if entity.property_ids:
+            metadata["property_ids"] = entity.property_ids
         if entity.method_ids:
             metadata["method_ids"] = entity.method_ids
     if isinstance(entity, JavaRecord):
         if entity.implements:
             metadata["implements"] = entity.implements
         metadata["record_component_ids"] = entity.record_component_ids
-        if getattr(entity, "field_ids", None):
-            metadata["field_ids"] = entity.field_ids
-        if getattr(entity, "constructor_ids", None):
-            metadata["constructor_ids"] = entity.constructor_ids
+        if entity.property_ids:
+            metadata["property_ids"] = entity.property_ids
         if entity.method_ids:
             metadata["method_ids"] = entity.method_ids
     if isinstance(entity, JavaMethod):
@@ -232,7 +229,7 @@ def entity_to_record(entity, language: str = "java", module_exports: dict[str, s
         metadata["is_final"] = entity.is_final
         metadata["is_transient"] = entity.is_transient
         metadata["is_volatile"] = entity.is_volatile
-    if isinstance(entity, (JavaField, JavaEnumConstant)):
+    if isinstance(entity, JavaField):
         if hasattr(entity, "modifiers") and entity.modifiers:
             metadata["modifiers"] = entity.modifiers
         if hasattr(entity, "type_annotation") and entity.type_annotation:
@@ -358,6 +355,8 @@ def record_to_entity(record: dict) -> Entity | None:
             "annotations": [],
             "visibility": meta.get("visibility"),
             "inner_type_ids": meta.get("inner_type_ids", []),
+            "method_ids": meta.get("method_ids", []),
+            "property_ids": meta.get("property_ids", []),
         }
         if entity_class is JavaClass:
             return JavaClass(
@@ -367,32 +366,25 @@ def record_to_entity(record: dict) -> Entity | None:
                 is_static=meta.get("is_static", False),
                 superclass=meta.get("superclass"),
                 implements=meta.get("implements", []),
-                field_ids=meta.get("field_ids", []),
-                constructor_ids=meta.get("constructor_ids", []),
-                method_ids=meta.get("method_ids", []),
             )
         if entity_class is JavaInterface:
             return JavaInterface(
                 **kwargs,
                 extends_interfaces=meta.get("extends_interfaces", []),
-                field_ids=meta.get("field_ids", []),
-                method_ids=meta.get("method_ids", []),
             )
         if entity_class is JavaEnum:
             return JavaEnum(
                 **kwargs,
                 implements=meta.get("implements", []),
                 enum_constant_ids=meta.get("enum_constant_ids", []),
-                method_ids=meta.get("method_ids", []),
             )
         if entity_class is JavaRecord:
             return JavaRecord(
                 **kwargs,
                 implements=meta.get("implements", []),
                 record_component_ids=meta.get("record_component_ids", []),
-                method_ids=meta.get("method_ids", []),
             )
-        return JavaAnnotationType(**kwargs, method_ids=meta.get("method_ids", []))
+        return JavaAnnotationType(**kwargs)
     if entity_class is JavaMethod:
         docstring_range = None
         if "docstring_lineno" in meta:
@@ -442,16 +434,9 @@ def record_to_entity(record: dict) -> Entity | None:
         return JavaEnumConstant(
             id=record["id"],
             parent_id=parent_id,
-            type=record["type"],
+            name=record["name"],
+            fqn=meta.get("fqn") or record["full_path"],
             source_range=sr,
-            variable_binding=SimpleBinding(name=record["name"], fqn=meta.get("fqn") or record["full_path"]),
-            value_range=None,
-            type_annotation=_source_range_from_meta(meta, "type_annotation"),
-            modifiers=meta.get("modifiers", []),
-            is_static=meta.get("is_static", True),
-            is_final=meta.get("is_final", True),
-            is_transient=meta.get("is_transient", False),
-            is_volatile=meta.get("is_volatile", False),
             arguments_range=_source_range_from_meta(meta, "arguments"),
         )
     if entity_class is JavaRecordComponent:

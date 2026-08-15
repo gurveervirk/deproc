@@ -29,15 +29,12 @@ class JavaClass(TypeDefinition):
     is_static: bool = False
     superclass: str | None = None
     implements: list[str] = field(default_factory=list)
-    field_ids: list[SymbolID] = field(default_factory=list)
-    constructor_ids: list[SymbolID] = field(default_factory=list)
 
 
 @dataclass(kw_only=True)
 class JavaInterface(TypeDefinition):
     type: str = field(default="INTERFACE")
     extends_interfaces: list[str] = field(default_factory=list)
-    field_ids: list[SymbolID] = field(default_factory=list)
 
 
 @dataclass(kw_only=True)
@@ -86,10 +83,10 @@ class JavaField(VariableDeclaration):
     is_volatile: bool = False
 
 @dataclass(kw_only=True)
-class JavaEnumConstant(JavaField):
-    type: str = field(default="ENUM_CONSTANT")
-    is_static: bool = True
-    is_final: bool = True
+class JavaEnumConstant(Entity):
+    name: str
+    fqn: str
+    source_range: SourceRange
     arguments_range: SourceRange | None = None
 
 @dataclass(kw_only=True)
