@@ -15,6 +15,7 @@ def c3_merge(seqs: list[list[str]]) -> list[str]:
         else:
             raise ValueError(f"Inconsistent MRO hierarchy: cannot merge {seqs}")
 
+
 def compute_mro_from_bases(
     self_fqn: str,
     base_mros: dict[str, list[str] | None],
@@ -27,8 +28,8 @@ def compute_mro_from_bases(
             return None
         base_mro_lists.append(list(mro))
 
-    merge_lists: list[list[str]] = base_mro_lists + [list(base_fqns)]
+    merge_lists: list[list[str]] = [*base_mro_lists, list(base_fqns)]
     try:
-        return [self_fqn] + c3_merge(merge_lists)
+        return [self_fqn, *c3_merge(merge_lists)]
     except ValueError:
         return None

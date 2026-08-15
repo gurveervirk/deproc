@@ -1,6 +1,7 @@
 """Tests for Java entity serialization."""
 
-from deproc.core.context import Context
+from deproc.core.interfaces.parser.models import SourceRange
+from deproc.plugins.java.linker.models import JavaPackage
 from deproc.plugins.java.parser.models import (
     JavaAnnotationType,
     JavaClass,
@@ -14,15 +15,15 @@ from deproc.plugins.java.parser.models import (
     JavaRecord,
     SimpleBinding,
 )
-from deproc.plugins.java.linker.models import JavaPackage
 from deproc.plugins.java.utils.serialization import (
     entity_to_record,
     record_to_entity,
 )
-from deproc.core.interfaces.parser.models import SourceRange
+
 
 def _sr(lineno=1, end=1) -> SourceRange:
     return SourceRange(lineno=lineno, end_lineno=end, col_offset=0, end_col_offset=1)
+
 
 class TestSerialization:
     def _roundtrip(self, entity):
@@ -78,7 +79,7 @@ class TestSerialization:
             visibility="public",
             inner_type_ids=["inner_1"],
         )
-        record, back = self._roundtrip(cls)
+        _, back = self._roundtrip(cls)
         assert back.inner_type_ids == ["inner_1"]
 
     def test_static_nested_class_roundtrip(self):
@@ -105,7 +106,7 @@ class TestSerialization:
             visibility="public",
             inner_type_ids=["inner_1"],
         )
-        record, back = self._roundtrip(iface)
+        _, back = self._roundtrip(iface)
         assert back.inner_type_ids == ["inner_1"]
 
     def test_enum_inner_types_roundtrip(self):
@@ -118,7 +119,7 @@ class TestSerialization:
             visibility="public",
             inner_type_ids=["inner_1"],
         )
-        record, back = self._roundtrip(enum)
+        _, back = self._roundtrip(enum)
         assert back.inner_type_ids == ["inner_1"]
 
     def test_interface_roundtrip(self):
@@ -223,7 +224,9 @@ class TestSerialization:
             id="f_1",
             type="FIELD",
             source_range=_sr(),
-            variable_binding=SimpleBinding(name="count", fqn="com.example.MyClass.count"),
+            variable_binding=SimpleBinding(
+                name="count", fqn="com.example.MyClass.count"
+            ),
             value_range=None,
             type_annotation=None,
             is_static=True,
@@ -239,7 +242,9 @@ class TestSerialization:
             id="f_1",
             type="FIELD",
             source_range=_sr(),
-            variable_binding=SimpleBinding(name="cache", fqn="com.example.MyClass.cache"),
+            variable_binding=SimpleBinding(
+                name="cache", fqn="com.example.MyClass.cache"
+            ),
             value_range=None,
             type_annotation=None,
             is_transient=True,
@@ -258,7 +263,7 @@ class TestSerialization:
             value_range=None,
             type_annotation=None,
         )
-        record, back = self._roundtrip(const)
+        record, _ = self._roundtrip(const)
         assert record["type"] == "ENUM_CONSTANT"
 
     def test_record_component_roundtrip(self):
@@ -270,7 +275,7 @@ class TestSerialization:
             value_range=None,
             type_annotation=None,
         )
-        record, back = self._roundtrip(comp)
+        record, _ = self._roundtrip(comp)
         assert record["type"] == "RECORD_COMPONENT"
 
     def test_compilation_unit_roundtrip(self):
@@ -301,6 +306,13 @@ class TestSerialization:
         assert back.compilation_unit_ids == ["cu_1"]
 
     def test_unknown_type_returns_none(self):
-        from deproc.core.interfaces.parser.models import Entity
-        result = record_to_entity({"id": "x", "type": "NOPE", "name": "x", "full_path": "x", "metadata_json": "{}"})
+        result = record_to_entity(
+            {
+                "id": "x",
+                "type": "NOPE",
+                "name": "x",
+                "full_path": "x",
+                "metadata_json": "{}",
+            }
+        )
         assert result is None

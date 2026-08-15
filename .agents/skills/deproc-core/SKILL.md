@@ -33,32 +33,33 @@ All protocols are `@runtime_checkable` and use `typing.Protocol`.
 ```python
 from deproc.core.interfaces.parser import SourceParser
 
+
 class MyParser:  # implements SourceParser
-    def parse_file(self, file_path: str, context: Context) -> SourceFile:
-        ...
+    def parse_file(self, file_path: str, context: Context) -> SourceFile: ...
 ```
 
 ### Linker
 ```python
 from deproc.core.interfaces.linker import Linker
 
+
 class MyLinker:  # implements Linker
-    def link_files(self, nodes: list[SourceFile], context: Context) -> list[Node]:
-        ...
+    def link_files(self, nodes: list[SourceFile], context: Context) -> list[Node]: ...
 ```
 
 ### Resolver
 ```python
 from deproc.core.interfaces.resolver import Resolver
 
+
 class MyResolver:  # implements Resolver
-    def resolve(self, *args: Any, **kwargs: Any) -> TOut:
-        ...
+    def resolve(self, *args: Any, **kwargs: Any) -> TOut: ...
 ```
 
 ### SymbolCache
 ```python
 from deproc.core.interfaces.symbol_cache import SymbolCache
+
 
 class MySymbolCache:  # implements SymbolCache
     language: str = "mylang"
@@ -90,10 +91,10 @@ All entities extend `Entity` with deterministic UUID5 IDs derived from `(parent_
 from deproc.core.runtime import EntityRegistry
 
 registry = EntityRegistry()  # lives on ctx.entity_registry
-registry.add(entity)         # stores + indexes by FQN
-registry.get(entity_id)      # lookup by ID
-registry.get_ids_by_fqn(fqn) # FQN → set of entity IDs
-registry.values()            # all entities
+registry.add(entity)  # stores + indexes by FQN
+registry.get(entity_id)  # lookup by ID
+registry.get_ids_by_fqn(fqn)  # FQN → set of entity IDs
+registry.values()  # all entities
 ```
 
 ## Entity utilities
@@ -108,7 +109,9 @@ from deproc.core.runtime.registries.entity.utils import (
 
 entity_fqn(entity)  # → "pkg.mod.ClassName" or None (falls back to variable_binding.fqn)
 parent_chain(registry, entity_id)  # → [entity, parent, grandparent, ...]
-find_first_ancestor_of_type(registry, entity_id, {"MODULE", "PACKAGE"})  # → Entity or None
+find_first_ancestor_of_type(
+    registry, entity_id, {"MODULE", "PACKAGE"}
+)  # → Entity or None
 classify_entity_scope(registry, entity_id)  # → "module_level" or "conditional:<branch>"
 ```
 

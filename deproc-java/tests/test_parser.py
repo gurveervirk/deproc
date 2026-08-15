@@ -1,7 +1,10 @@
 """Tests for Java parser."""
 
-from deproc.plugins.java.parser import JavaSourceParser
+import os
+import tempfile
+
 from deproc.core.context import Context
+from deproc.plugins.java.parser import JavaSourceParser
 from deproc.plugins.java.parser.models import (
     JavaAnnotationType,
     JavaClass,
@@ -12,15 +15,14 @@ from deproc.plugins.java.parser.models import (
     JavaInterface,
     JavaMethod,
     JavaRecord,
-    SimpleBinding,
 )
-import tempfile
-import os
 
 parser = JavaSourceParser()
 
-def _parse(code: str, base_path: str | None = None) -> tuple[JavaCompilationUnit, Context]:
-    import uuid
+
+def _parse(
+    code: str, base_path: str | None = None
+) -> tuple[JavaCompilationUnit, Context]:
     tmp_dir = tempfile.mkdtemp()
     path = os.path.join(tmp_dir, "Test.java")
     with open(path, "w") as f:
@@ -30,8 +32,10 @@ def _parse(code: str, base_path: str | None = None) -> tuple[JavaCompilationUnit
     cu = parser.parse_file(path, ctx)
     return cu, ctx
 
+
 def _entity_of_type(ctx: Context, cls) -> list:
     return [e for e in ctx.entity_registry.values() if isinstance(e, cls)]
+
 
 class TestParser:
     def test_parse_simple_class(self):
@@ -52,12 +56,15 @@ class MyClass {
 
     def test_parse_file_does_not_exist(self):
         import pytest
+
         with pytest.raises(FileNotFoundError):
             parser.parse_file("/nonexistent/foo.java", Context())
 
     def test_parse_wrong_extension(self):
-        import pytest
         import tempfile as tf
+
+        import pytest
+
         with tf.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as tmp:
             tmp.write("x")
         try:
@@ -81,7 +88,10 @@ public class MyClass {
         for entity in ctx.entity_registry.values():
             sr = getattr(entity, "source_range", None)
             if sr is not None:
-                assert sr.source_id == cu.id, f"{type(entity).__name__} missing source_id"
+                assert sr.source_id == cu.id, (
+                    f"{type(entity).__name__} missing source_id"
+                )
+
 
 class TestPackageAndFqn:
     def test_package_declaration(self):
@@ -90,7 +100,7 @@ class TestPackageAndFqn:
 
     def test_fqn_with_package(self):
         code = "package com.example.foo;\nclass MyClass {}\n"
-        cu, ctx = _parse(code)
+        _, ctx = _parse(code)
         classes = _entity_of_type(ctx, JavaClass)
         assert classes[0].fqn == "com.example.foo.MyClass"
 
@@ -101,9 +111,10 @@ class TestPackageAndFqn:
 
     def test_fqn_unnamed_package(self):
         code = "class MyClass {}\n"
-        cu, ctx = _parse(code)
+        _, ctx = _parse(code)
         classes = _entity_of_type(ctx, JavaClass)
         assert classes[0].fqn == "MyClass"
+
 
 class TestImports:
     def test_single_type_import(self):
@@ -141,8 +152,9 @@ class TestImports:
 
     def test_imports_attached_to_cu(self):
         code = "import java.util.List;\nimport java.util.Map;\nclass MyClass {}\n"
-        cu, ctx = _parse(code)
+        cu, _ = _parse(code)
         assert len(cu.import_stmt_ids) == 2
+
 
 class TestTypeExtraction:
     def test_class_with_superclass_and_interfaces(self):
@@ -223,8 +235,9 @@ enum C {}
 record D() {}
 @interface E {}
 """
-        cu, ctx = _parse(code)
+        cu, _ = _parse(code)
         assert len(cu.type_ids) == 5
+
 
 class TestMembers:
     def test_method(self):
@@ -237,7 +250,7 @@ class MyClass {
 """
         _, ctx = _parse(code)
         methods = _entity_of_type(ctx, JavaMethod)
-        method = [m for m in methods if m.type == "METHOD"][0]
+        method = next(m for m in methods if m.type == "METHOD")
         assert method.name == "getName"
         assert method.return_type == "String"
         assert len(method.parameters) == 1
@@ -254,7 +267,7 @@ class MyClass {
 """
         _, ctx = _parse(code)
         methods = _entity_of_type(ctx, JavaMethod)
-        method = [m for m in methods if m.type == "METHOD"][0]
+        method = next(m for m in methods if m.type == "METHOD")
         assert method.parameters[0].is_varargs is True
         assert method.parameters[0].type_fqn == "String"
 
@@ -266,12 +279,12 @@ class MyClass {
     }
 }
 """
-        cu, ctx = _parse(code)
+        _, ctx = _parse(code)
         classes = _entity_of_type(ctx, JavaClass)
         cls = classes[0]
         assert len(cls.constructor_ids) == 1
         constructors = _entity_of_type(ctx, JavaMethod)
-        ctor = [c for c in constructors if c.type == "CONSTRUCTOR"][0]
+        ctor = next(c for c in constructors if c.type == "CONSTRUCTOR")
         assert ctor.return_type is None
         assert ctor.name == "MyClass"
 
@@ -284,8 +297,8 @@ class MyClass {
 """
         _, ctx = _parse(code)
         fields = _entity_of_type(ctx, JavaField)
-        name_field = [f for f in fields if f.variable_binding.name == "name"][0]
-        count_field = [f for f in fields if f.variable_binding.name == "COUNT"][0]
+        name_field = next(f for f in fields if f.variable_binding.name == "name")
+        count_field = next(f for f in fields if f.variable_binding.name == "COUNT")
         assert name_field.is_final is True
         assert name_field.is_static is False
         assert count_field.is_static is True
@@ -309,9 +322,10 @@ class MyClass {
 """
         _, ctx = _parse(code)
         methods = _entity_of_type(ctx, JavaMethod)
-        method = [m for m in methods if m.type == "METHOD"][0]
+        method = next(m for m in methods if m.type == "METHOD")
         assert method.is_static is True
         assert method.is_synchronized is True
+
 
 class TestAnnotationsAndDocs:
     def test_class_annotations(self):
@@ -335,7 +349,7 @@ class MyClass {
 """
         _, ctx = _parse(code)
         methods = _entity_of_type(ctx, JavaMethod)
-        method = [m for m in methods if m.type == "METHOD"][0]
+        method = next(m for m in methods if m.type == "METHOD")
         assert [a.name for a in method.annotations] == ["Override"]
 
     def test_javadoc_on_class(self):
@@ -361,6 +375,7 @@ class MyClass {
 """
         cu, _ = _parse(code)
         assert cu.docstring_range is not None
+
 
 class TestInnerTypes:
     def _class_by_fqn(self, ctx: Context, fqn: str) -> JavaClass:

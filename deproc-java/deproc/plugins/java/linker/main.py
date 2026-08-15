@@ -1,13 +1,14 @@
-from deproc.core.interfaces import Linker
 from deproc.core.context import Context
-from ..parser.models import JavaCompilationUnit
-from .models import (
-    JavaPackage,
-    Node,
-)
+from deproc.core.interfaces import Linker
 
-class JavaLinker(Linker[list[JavaCompilationUnit], list[Node]]):
-    def link_files(self, nodes: list[JavaCompilationUnit], context: Context) -> list[Node]:
+from ..parser.models import JavaCompilationUnit
+from .models import JavaPackage
+
+
+class JavaLinker(Linker[JavaCompilationUnit, JavaPackage]):
+    def link_files(
+        self, nodes: list[JavaCompilationUnit], context: Context
+    ) -> list[JavaPackage]:
         package_map: dict[str, JavaPackage] = {}
 
         def get_or_create_package(fqn: str) -> JavaPackage:

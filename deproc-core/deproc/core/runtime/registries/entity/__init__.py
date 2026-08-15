@@ -1,16 +1,21 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
+
 from ....interfaces.parser.models import (
     Entity,
     SymbolID,
 )
 
+
 @dataclass
 class EntityRegistry:
     entities: dict[SymbolID, Entity] = field(default_factory=dict)
-    fqn_to_ids: dict[str, set[SymbolID]] = field(default_factory=lambda: defaultdict(set))
+    fqn_to_ids: dict[str, set[SymbolID]] = field(
+        default_factory=lambda: defaultdict(set)
+    )
 
     def add(self, entity: Entity) -> None:
+        assert entity.id is not None
         self.entities[entity.id] = entity
         fqn = getattr(entity, "fqn", None)
         if fqn:

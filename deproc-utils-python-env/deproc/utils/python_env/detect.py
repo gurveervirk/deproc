@@ -2,6 +2,7 @@ import os
 
 _VENV_MARKERS = {"pyvenv.cfg"}
 
+
 def detect_venv(base_path: str, config: dict[str, str] | None = None) -> str | None:
     if config and config.get("venv_path"):
         candidate = config["venv_path"]
@@ -18,8 +19,10 @@ def detect_venv(base_path: str, config: dict[str, str] | None = None) -> str | N
 
     return None
 
+
 def _is_venv(path: str) -> bool:
     return bool(_VENV_MARKERS & set(os.listdir(path)))
+
 
 def parse_pyvenv_cfg(venv_path: str) -> dict:
     cfg_path = os.path.join(venv_path, "pyvenv.cfg")

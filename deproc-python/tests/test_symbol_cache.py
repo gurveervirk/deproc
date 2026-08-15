@@ -1,5 +1,7 @@
 """Tests for Python symbol cache."""
+
 from deproc.plugins.python.symbol_cache.main import PythonSymbolCache
+
 
 class TestSymbolCache:
     """Test symbol caching."""
@@ -35,15 +37,23 @@ class TestSymbolCache:
         assert self.cache.get("mod2", "sym2") == (["b"], [])
 
     def test_add_cache_keys_for_module(self):
-        self.cache.add_cache_keys_for_module("mod_a", {("mod_b", "sym"), ("mod_a", "sym")})
-        assert self.cache.get_cache_keys_for_module("mod_a") == {("mod_b", "sym"), ("mod_a", "sym")}
+        self.cache.add_cache_keys_for_module(
+            "mod_a", {("mod_b", "sym"), ("mod_a", "sym")}
+        )
+        assert self.cache.get_cache_keys_for_module("mod_a") == {
+            ("mod_b", "sym"),
+            ("mod_a", "sym"),
+        }
 
     def test_get_cache_keys_for_module_empty(self):
         assert self.cache.get_cache_keys_for_module("missing") == set()
-    
+
     def test_add_modules_for_cache_key(self):
         self.cache.add_modules_for_cache_key(("mod_a", "sym"), {"mod_a", "mod_b"})
-        assert self.cache.get_modules_for_cache_key(("mod_a", "sym")) == {"mod_a", "mod_b"}
+        assert self.cache.get_modules_for_cache_key(("mod_a", "sym")) == {
+            "mod_a",
+            "mod_b",
+        }
 
     def test_get_modules_for_cache_key_empty(self):
         assert self.cache.get_modules_for_cache_key(("missing", "sym")) == set()

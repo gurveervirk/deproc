@@ -1,18 +1,20 @@
-from deproc.core.interfaces.resolver import Resolver
+import logging
+
 from deproc.core.context import Context
-from .models import (
-    JavaResolverResult,
-)
-from ..symbol_cache import JavaSymbolCache
+from deproc.core.interfaces.resolver import Resolver
+
 from ..parser.models import (
     JavaCompilationUnit,
     JavaImport,
     SymbolID,
 )
 from ..utils.imports import resolve_java_import
-import logging
+from .models import (
+    JavaResolverResult,
+)
 
 logger = logging.getLogger(__name__)
+
 
 class JavaResolver(Resolver[JavaResolverResult]):
     def _get_compilation_unit(
@@ -36,7 +38,7 @@ class JavaResolver(Resolver[JavaResolverResult]):
         symbol_name: str,
         context: Context,
     ) -> JavaResolverResult:
-        symbol_cache: JavaSymbolCache | None = context.get_symbol_cache("java")
+        symbol_cache = context.get_symbol_cache("java")
         if symbol_cache is not None:
             cached = symbol_cache.get(compilation_unit_fqn, symbol_name)
             if cached is not None:
@@ -50,16 +52,25 @@ class JavaResolver(Resolver[JavaResolverResult]):
 
         compilation_unit = self._get_compilation_unit(compilation_unit_fqn, context)
         if compilation_unit is None:
-            logger.warning(f"Compilation unit not found for FQN: {compilation_unit_fqn}")
+            logger.warning(
+                f"Compilation unit not found for FQN: {compilation_unit_fqn}"
+            )
             result = JavaResolverResult(resolved_ids=set(), unresolved_ids=set())
             if symbol_cache is not None:
-                symbol_cache.set(compilation_unit_fqn, symbol_name, result.resolved_ids, result.unresolved_ids)
+                symbol_cache.set(
+                    compilation_unit_fqn,
+                    symbol_name,
+                    result.resolved_ids,
+                    result.unresolved_ids,
+                )
             return result
 
         package_fqn = compilation_unit.package_fqn
 
         if package_fqn:
-            resolved_ids.update(self._lookup_fqn(f"{package_fqn}.{symbol_name}", context))
+            resolved_ids.update(
+                self._lookup_fqn(f"{package_fqn}.{symbol_name}", context)
+            )
         else:
             resolved_ids.update(self._lookup_fqn(symbol_name, context))
 
@@ -70,9 +81,11 @@ class JavaResolver(Resolver[JavaResolverResult]):
             if not isinstance(import_entity, JavaImport):
                 continue
 
-            if import_entity.import_kind in ("single_type", "single_static"):
-                if import_entity.imported_name != symbol_name:
-                    continue
+            if (
+                import_entity.import_kind in ("single_type", "single_static")
+                and import_entity.imported_name != symbol_name
+            ):
+                continue
 
             base_fqn = resolve_java_import(
                 import_entity.import_path,

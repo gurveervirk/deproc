@@ -6,10 +6,12 @@ from deproc.plugins.java.linker.main import JavaLinker
 from deproc.plugins.java.linker.models import JavaPackage
 from deproc.plugins.java.parser.models import JavaCompilationUnit
 
+
 def _make_context(base_path: str = "/src") -> Context:
     ctx = Context(base_path=base_path)
     ctx.entity_registry = EntityRegistry()
     return ctx
+
 
 def _make_cu(fqn: str, package_fqn: str | None = None) -> JavaCompilationUnit:
     return JavaCompilationUnit(
@@ -20,6 +22,7 @@ def _make_cu(fqn: str, package_fqn: str | None = None) -> JavaCompilationUnit:
         source="",
         docstring_range=None,
     )
+
 
 class TestLinker:
     def test_create_package_model(self):
@@ -36,10 +39,18 @@ class TestLinker:
             _make_cu("com.example.bar.C", "com.example.bar"),
         ]
         linker = JavaLinker()
-        top = linker.link_files(cus, ctx)
+        linker.link_files(cus, ctx)
 
-        foo_pkg = next(p for p in ctx.entity_registry.values() if isinstance(p, JavaPackage) and p.fqn == "com.example.foo")
-        bar_pkg = next(p for p in ctx.entity_registry.values() if isinstance(p, JavaPackage) and p.fqn == "com.example.bar")
+        foo_pkg = next(
+            p
+            for p in ctx.entity_registry.values()
+            if isinstance(p, JavaPackage) and p.fqn == "com.example.foo"
+        )
+        bar_pkg = next(
+            p
+            for p in ctx.entity_registry.values()
+            if isinstance(p, JavaPackage) and p.fqn == "com.example.bar"
+        )
         assert len(foo_pkg.compilation_unit_ids) == 2
         assert len(bar_pkg.compilation_unit_ids) == 1
 
@@ -49,7 +60,9 @@ class TestLinker:
         linker = JavaLinker()
         linker.link_files(cus, ctx)
 
-        pkgs = {p.fqn: p for p in ctx.entity_registry.values() if isinstance(p, JavaPackage)}
+        pkgs = {
+            p.fqn: p for p in ctx.entity_registry.values() if isinstance(p, JavaPackage)
+        }
         assert "com" in pkgs
         assert "com.example" in pkgs
         assert "com.example.foo" in pkgs
@@ -91,5 +104,9 @@ class TestLinker:
         cu = _make_cu("com.example.foo.A", "com.example.foo")
         linker = JavaLinker()
         linker.link_files([cu], ctx)
-        foo_pkg = next(p for p in ctx.entity_registry.values() if isinstance(p, JavaPackage) and p.fqn == "com.example.foo")
+        foo_pkg = next(
+            p
+            for p in ctx.entity_registry.values()
+            if isinstance(p, JavaPackage) and p.fqn == "com.example.foo"
+        )
         assert cu.id in foo_pkg.compilation_unit_ids

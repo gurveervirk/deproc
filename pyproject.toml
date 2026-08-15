@@ -13,7 +13,28 @@ package = false
 [tool.pytest.ini_options]
 testpaths = ["deproc-python", "deproc-core", "deproc-utils-python-env", "deproc-java"]
 
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+ignore = ["E501"]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "C4"]
+
+[tool.basedpyright]
+include = ["deproc-core", "deproc-python", "deproc-java", "deproc-utils-tree-sitter", "deproc-utils-python-env"]
+exclude = ["**/tests", "**/.venv"]
+extraPaths = ["deproc-core", "deproc-python", "deproc-java", "deproc-utils-tree-sitter", "deproc-utils-python-env"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"
+typeCheckingMode = "basic"
+
 [dependency-groups]
 dev = [
+    "basedpyright>=1.39.10",
     "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.3",
 ]
