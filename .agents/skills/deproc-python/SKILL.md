@@ -18,7 +18,10 @@ pip install deproc-python deproc-core
 from deproc.core.context import Context
 from deproc.core.discovery import find_source_files
 from deproc.plugins.python import (
-    PythonSourceParser, PythonLinker, PythonResolver, PythonSymbolCache,
+    PythonSourceParser,
+    PythonLinker,
+    PythonResolver,
+    PythonSymbolCache,
 )
 
 ctx = Context(base_path="/path/to/project")

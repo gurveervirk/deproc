@@ -28,7 +28,12 @@ pip install deproc-utils-python-env
 ```python
 from deproc.core.context import Context
 from deproc.core.discovery import find_source_files
-from deproc.plugins.python import PythonSourceParser, PythonLinker, PythonResolver, PythonSymbolCache
+from deproc.plugins.python import (
+    PythonSourceParser,
+    PythonLinker,
+    PythonResolver,
+    PythonSymbolCache,
+)
 
 # 1. Create a context and register the Python language
 ctx = Context(base_path="/path/to/your/project")
@@ -108,6 +113,7 @@ Bidirectional cache mapping `(module_fqn, symbol_name)` keys to `(resolved_ids, 
 ```python
 class SymbolCache(Protocol[TCache, TReturn]):
     language: str
+
     def get(self, *args, **kwargs) -> TReturn: ...
     def set(self, *args, **kwargs) -> None: ...
 ```
