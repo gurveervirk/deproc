@@ -1,4 +1,4 @@
-name: pytests
+name: lint
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ "main", "master" ]
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
 
     steps:
@@ -26,10 +26,11 @@ jobs:
     - name: Install dependencies
       run: uv sync
 
-    - name: Run pytest with coverage
-      run: uv run pytest --cov --cov-report=xml
+    - name: Run ruff check
+      run: uv run ruff check .
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v5
-      with:
-        files: coverage.xml
+    - name: Run ruff format check
+      run: uv run ruff format --check .
+
+    - name: Run basedpyright
+      run: uv run basedpyright
