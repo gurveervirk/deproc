@@ -41,8 +41,6 @@ class JavaEnum(TypeDefinition):
     type: str = field(default="ENUM")
     implements: list[str] = field(default_factory=list)
     enum_constant_ids: list[SymbolID] = field(default_factory=list)
-    field_ids: list[SymbolID] = field(default_factory=list)
-    constructor_ids: list[SymbolID] = field(default_factory=list)
 
 
 @dataclass(kw_only=True)
@@ -50,8 +48,6 @@ class JavaRecord(TypeDefinition):
     type: str = field(default="RECORD")
     implements: list[str] = field(default_factory=list)
     record_component_ids: list[SymbolID] = field(default_factory=list)
-    field_ids: list[SymbolID] = field(default_factory=list)
-    constructor_ids: list[SymbolID] = field(default_factory=list)
 
 
 @dataclass(kw_only=True)
