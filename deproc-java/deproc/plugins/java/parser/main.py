@@ -29,7 +29,6 @@ from .utils.extraction import (
     extract_javadoc_range,
     extract_signature,
     extract_type_names,
-    type_text,
 )
 from .utils.misc import (
     extract_modifier_names,
@@ -272,10 +271,34 @@ class JavaSourceParser(SourceParser):
             implements=implements,
         )
 
-        cls_obj.method_ids = self._extract_methods(body_node, context, parent_id=cls_obj.id, parent_fqn=type_fqn) if body_node else []
-        cls_obj.method_ids += self._extract_constructors(body_node, context, parent_id=cls_obj.id, parent_fqn=type_fqn) if body_node else []
-        cls_obj.property_ids = self._extract_fields(body_node, context, parent_id=cls_obj.id, parent_fqn=type_fqn) if body_node else []
-        cls_obj.inner_type_ids = self._extract_inner_types(body_node, context, parent_id=cls_obj.id, parent_fqn=type_fqn) if body_node else []
+        cls_obj.method_ids = (
+            self._extract_methods(
+                body_node, context, parent_id=cls_obj.id, parent_fqn=type_fqn
+            )
+            if body_node
+            else []
+        )
+        cls_obj.method_ids += (
+            self._extract_constructors(
+                body_node, context, parent_id=cls_obj.id, parent_fqn=type_fqn
+            )
+            if body_node
+            else []
+        )
+        cls_obj.property_ids = (
+            self._extract_fields(
+                body_node, context, parent_id=cls_obj.id, parent_fqn=type_fqn
+            )
+            if body_node
+            else []
+        )
+        cls_obj.inner_type_ids = (
+            self._extract_inner_types(
+                body_node, context, parent_id=cls_obj.id, parent_fqn=type_fqn
+            )
+            if body_node
+            else []
+        )
         context.entity_registry.add(cls_obj)
         return cls_obj.id
 
@@ -317,9 +340,27 @@ class JavaSourceParser(SourceParser):
             extends_interfaces=extends,
         )
 
-        iface_obj.method_ids = self._extract_methods(body_node, context, parent_id=iface_obj.id, parent_fqn=type_fqn) if body_node else []
-        iface_obj.property_ids = self._extract_fields(body_node, context, parent_id=iface_obj.id, parent_fqn=type_fqn) if body_node else []
-        iface_obj.inner_type_ids = self._extract_inner_types(body_node, context, parent_id=iface_obj.id, parent_fqn=type_fqn) if body_node else []
+        iface_obj.method_ids = (
+            self._extract_methods(
+                body_node, context, parent_id=iface_obj.id, parent_fqn=type_fqn
+            )
+            if body_node
+            else []
+        )
+        iface_obj.property_ids = (
+            self._extract_fields(
+                body_node, context, parent_id=iface_obj.id, parent_fqn=type_fqn
+            )
+            if body_node
+            else []
+        )
+        iface_obj.inner_type_ids = (
+            self._extract_inner_types(
+                body_node, context, parent_id=iface_obj.id, parent_fqn=type_fqn
+            )
+            if body_node
+            else []
+        )
         context.entity_registry.add(iface_obj)
         return iface_obj.id
 
@@ -348,7 +389,11 @@ class JavaSourceParser(SourceParser):
 
         body_node = node.child_by_field_name("body")
 
-        declarations_node = self._child_by_type(body_node, "enum_body_declarations") if body_node else None
+        declarations_node = (
+            self._child_by_type(body_node, "enum_body_declarations")
+            if body_node
+            else None
+        )
         member_node = declarations_node if declarations_node is not None else body_node
 
         enum_obj = JavaEnum(
@@ -362,11 +407,41 @@ class JavaSourceParser(SourceParser):
             implements=implements,
         )
 
-        enum_obj.enum_constant_ids = self._extract_enum_constants(body_node, context, parent_id=enum_obj.id, parent_fqn=type_fqn) if body_node else []
-        enum_obj.method_ids = self._extract_methods(member_node, context, parent_id=enum_obj.id, parent_fqn=type_fqn) if member_node else []
-        enum_obj.method_ids += self._extract_constructors(member_node, context, parent_id=enum_obj.id, parent_fqn=type_fqn) if member_node else []
-        enum_obj.property_ids = self._extract_fields(member_node, context, parent_id=enum_obj.id, parent_fqn=type_fqn) if member_node else []
-        enum_obj.inner_type_ids = self._extract_inner_types(member_node, context, parent_id=enum_obj.id, parent_fqn=type_fqn) if member_node else []
+        enum_obj.enum_constant_ids = (
+            self._extract_enum_constants(
+                body_node, context, parent_id=enum_obj.id, parent_fqn=type_fqn
+            )
+            if body_node
+            else []
+        )
+        enum_obj.method_ids = (
+            self._extract_methods(
+                member_node, context, parent_id=enum_obj.id, parent_fqn=type_fqn
+            )
+            if member_node
+            else []
+        )
+        enum_obj.method_ids += (
+            self._extract_constructors(
+                member_node, context, parent_id=enum_obj.id, parent_fqn=type_fqn
+            )
+            if member_node
+            else []
+        )
+        enum_obj.property_ids = (
+            self._extract_fields(
+                member_node, context, parent_id=enum_obj.id, parent_fqn=type_fqn
+            )
+            if member_node
+            else []
+        )
+        enum_obj.inner_type_ids = (
+            self._extract_inner_types(
+                member_node, context, parent_id=enum_obj.id, parent_fqn=type_fqn
+            )
+            if member_node
+            else []
+        )
         context.entity_registry.add(enum_obj)
         return enum_obj.id
 
@@ -406,11 +481,37 @@ class JavaSourceParser(SourceParser):
             implements=implements,
         )
 
-        record_obj.record_component_ids = self._extract_record_components(node, context, parent_id=record_obj.id, parent_fqn=type_fqn)
-        record_obj.method_ids = self._extract_methods(body_node, context, parent_id=record_obj.id, parent_fqn=type_fqn) if body_node else []
-        record_obj.method_ids += self._extract_constructors(body_node, context, parent_id=record_obj.id, parent_fqn=type_fqn) if body_node else []
-        record_obj.property_ids = self._extract_fields(body_node, context, parent_id=record_obj.id, parent_fqn=type_fqn) if body_node else []
-        record_obj.inner_type_ids = self._extract_inner_types(body_node, context, parent_id=record_obj.id, parent_fqn=type_fqn) if body_node else []
+        record_obj.record_component_ids = self._extract_record_components(
+            node, context, parent_id=record_obj.id, parent_fqn=type_fqn
+        )
+        record_obj.method_ids = (
+            self._extract_methods(
+                body_node, context, parent_id=record_obj.id, parent_fqn=type_fqn
+            )
+            if body_node
+            else []
+        )
+        record_obj.method_ids += (
+            self._extract_constructors(
+                body_node, context, parent_id=record_obj.id, parent_fqn=type_fqn
+            )
+            if body_node
+            else []
+        )
+        record_obj.property_ids = (
+            self._extract_fields(
+                body_node, context, parent_id=record_obj.id, parent_fqn=type_fqn
+            )
+            if body_node
+            else []
+        )
+        record_obj.inner_type_ids = (
+            self._extract_inner_types(
+                body_node, context, parent_id=record_obj.id, parent_fqn=type_fqn
+            )
+            if body_node
+            else []
+        )
         context.entity_registry.add(record_obj)
         return record_obj.id
 
@@ -548,8 +649,20 @@ class JavaSourceParser(SourceParser):
             visibility="package-private",
         )
 
-        anon_obj.method_ids = self._extract_methods(body_node, context, parent_id=anon_obj.id, parent_fqn=anon_fqn) if body_node else []
-        anon_obj.property_ids = self._extract_fields(body_node, context, parent_id=anon_obj.id, parent_fqn=anon_fqn) if body_node else []
+        anon_obj.method_ids = (
+            self._extract_methods(
+                body_node, context, parent_id=anon_obj.id, parent_fqn=anon_fqn
+            )
+            if body_node
+            else []
+        )
+        anon_obj.property_ids = (
+            self._extract_fields(
+                body_node, context, parent_id=anon_obj.id, parent_fqn=anon_fqn
+            )
+            if body_node
+            else []
+        )
         context.entity_registry.add(anon_obj)
         return anon_obj.id
 
@@ -592,9 +705,6 @@ class JavaSourceParser(SourceParser):
 
         func_fqn = f"{parent_fqn}.{name}" if parent_fqn else name
 
-        type_node = node.child_by_field_name("type")
-        return_type = type_text(type_node) if type_node is not None else None
-
         func_obj = JavaMethod(
             name=name,
             fqn=func_fqn,
@@ -603,7 +713,6 @@ class JavaSourceParser(SourceParser):
             source_range=source_range,
             docstring_range=docstring_range,
             signature=signature,
-            return_type=return_type,
             exceptions=extract_exceptions(node),
             is_abstract="abstract" in modifier_names,
             is_final="final" in modifier_names,
@@ -662,7 +771,6 @@ class JavaSourceParser(SourceParser):
             source_range=source_range,
             docstring_range=docstring_range,
             signature=signature,
-            return_type=None,
             exceptions=extract_exceptions(node),
             is_abstract=False,
             is_final="final" in modifier_names,
@@ -761,7 +869,11 @@ class JavaSourceParser(SourceParser):
                 name=name,
                 fqn=constant_fqn,
                 source_range=self._sr(child),
-                arguments_range=create_source_range(arguments_node, source_id=self._current_source_file_id) if arguments_node is not None else None,
+                arguments_range=create_source_range(
+                    arguments_node, source_id=self._current_source_file_id
+                )
+                if arguments_node is not None
+                else None,
             )
             context.entity_registry.add(constant_obj)
             constant_ids.append(constant_obj.id)
@@ -792,7 +904,11 @@ class JavaSourceParser(SourceParser):
                 name=name,
                 fqn=component_fqn,
                 source_range=self._sr(child),
-                type_annotation=create_source_range(type_node, source_id=self._current_source_file_id) if type_node is not None else None,
+                type_annotation=create_source_range(
+                    type_node, source_id=self._current_source_file_id
+                )
+                if type_node is not None
+                else None,
             )
             context.entity_registry.add(component_obj)
             component_ids.append(component_obj.id)

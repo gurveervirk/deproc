@@ -59,10 +59,10 @@ class JavaRecord(TypeDefinition):
 class JavaAnnotationType(TypeDefinition):
     type: str = field(default="ANNOTATION_TYPE")
 
+
 @dataclass(kw_only=True)
 class JavaMethod(FunctionLike):
     type: str = field(default="METHOD")
-    return_type: str | None = None
     exceptions: list[str] = field(default_factory=list)
     is_abstract: bool = False
     is_final: bool = False
@@ -82,6 +82,7 @@ class JavaField(VariableDeclaration):
     is_transient: bool = False
     is_volatile: bool = False
 
+
 @dataclass(kw_only=True)
 class JavaEnumConstant(Entity):
     name: str
@@ -89,12 +90,14 @@ class JavaEnumConstant(Entity):
     source_range: SourceRange
     arguments_range: SourceRange | None = None
 
+
 @dataclass(kw_only=True)
 class JavaRecordComponent(Entity):
     name: str
     fqn: str
     source_range: SourceRange
     type_annotation: SourceRange | None = None
+
 
 @dataclass(kw_only=True)
 class JavaImport(Entity):

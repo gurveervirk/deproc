@@ -6,6 +6,7 @@ from deproc.core.interfaces.parser.models import (
     ControlFlowGroup,
     Entity,
     FunctionLike,
+    Signature,
     SourceRange,
     TypeDefinition,
     VariableDeclaration,
@@ -44,6 +45,19 @@ TYPE_TO_CLASS = {
 def _module_fqn(full_path: str) -> str | None:
     parts = full_path.rsplit(".", 1)
     return parts[0] if len(parts) > 1 else None
+
+
+def _source_range_from_meta(meta: dict, prefix: str) -> SourceRange | None:
+    lineno = meta.get(f"{prefix}_lineno")
+    end_lineno = meta.get(f"{prefix}_end_lineno")
+    if lineno is None or end_lineno is None:
+        return None
+    return SourceRange(
+        lineno=lineno,
+        end_lineno=end_lineno,
+        col_offset=meta.get(f"{prefix}_col_offset", 0),
+        end_col_offset=meta.get(f"{prefix}_end_col_offset", 0),
+    )
 
 
 def _get_module_fqn_from_registry(entity_id: str, registry: dict) -> str | None:
@@ -187,15 +201,22 @@ def entity_to_record(
             sig = signature
             metadata["signature_lineno"] = sig.signature_range.lineno
             metadata["signature_end_lineno"] = sig.signature_range.end_lineno
+            metadata["signature_col_offset"] = sig.signature_range.col_offset
+            metadata["signature_end_col_offset"] = sig.signature_range.end_col_offset
             if sig.arguments_range:
-                metadata["arguments_lineno"] = sig.arguments_range.lineno
-                metadata["arguments_end_lineno"] = sig.arguments_range.end_lineno
+                ar = sig.arguments_range
+                metadata["arguments_lineno"] = ar.lineno
+                metadata["arguments_end_lineno"] = ar.end_lineno
+                metadata["arguments_col_offset"] = ar.col_offset
+                metadata["arguments_end_col_offset"] = ar.end_col_offset
             if sig.return_type_range:
-                metadata["return_type_lineno"] = sig.return_type_range.lineno
-                metadata["return_type_end_lineno"] = sig.return_type_range.end_lineno
-        annotations = getattr(entity, "annotations", None)
-        if annotations:
-            metadata["decorators"] = [a.name for a in annotations]
+                rtr = sig.return_type_range
+                metadata["return_type_lineno"] = rtr.lineno
+                metadata["return_type_end_lineno"] = rtr.end_lineno
+                metadata["return_type_col_offset"] = rtr.col_offset
+                metadata["return_type_end_col_offset"] = rtr.end_col_offset
+        if isinstance(entity, PythonFunctionLike) and entity.annotations:
+            metadata["decorators"] = [a.name for a in entity.annotations]
     if isinstance(entity, TypeDefinition):
         if hasattr(entity, "inherits") and entity.inherits:
             metadata["parent_classes"] = entity.inherits
@@ -267,11 +288,20 @@ def record_to_entity(record: dict) -> Entity | None:
             id=record["id"],
         )
     if entity_class is PythonFunctionLike:
+        signature = None
+        if "signature_lineno" in meta:
+            signature_range = _source_range_from_meta(meta, "signature")
+            if signature_range is not None:
+                signature = Signature(
+                    signature_range=signature_range,
+                    arguments_range=_source_range_from_meta(meta, "arguments"),
+                    return_type_range=_source_range_from_meta(meta, "return_type"),
+                )
         return PythonFunctionLike(
             name=record["name"],
             source_range=sr,
             docstring_range=None,
-            signature=None,
+            signature=signature,
             type=record["type"],
             annotations=[],
             visibility=meta.get("visibility"),
