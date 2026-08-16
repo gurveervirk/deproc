@@ -1,6 +1,6 @@
 """Tests for Java entity serialization."""
 
-from deproc.core.interfaces.parser.models import SourceRange
+from deproc.core.interfaces.parser.models import Signature, SourceRange
 from deproc.plugins.java.linker.models import JavaPackage
 from deproc.plugins.java.parser.models import (
     JavaAnnotationType,
@@ -195,15 +195,23 @@ class TestSerialization:
             type="METHOD",
             source_range=_sr(),
             docstring_range=None,
-            signature=None,
-            return_type="String",
+            signature=Signature(
+                signature_range=_sr(2, 2),
+                arguments_range=_sr(3, 3),
+                return_type_range=_sr(4, 4),
+            ),
             exceptions=["IOException"],
             is_static=True,
             is_synchronized=True,
         )
         record, back = self._roundtrip(method)
         assert record["type"] == "METHOD"
-        assert back.return_type == "String"
+        assert back.signature is not None
+        assert back.signature.signature_range.lineno == 2
+        assert back.signature.arguments_range is not None
+        assert back.signature.arguments_range.lineno == 3
+        assert back.signature.return_type_range is not None
+        assert back.signature.return_type_range.lineno == 4
         assert back.exceptions == ["IOException"]
         assert back.is_static is True
 
@@ -216,11 +224,10 @@ class TestSerialization:
             source_range=_sr(),
             docstring_range=None,
             signature=None,
-            return_type=None,
         )
         record, back = self._roundtrip(ctor)
         assert record["type"] == "CONSTRUCTOR"
-        assert back.return_type is None
+        assert back.signature is None
 
     def test_field_roundtrip(self):
         field = JavaField(
@@ -265,7 +272,7 @@ class TestSerialization:
             source_range=_sr(),
             arguments_range=_sr(2, 2),
         )
-        record, _ = self._roundtrip(const)
+        record, back = self._roundtrip(const)
         assert record["type"] == "ENUM_CONSTANT"
         assert back.arguments_range is not None
         assert back.arguments_range.lineno == 2
@@ -279,7 +286,7 @@ class TestSerialization:
             source_range=_sr(),
             type_annotation=None,
         )
-        record, _ = self._roundtrip(comp)
+        record, back = self._roundtrip(comp)
         assert record["type"] == "RECORD_COMPONENT"
         assert isinstance(back, JavaRecordComponent)
         assert back.name == "x"

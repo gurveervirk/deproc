@@ -225,7 +225,10 @@ enum Color {
         green = by_name["GREEN"]
         assert red.arguments_range is not None
         assert red.arguments_range.lineno == 3
-        assert red.arguments_range.end_col_offset - red.arguments_range.col_offset == len('(255, 0, 0, "red")')
+        assert (
+            red.arguments_range.end_col_offset - red.arguments_range.col_offset
+            == len('(255, 0, 0, "red")')
+        )
         assert green.arguments_range is not None
         assert green.arguments_range.lineno == 4
 
@@ -291,7 +294,7 @@ class MyClass {
         methods = _entity_of_type(ctx, JavaMethod)
         method = next(m for m in methods if m.type == "METHOD")
         assert method.name == "getName"
-        assert method.return_type == "String"
+        assert method.signature.return_type_range is not None
         assert method.exceptions == ["IOException"]
         assert method.visibility == "public"
 
@@ -303,7 +306,7 @@ class MyClass {
 """
         _, ctx = _parse(code)
         methods = _entity_of_type(ctx, JavaMethod)
-        method = [m for m in methods if m.type == "METHOD"][0]
+        method = next(m for m in methods if m.type == "METHOD")
         assert method.signature is not None
         assert method.signature.arguments_range is not None
 
@@ -319,9 +322,9 @@ class MyClass {
         classes = _entity_of_type(ctx, JavaClass)
         cls = classes[0]
         constructors = _entity_of_type(ctx, JavaMethod)
-        ctor = [c for c in constructors if c.type == "CONSTRUCTOR"][0]
+        ctor = next(c for c in constructors if c.type == "CONSTRUCTOR")
         assert len(cls.method_ids) == 1
-        assert ctor.return_type is None
+        assert ctor.signature.return_type_range is None
         assert ctor.name == "MyClass"
 
     def test_fields(self):
