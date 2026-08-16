@@ -79,7 +79,7 @@ All entities extend `Entity` with deterministic UUID5 IDs derived from `(parent_
 | `SourceRange` | Location in source | `lineno`, `end_lineno`, `col_offset`, `end_col_offset`, `source_id` |
 | `SourceFile` | Parsed file | `import_stmt_ids`, `type_ids`, `function_ids`, `variable_ids`, `control_flow_group_ids`, `source` |
 | `Node` | File/directory in package tree | `path` (ID from `file://path`) |
-| `TypeDefinition` | Class/type | `fqn`, `inherits`, `method_ids`, `inner_type_ids`, `property_ids`, `visibility` |
+| `TypeDefinition` | Class/type | `fqn`, `method_ids`, `inner_type_ids`, `property_ids`, `visibility` |
 | `FunctionLike` | Function/method | `fqn`, `signature`, `visibility` |
 | `VariableDeclaration` | Variable/constant | `variable_binding`, `value_range`, `type_annotation`, `modifiers` |
 | `ControlFlowBlock` | If/except branch | `branch`, `import_stmt_ids`, `type_ids`, `function_ids`, `variable_ids` |
