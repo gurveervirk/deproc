@@ -1,18 +1,19 @@
 """Tests for Java entity serialization."""
 
-from deproc.core.interfaces.parser.models import SourceRange
+from deproc.core.interfaces.parser.models import Signature, SourceRange
 from deproc.plugins.java.linker.models import JavaPackage
 from deproc.plugins.java.parser.models import (
     JavaAnnotationType,
     JavaClass,
     JavaCompilationUnit,
     JavaEnum,
+    JavaEnumConstant,
     JavaField,
     JavaImport,
     JavaInterface,
     JavaMethod,
-    JavaParameter,
     JavaRecord,
+    JavaRecordComponent,
     SimpleBinding,
 )
 from deproc.plugins.java.utils.serialization import (
@@ -146,10 +147,14 @@ class TestSerialization:
             visibility="public",
             implements=["I1"],
             enum_constant_ids=["ec1", "ec2"],
+            property_ids=["f1"],
+            method_ids=["c1"],
         )
         record, back = self._roundtrip(enum)
         assert record["type"] == "ENUM"
         assert back.enum_constant_ids == ["ec1", "ec2"]
+        assert back.property_ids == ["f1"]
+        assert back.method_ids == ["c1"]
 
     def test_record_roundtrip(self):
         record_obj = JavaRecord(
@@ -160,10 +165,14 @@ class TestSerialization:
             docstring_range=None,
             visibility="public",
             record_component_ids=["rc1"],
+            property_ids=["f1"],
+            method_ids=["c1"],
         )
         record, back = self._roundtrip(record_obj)
         assert record["type"] == "RECORD"
         assert back.record_component_ids == ["rc1"]
+        assert back.property_ids == ["f1"]
+        assert back.method_ids == ["c1"]
 
     def test_annotation_type_roundtrip(self):
         anno = JavaAnnotationType(
@@ -186,21 +195,23 @@ class TestSerialization:
             type="METHOD",
             source_range=_sr(),
             docstring_range=None,
-            signature=None,
-            return_type="String",
-            parameters=[
-                JavaParameter(name="x", type_fqn="int"),
-                JavaParameter(name="rest", type_fqn="String", is_varargs=True),
-            ],
+            signature=Signature(
+                signature_range=_sr(2, 2),
+                arguments_range=_sr(3, 3),
+                return_type_range=_sr(4, 4),
+            ),
             exceptions=["IOException"],
             is_static=True,
             is_synchronized=True,
         )
         record, back = self._roundtrip(method)
         assert record["type"] == "METHOD"
-        assert back.return_type == "String"
-        assert len(back.parameters) == 2
-        assert back.parameters[1].is_varargs is True
+        assert back.signature is not None
+        assert back.signature.signature_range.lineno == 2
+        assert back.signature.arguments_range is not None
+        assert back.signature.arguments_range.lineno == 3
+        assert back.signature.return_type_range is not None
+        assert back.signature.return_type_range.lineno == 4
         assert back.exceptions == ["IOException"]
         assert back.is_static is True
 
@@ -213,11 +224,10 @@ class TestSerialization:
             source_range=_sr(),
             docstring_range=None,
             signature=None,
-            return_type=None,
         )
         record, back = self._roundtrip(ctor)
         assert record["type"] == "CONSTRUCTOR"
-        assert back.return_type is None
+        assert back.signature is None
 
     def test_field_roundtrip(self):
         field = JavaField(
@@ -255,28 +265,32 @@ class TestSerialization:
         assert back.is_volatile is True
 
     def test_enum_constant_roundtrip(self):
-        const = JavaField(
+        const = JavaEnumConstant(
             id="ec_1",
-            type="ENUM_CONSTANT",
+            name="RED",
+            fqn="com.example.Color.RED",
             source_range=_sr(),
-            variable_binding=SimpleBinding(name="RED", fqn="com.example.Color.RED"),
-            value_range=None,
-            type_annotation=None,
+            arguments_range=_sr(2, 2),
         )
-        record, _ = self._roundtrip(const)
+        record, back = self._roundtrip(const)
         assert record["type"] == "ENUM_CONSTANT"
+        assert back.arguments_range is not None
+        assert back.arguments_range.lineno == 2
+        assert back.name == "RED"
 
     def test_record_component_roundtrip(self):
-        comp = JavaField(
+        comp = JavaRecordComponent(
             id="rc_1",
-            type="RECORD_COMPONENT",
+            name="x",
+            fqn="com.example.Point.x",
             source_range=_sr(),
-            variable_binding=SimpleBinding(name="x", fqn="com.example.Point.x"),
-            value_range=None,
             type_annotation=None,
         )
-        record, _ = self._roundtrip(comp)
+        record, back = self._roundtrip(comp)
         assert record["type"] == "RECORD_COMPONENT"
+        assert isinstance(back, JavaRecordComponent)
+        assert back.name == "x"
+        assert back.fqn == "com.example.Point.x"
 
     def test_compilation_unit_roundtrip(self):
         cu = JavaCompilationUnit(

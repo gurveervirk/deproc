@@ -10,11 +10,13 @@ from deproc.plugins.java.parser.models import (
     JavaClass,
     JavaCompilationUnit,
     JavaEnum,
+    JavaEnumConstant,
     JavaField,
     JavaImport,
     JavaInterface,
     JavaMethod,
     JavaRecord,
+    JavaRecordComponent,
 )
 
 parser = JavaSourceParser()
@@ -192,7 +194,8 @@ interface MyInterface extends I1, I2 {
         code = """
 enum Color implements I1 {
     RED(1), GREEN(2);
-    Color(int c) {}
+    private final int code;
+    Color(int c) { this.code = c; }
 }
 """
         _, ctx = _parse(code)
@@ -200,10 +203,34 @@ enum Color implements I1 {
         enum = enums[0]
         assert enum.implements == ["I1"]
         assert len(enum.enum_constant_ids) == 2
-        constants = _entity_of_type(ctx, JavaField)
-        consts = [c for c in constants if c.type == "ENUM_CONSTANT"]
-        assert len(consts) == 2
-        assert consts[0].variable_binding.name == "RED"
+        assert len(enum.property_ids) == 1
+        constructors = _entity_of_type(ctx, JavaMethod)
+        assert len([c for c in constructors if c.type == "CONSTRUCTOR"]) == 1
+        constants = _entity_of_type(ctx, JavaEnumConstant)
+        assert len(constants) == 2
+        assert constants[0].name == "RED"
+        assert constants[1].name == "GREEN"
+
+    def test_enum_constant_arguments_range(self):
+        code = """
+enum Color {
+    RED(255, 0, 0, "red"),
+    GREEN(0, 255, 0);
+}
+"""
+        _, ctx = _parse(code)
+        constants = _entity_of_type(ctx, JavaEnumConstant)
+        by_name = {c.name: c for c in constants}
+        red = by_name["RED"]
+        green = by_name["GREEN"]
+        assert red.arguments_range is not None
+        assert red.arguments_range.lineno == 3
+        assert (
+            red.arguments_range.end_col_offset - red.arguments_range.col_offset
+            == len('(255, 0, 0, "red")')
+        )
+        assert green.arguments_range is not None
+        assert green.arguments_range.lineno == 4
 
     def test_record(self):
         code = """
@@ -215,6 +242,21 @@ record Point(int x, int y) implements I1 {
         record = records[0]
         assert record.implements == ["I1"]
         assert len(record.record_component_ids) == 2
+        components = _entity_of_type(ctx, JavaRecordComponent)
+        assert len(components) == 2
+        assert components[0].name == "x"
+        assert components[0].type_annotation is not None
+
+    def test_record_component_type_annotation(self):
+        code = """
+record Point(int x, java.util.List<String> names) {
+}
+"""
+        _, ctx = _parse(code)
+        components = _entity_of_type(ctx, JavaRecordComponent)
+        by_name = {c.name: c for c in components}
+        assert by_name["names"].type_annotation is not None
+        assert by_name["x"].type_annotation is not None
 
     def test_annotation_type(self):
         code = """
@@ -252,10 +294,7 @@ class MyClass {
         methods = _entity_of_type(ctx, JavaMethod)
         method = next(m for m in methods if m.type == "METHOD")
         assert method.name == "getName"
-        assert method.return_type == "String"
-        assert len(method.parameters) == 1
-        assert method.parameters[0].name == "x"
-        assert method.parameters[0].type_fqn == "int"
+        assert method.signature.return_type_range is not None
         assert method.exceptions == ["IOException"]
         assert method.visibility == "public"
 
@@ -268,8 +307,8 @@ class MyClass {
         _, ctx = _parse(code)
         methods = _entity_of_type(ctx, JavaMethod)
         method = next(m for m in methods if m.type == "METHOD")
-        assert method.parameters[0].is_varargs is True
-        assert method.parameters[0].type_fqn == "String"
+        assert method.signature is not None
+        assert method.signature.arguments_range is not None
 
     def test_constructor(self):
         code = """
@@ -282,10 +321,10 @@ class MyClass {
         _, ctx = _parse(code)
         classes = _entity_of_type(ctx, JavaClass)
         cls = classes[0]
-        assert len(cls.constructor_ids) == 1
         constructors = _entity_of_type(ctx, JavaMethod)
         ctor = next(c for c in constructors if c.type == "CONSTRUCTOR")
-        assert ctor.return_type is None
+        assert len(cls.method_ids) == 1
+        assert ctor.signature.return_type_range is None
         assert ctor.name == "MyClass"
 
     def test_fields(self):
@@ -494,7 +533,7 @@ class Main {
         anon = ctx.entity_registry.get(main.inner_type_ids[0])
         methods = [ctx.entity_registry.get(i) for i in anon.method_ids]
         assert [m.name for m in methods] == ["run"]
-        fields = [ctx.entity_registry.get(i) for i in anon.field_ids]
+        fields = [ctx.entity_registry.get(i) for i in anon.property_ids]
         assert [f.variable_binding.name for f in fields] == ["count"]
 
     def test_anonymous_class_in_method_not_extracted(self):

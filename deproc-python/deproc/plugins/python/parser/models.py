@@ -37,6 +37,7 @@ class PythonTypeAlias(VariableDeclaration):
 @dataclass(kw_only=True)
 class PythonClass(TypeDefinition):
     type: str = field(default="CLASS")
+    inherits: list[str] = field(default_factory=list)
 
 
 @dataclass(kw_only=True)
