@@ -18,7 +18,6 @@ from deproc.core.interfaces.parser.models import (
 class JavaCompilationUnit(SourceFile):
     fqn: str
     package_fqn: str | None = None
-    module_name: str | None = None
 
 
 @dataclass(kw_only=True)

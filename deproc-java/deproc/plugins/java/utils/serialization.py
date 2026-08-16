@@ -149,8 +149,6 @@ def entity_to_record(
     if isinstance(entity, JavaCompilationUnit):
         if entity.package_fqn:
             metadata["package_fqn"] = entity.package_fqn
-        if entity.module_name:
-            metadata["module_name"] = entity.module_name
         metadata["path"] = entity.path
         metadata["import_stmt_ids"] = entity.import_stmt_ids
         metadata["type_ids"] = entity.type_ids
@@ -328,7 +326,6 @@ def record_to_entity(record: dict) -> Entity | None:
             id=record["id"],
             fqn=meta.get("fqn") or record["full_path"],
             package_fqn=meta.get("package_fqn"),
-            module_name=meta.get("module_name"),
             path=meta.get("path", ""),
             source="",
             docstring_range=None,

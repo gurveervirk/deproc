@@ -67,14 +67,6 @@ class ImportStatement(Entity):
     type: str
 
 
-@dataclass
-class Argument:
-    name: str
-    source_range: SourceRange
-    default_value: str | None
-    type_annotation: str | None
-
-
 @dataclass(kw_only=True)
 class FunctionLike(Docstring, Entity):
     name: str
@@ -112,7 +104,6 @@ class TypeDefinition(Docstring, Entity):
     source_range: SourceRange
     type: str = field(default="TYPE_DEFINITION")
     annotations: list[Annotation] = field(default_factory=list)
-    inherits: list[str] = field(default_factory=list)
     method_ids: list[str] = field(default_factory=list)
     inner_type_ids: list[str] = field(default_factory=list)
     property_ids: list[str] = field(default_factory=list)

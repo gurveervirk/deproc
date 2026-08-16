@@ -112,6 +112,7 @@ def extract_signature(node: Node, source_file_id: str | None = None) -> Signatur
         return_type_range=return_type_range,
     )
 
+
 def first_child_of_type(node: Node, node_type: str) -> Node | None:
     for child in iter_children(node):
         if child.type == node_type:

@@ -218,7 +218,7 @@ def entity_to_record(
         if isinstance(entity, PythonFunctionLike) and entity.annotations:
             metadata["decorators"] = [a.name for a in entity.annotations]
     if isinstance(entity, TypeDefinition):
-        if hasattr(entity, "inherits") and entity.inherits:
+        if isinstance(entity, PythonClass) and entity.inherits:
             metadata["parent_classes"] = entity.inherits
         if hasattr(entity, "method_ids") and entity.method_ids:
             metadata["method_ids"] = entity.method_ids
