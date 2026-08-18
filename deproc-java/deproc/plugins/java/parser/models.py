@@ -4,6 +4,7 @@ from deproc.core.interfaces.parser.models import (
     Annotation,
     Entity,
     FunctionLike,
+    Node,
     Signature,
     SimpleBinding,
     SourceFile,
@@ -102,6 +103,22 @@ class JavaImport(Entity):
     source_range: SourceRange
 
 
+@dataclass(kw_only=True)
+class JavaModule(Node):
+    module_name: str
+    requires: list[str] = field(default_factory=list)
+    requires_static: list[str] = field(default_factory=list)
+    requires_transitive: list[str] = field(default_factory=list)
+    exports: list[str] = field(default_factory=list)
+    qualified_exports: dict[str, list[str]] = field(default_factory=dict)
+    opens: list[str] = field(default_factory=list)
+    qualified_opens: dict[str, list[str]] = field(default_factory=dict)
+    uses: list[str] = field(default_factory=list)
+    provides: dict[str, list[str]] = field(default_factory=dict)
+    compilation_unit_ids: list[SymbolID] = field(default_factory=list)
+    package_ids: list[SymbolID] = field(default_factory=list)
+
+
 __all__ = [
     "Annotation",
     "Entity",
@@ -115,6 +132,7 @@ __all__ = [
     "JavaImport",
     "JavaInterface",
     "JavaMethod",
+    "JavaModule",
     "JavaRecord",
     "JavaRecordComponent",
     "Signature",
