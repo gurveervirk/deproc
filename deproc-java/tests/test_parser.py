@@ -15,6 +15,7 @@ from deproc.plugins.java.parser.models import (
     JavaImport,
     JavaInterface,
     JavaMethod,
+    JavaModule,
     JavaRecord,
     JavaRecordComponent,
 )
@@ -577,3 +578,77 @@ class MyClass {
         assert by_name["flag"].is_transient is False
         assert by_name["normal"].is_transient is False
         assert by_name["normal"].is_volatile is False
+
+
+class TestModuleInfo:
+    def _parse_module(self, code: str, base_path: str | None = None):
+        tmp_dir = tempfile.mkdtemp()
+        path = os.path.join(tmp_dir, "module-info.java")
+        with open(path, "w") as f:
+            f.write(code)
+        ctx = Context(base_path=base_path or tmp_dir)
+        ctx.set_language("java", ["java"])
+        result = parser.parse_file(path, ctx)
+        return result, ctx
+
+    def test_parse_module_declaration(self):
+        result, ctx = self._parse_module("module com.example.myapp {\n}\n")
+        assert isinstance(result, JavaModule)
+        assert result.module_name == "com.example.myapp"
+        assert _entity_of_type(ctx, JavaCompilationUnit) == []
+
+    def test_module_has_rel_path(self):
+        tmp_dir = tempfile.mkdtemp()
+        module_dir = os.path.join(tmp_dir, "com.example")
+        os.makedirs(module_dir)
+        path = os.path.join(module_dir, "module-info.java")
+        with open(path, "w") as f:
+            f.write("module com.example {\n}\n")
+        ctx = Context(base_path=tmp_dir)
+        ctx.set_language("java", ["java"])
+        result = parser.parse_file(path, ctx)
+        assert isinstance(result, JavaModule)
+        assert result.path == "com.example/module-info.java"
+
+    def test_requires_directives(self):
+        code = (
+            "module m {\n"
+            " requires java.sql;\n"
+            " requires static java.logging;\n"
+            " requires transitive com.core;\n"
+            "}\n"
+        )
+        result, _ = self._parse_module(code)
+        assert result.requires == ["java.sql"]
+        assert result.requires_static == ["java.logging"]
+        assert result.requires_transitive == ["com.core"]
+
+    def test_exports_directives(self):
+        code = (
+            "module m {\n"
+            " exports com.api;\n"
+            " exports com.api.impl to com.other, com.third;\n"
+            "}\n"
+        )
+        result, _ = self._parse_module(code)
+        assert result.exports == ["com.api"]
+        assert result.qualified_exports == {"com.api.impl": ["com.other", "com.third"]}
+
+    def test_opens_directives(self):
+        code = (
+            "module m {\n opens com.internal;\n opens com.internal2 to com.other;\n}\n"
+        )
+        result, _ = self._parse_module(code)
+        assert result.opens == ["com.internal"]
+        assert result.qualified_opens == {"com.internal2": ["com.other"]}
+
+    def test_uses_and_provides(self):
+        code = (
+            "module m {\n"
+            " uses com.spi.Service;\n"
+            " provides com.spi.Service with com.impl.A, com.impl.B;\n"
+            "}\n"
+        )
+        result, _ = self._parse_module(code)
+        assert result.uses == ["com.spi.Service"]
+        assert result.provides == {"com.spi.Service": ["com.impl.A", "com.impl.B"]}

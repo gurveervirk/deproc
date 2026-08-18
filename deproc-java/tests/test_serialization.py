@@ -12,6 +12,7 @@ from deproc.plugins.java.parser.models import (
     JavaImport,
     JavaInterface,
     JavaMethod,
+    JavaModule,
     JavaRecord,
     JavaRecordComponent,
     SimpleBinding,
@@ -305,6 +306,38 @@ class TestSerialization:
         assert record["type"] == "COMPILATION_UNIT"
         assert back.package_fqn == "com.example"
         assert back.fqn == "com.example.MyClass"
+
+    def test_module_roundtrip(self):
+        mod = JavaModule(
+            id="mod_1",
+            module_name="com.example.myapp",
+            path="module-info.java",
+            requires=["java.sql"],
+            requires_static=["java.logging"],
+            requires_transitive=["com.core"],
+            exports=["com.api"],
+            qualified_exports={"com.api.impl": ["com.other"]},
+            opens=["com.internal"],
+            qualified_opens={"com.internal2": ["com.other"]},
+            uses=["com.spi.Service"],
+            provides={"com.spi.Service": ["com.impl.A", "com.impl.B"]},
+            compilation_unit_ids=["cu_1"],
+            package_ids=["pkg_1"],
+        )
+        record, back = self._roundtrip(mod)
+        assert record["type"] == "MODULE"
+        assert back.module_name == "com.example.myapp"
+        assert back.requires == ["java.sql"]
+        assert back.requires_static == ["java.logging"]
+        assert back.requires_transitive == ["com.core"]
+        assert back.exports == ["com.api"]
+        assert back.qualified_exports == {"com.api.impl": ["com.other"]}
+        assert back.opens == ["com.internal"]
+        assert back.qualified_opens == {"com.internal2": ["com.other"]}
+        assert back.uses == ["com.spi.Service"]
+        assert back.provides == {"com.spi.Service": ["com.impl.A", "com.impl.B"]}
+        assert back.compilation_unit_ids == ["cu_1"]
+        assert back.package_ids == ["pkg_1"]
 
     def test_package_roundtrip(self):
         pkg = JavaPackage(
