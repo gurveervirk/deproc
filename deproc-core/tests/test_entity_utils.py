@@ -48,13 +48,13 @@ def _make_entity(id, parent_id=None, type=None):
 class TestParentChain:
     def test_single_entity(self):
         reg = EntityRegistry()
-        e = _make_entity("a", type="MODULE")
+        e = _make_entity("a", type="PYTHON_MODULE")
         reg.add(e)
         assert parent_chain(reg, "a") == [e]
 
     def test_chain(self):
         reg = EntityRegistry()
-        e1 = _make_entity("root", type="MODULE")
+        e1 = _make_entity("root", type="PYTHON_MODULE")
         e2 = _make_entity("cls", parent_id="root", type="CLASS")
         e3 = _make_entity("method", parent_id="cls", type="METHOD")
         reg.add_all([e1, e2, e3])
@@ -80,11 +80,11 @@ class TestParentChain:
 class TestFindFirstAncestorOfType:
     def test_finds_ancestor(self):
         reg = EntityRegistry()
-        e1 = _make_entity("mod", type="MODULE")
+        e1 = _make_entity("mod", type="PYTHON_MODULE")
         e2 = _make_entity("cls", parent_id="mod", type="CLASS")
         e3 = _make_entity("method", parent_id="cls", type="METHOD")
         reg.add_all([e1, e2, e3])
-        result = find_first_ancestor_of_type(reg, "method", {"MODULE"})
+        result = find_first_ancestor_of_type(reg, "method", {"PYTHON_MODULE"})
         assert result is not None
         assert result.id == "mod"
 
@@ -93,21 +93,21 @@ class TestFindFirstAncestorOfType:
         e1 = _make_entity("cls", type="CLASS")
         e2 = _make_entity("method", parent_id="cls", type="METHOD")
         reg.add_all([e1, e2])
-        result = find_first_ancestor_of_type(reg, "method", {"MODULE"})
+        result = find_first_ancestor_of_type(reg, "method", {"PYTHON_MODULE"})
         assert result is None
 
 
 class TestClassifyEntityScope:
     def test_module_level(self):
         reg = EntityRegistry()
-        e1 = _make_entity("mod", type="MODULE")
+        e1 = _make_entity("mod", type="PYTHON_MODULE")
         e2 = _make_entity("cls", parent_id="mod", type="CLASS")
         reg.add_all([e1, e2])
         assert classify_entity_scope(reg, "cls") == "module_level"
 
     def test_conditional(self):
         reg = EntityRegistry()
-        e1 = _make_entity("mod", type="MODULE")
+        e1 = _make_entity("mod", type="PYTHON_MODULE")
         e2 = _make_entity("cflow", parent_id="mod", type="CONTROL_FLOW_BLOCK")
         e2.branch = "try"
         e3 = _make_entity("alias", parent_id="cflow", type="IMPORT_ALIAS")

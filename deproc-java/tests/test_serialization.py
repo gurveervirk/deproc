@@ -325,7 +325,7 @@ class TestSerialization:
             package_ids=["pkg_1"],
         )
         record, back = self._roundtrip(mod)
-        assert record["type"] == "MODULE"
+        assert record["type"] == "JAVA_MODULE"
         assert back.module_name == "com.example.myapp"
         assert back.requires == ["java.sql"]
         assert back.requires_static == ["java.logging"]
