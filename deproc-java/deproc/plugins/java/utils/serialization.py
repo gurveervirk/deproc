@@ -44,7 +44,7 @@ TYPE_TO_CLASS = {
     "IMPORT": JavaImport,
     "COMPILATION_UNIT": JavaCompilationUnit,
     "PACKAGE": JavaPackage,
-    "MODULE": JavaModule,
+    "JAVA_MODULE": JavaModule,
     "CONTROL_FLOW_BLOCK": ControlFlowBlock,
     "CONTROL_FLOW_GROUP": ControlFlowGroup,
 }
@@ -89,7 +89,7 @@ def entity_to_record(
     elif isinstance(entity, JavaModule):
         name = entity.module_name
         full_path = entity.module_name
-        entity_type = "MODULE"
+        entity_type = "JAVA_MODULE"
     elif isinstance(entity, JavaField):
         vb = getattr(entity, "variable_binding", None)
         if not vb:

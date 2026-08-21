@@ -34,7 +34,7 @@ TYPE_TO_CLASS = {
     "CONSTANT": PythonConstant,
     "TYPE_ALIAS": PythonTypeAlias,
     "VARIABLE": VariableDeclaration,
-    "MODULE": PythonModule,
+    "PYTHON_MODULE": PythonModule,
     "PACKAGE": PythonPackage,
     "NAMESPACE_PACKAGE": PythonNamespacePackage,
     "CONTROL_FLOW_BLOCK": ControlFlowBlock,
@@ -112,7 +112,9 @@ def entity_to_record(
     elif isinstance(entity, PythonModule):
         name = entity.fqn.split(".")[-1] if entity.fqn else Path(entity.path).stem
         full_path = entity.fqn or entity.path
-        entity_type = "PACKAGE" if isinstance(entity, PythonPackage) else "MODULE"
+        entity_type = (
+            "PACKAGE" if isinstance(entity, PythonPackage) else "PYTHON_MODULE"
+        )
     elif isinstance(entity, PythonNamespacePackage):
         name = entity.fqn.split(".")[-1] if entity.fqn else Path(entity.path).stem
         full_path = entity.fqn or entity.path
