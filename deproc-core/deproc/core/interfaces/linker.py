@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING, Protocol, TypeVar, runtime_checkable
 if TYPE_CHECKING:
     from ..context import Context
 
-from .parser.models import Node, SourceFile
+from .parser.models import Node
 
-T_In = TypeVar("T_In", bound=SourceFile)
+T_In = TypeVar("T_In", bound=Node)
 T_Out = TypeVar("T_Out", bound=Node)
 
 

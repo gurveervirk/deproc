@@ -17,6 +17,7 @@ from .models import (
     JavaImport,
     JavaInterface,
     JavaMethod,
+    JavaModule,
     JavaRecord,
     JavaRecordComponent,
     SimpleBinding,
@@ -81,7 +82,9 @@ class JavaSourceParser(SourceParser):
         without_extension = os.path.splitext(relative_path)[0]
         return without_extension.replace(os.sep, ".")
 
-    def parse_file(self, path: str, context: Context) -> JavaCompilationUnit:
+    def parse_file(
+        self, path: str, context: Context
+    ) -> JavaCompilationUnit | JavaModule:
         if not os.path.exists(path):
             raise FileNotFoundError(f"File not found: {path}")
 
@@ -92,6 +95,10 @@ class JavaSourceParser(SourceParser):
             source_bytes = f.read()
         tree = self._parser.parse(source_bytes)
         root_node = tree.root_node
+
+        module_node = self._child_by_type(root_node, "module_declaration")
+        if module_node is not None:
+            return self._process_module(module_node, path, context)
 
         package_fqn = self._extract_package(root_node)
         cu_fqn = self._compute_fqn(path, context, package_fqn)
@@ -140,6 +147,97 @@ class JavaSourceParser(SourceParser):
                     if sub.type == "scoped_identifier":
                         return node_text(sub)
         return None
+
+    def _process_module(self, node: Node, path: str, context: Context) -> JavaModule:
+        module_name = ""
+        for child in iter_children(node):
+            if child.type in ("identifier", "scoped_identifier"):
+                module_name = node_text(child)
+                break
+
+        relative_path = os.path.relpath(path, context.base_path).replace("\\", "/")
+
+        module = JavaModule(
+            module_name=module_name,
+            path=relative_path,
+        )
+
+        body_node = self._child_by_type(node, "module_body")
+        if body_node is not None:
+            self._extract_module_directives(body_node, module)
+
+        context.entity_registry.add(module)
+        return module
+
+    def _extract_module_directives(self, body_node: Node, module: JavaModule) -> None:
+        for child in iter_children(body_node):
+            if child.type == "requires_module_directive":
+                self._extract_requires_directive(child, module)
+            elif child.type == "exports_module_directive":
+                self._extract_exports_directive(child, module)
+            elif child.type == "opens_module_directive":
+                self._extract_opens_directive(child, module)
+            elif child.type == "uses_module_directive":
+                self._extract_uses_directive(child, module)
+            elif child.type == "provides_module_directive":
+                self._extract_provides_directive(child, module)
+
+    def _directive_names(self, node: Node) -> list[str]:
+        names: list[str] = []
+        for child in iter_children(node):
+            if child.type in ("identifier", "scoped_identifier"):
+                names.append(node_text(child))
+        return names
+
+    def _extract_requires_directive(self, node: Node, module: JavaModule) -> None:
+        modifier = None
+        target = None
+        for child in iter_children(node):
+            if child.type == "requires_modifier":
+                modifier = node_text(child)
+            elif child.type in ("identifier", "scoped_identifier"):
+                target = node_text(child)
+        if target is None:
+            return
+        if modifier == "static":
+            module.requires_static.append(target)
+        elif modifier == "transitive":
+            module.requires_transitive.append(target)
+        else:
+            module.requires.append(target)
+
+    def _extract_exports_directive(self, node: Node, module: JavaModule) -> None:
+        names = self._directive_names(node)
+        if not names:
+            return
+        package = names[0]
+        targets = names[1:]
+        if targets:
+            module.qualified_exports.setdefault(package, []).extend(targets)
+        else:
+            module.exports.append(package)
+
+    def _extract_opens_directive(self, node: Node, module: JavaModule) -> None:
+        names = self._directive_names(node)
+        if not names:
+            return
+        package = names[0]
+        targets = names[1:]
+        if targets:
+            module.qualified_opens.setdefault(package, []).extend(targets)
+        else:
+            module.opens.append(package)
+
+    def _extract_uses_directive(self, node: Node, module: JavaModule) -> None:
+        names = self._directive_names(node)
+        if names:
+            module.uses.append(names[0])
+
+    def _extract_provides_directive(self, node: Node, module: JavaModule) -> None:
+        names = self._directive_names(node)
+        if len(names) >= 2:
+            service = names[0]
+            module.provides.setdefault(service, []).extend(names[1:])
 
     def _extract_imports(
         self, root: Node, context: Context, parent_id: SymbolID | None = None

@@ -4,7 +4,7 @@ from deproc.core.context import Context
 from deproc.core.runtime import EntityRegistry
 from deproc.plugins.java.linker.main import JavaLinker
 from deproc.plugins.java.linker.models import JavaPackage
-from deproc.plugins.java.parser.models import JavaCompilationUnit
+from deproc.plugins.java.parser.models import JavaCompilationUnit, JavaModule
 
 
 def _make_context(base_path: str = "/src") -> Context:
@@ -110,3 +110,65 @@ class TestLinker:
             if isinstance(p, JavaPackage) and p.fqn == "com.example.foo"
         )
         assert cu.id in foo_pkg.compilation_unit_ids
+
+
+def _make_module(module_name: str, path: str) -> JavaModule:
+    return JavaModule(id=f"mod_{module_name}", module_name=module_name, path=path)
+
+
+class TestModuleLinker:
+    def test_module_assigned_root_dir_cus(self):
+        ctx = _make_context()
+        cu = _make_cu("com.example.foo.A", "com.example.foo")
+        module = _make_module("com.example", "module-info.java")
+        linker = JavaLinker()
+        top = linker.link_files([cu, module], ctx)
+        assert module in top
+        assert cu.id in module.compilation_unit_ids
+
+    def test_module_package_ids(self):
+        ctx = _make_context()
+        cu = _make_cu("com.example.foo.A", "com.example.foo")
+        module = _make_module("com.example", "module-info.java")
+        linker = JavaLinker()
+        linker.link_files([cu, module], ctx)
+        foo_pkg = next(
+            p
+            for p in ctx.entity_registry.values()
+            if isinstance(p, JavaPackage) and p.fqn == "com.example.foo"
+        )
+        assert foo_pkg.id in module.package_ids
+
+    def test_module_nested_root_excludes_outside_cus(self):
+        ctx = _make_context()
+        inside = _make_cu("com.example.foo.A", "com.example.foo")
+        inside.path = "mod1/com/example/foo/A.java"
+        outside = _make_cu("org.other.B", "org.other")
+        module = _make_module("com.example", "mod1/module-info.java")
+        linker = JavaLinker()
+        linker.link_files([inside, outside, module], ctx)
+        assert inside.id in module.compilation_unit_ids
+        assert outside.id not in module.compilation_unit_ids
+
+    def test_module_membership_is_directory_based(self):
+        ctx = _make_context()
+        a = _make_cu("com.example.A", "com.example")
+        a.path = "mod1/com/example/A.java"
+        different_pkg = _make_cu("com.example2.B", "com.example2")
+        different_pkg.path = "mod1/com/example2/B.java"
+        sibling = _make_cu("org.other.C", "org.other")
+        sibling.path = "mod10/org/other/C.java"
+        module = _make_module("com.example", "mod1/module-info.java")
+        linker = JavaLinker()
+        linker.link_files([a, different_pkg, sibling, module], ctx)
+        assert a.id in module.compilation_unit_ids
+        assert different_pkg.id in module.compilation_unit_ids
+        assert sibling.id not in module.compilation_unit_ids
+
+    def test_no_module_returns_packages_only(self):
+        ctx = _make_context()
+        cu = _make_cu("com.example.foo.A", "com.example.foo")
+        linker = JavaLinker()
+        top = linker.link_files([cu], ctx)
+        assert len(top) == 1
+        assert isinstance(top[0], JavaPackage)

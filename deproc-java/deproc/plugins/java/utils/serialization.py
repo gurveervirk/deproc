@@ -24,6 +24,7 @@ from ..parser.models import (
     JavaImport,
     JavaInterface,
     JavaMethod,
+    JavaModule,
     JavaRecord,
     JavaRecordComponent,
     SimpleBinding,
@@ -43,6 +44,7 @@ TYPE_TO_CLASS = {
     "IMPORT": JavaImport,
     "COMPILATION_UNIT": JavaCompilationUnit,
     "PACKAGE": JavaPackage,
+    "JAVA_MODULE": JavaModule,
     "CONTROL_FLOW_BLOCK": ControlFlowBlock,
     "CONTROL_FLOW_GROUP": ControlFlowGroup,
 }
@@ -84,6 +86,10 @@ def entity_to_record(
         name = entity.fqn.split(".")[-1]
         full_path = entity.fqn
         entity_type = "PACKAGE"
+    elif isinstance(entity, JavaModule):
+        name = entity.module_name
+        full_path = entity.module_name
+        entity_type = "JAVA_MODULE"
     elif isinstance(entity, JavaField):
         vb = getattr(entity, "variable_binding", None)
         if not vb:
@@ -155,6 +161,19 @@ def entity_to_record(
     if isinstance(entity, JavaPackage):
         metadata["subpackage_ids"] = entity.subpackage_ids
         metadata["compilation_unit_ids"] = entity.compilation_unit_ids
+    if isinstance(entity, JavaModule):
+        metadata["module_name"] = entity.module_name
+        metadata["requires"] = entity.requires
+        metadata["requires_static"] = entity.requires_static
+        metadata["requires_transitive"] = entity.requires_transitive
+        metadata["exports"] = entity.exports
+        metadata["qualified_exports"] = entity.qualified_exports
+        metadata["opens"] = entity.opens
+        metadata["qualified_opens"] = entity.qualified_opens
+        metadata["uses"] = entity.uses
+        metadata["provides"] = entity.provides
+        metadata["compilation_unit_ids"] = entity.compilation_unit_ids
+        metadata["package_ids"] = entity.package_ids
     path = getattr(entity, "path", None)
     if path is not None:
         metadata["path"] = path
@@ -340,6 +359,24 @@ def record_to_entity(record: dict) -> Entity | None:
             fqn=meta.get("fqn") or record["full_path"],
             subpackage_ids=meta.get("subpackage_ids", []),
             compilation_unit_ids=meta.get("compilation_unit_ids", []),
+        )
+    if entity_class is JavaModule:
+        return JavaModule(
+            id=record["id"],
+            parent_id=parent_id,
+            path=meta.get("path", ""),
+            module_name=meta.get("module_name") or record["full_path"],
+            requires=meta.get("requires", []),
+            requires_static=meta.get("requires_static", []),
+            requires_transitive=meta.get("requires_transitive", []),
+            exports=meta.get("exports", []),
+            qualified_exports=meta.get("qualified_exports", {}),
+            opens=meta.get("opens", []),
+            qualified_opens=meta.get("qualified_opens", {}),
+            uses=meta.get("uses", []),
+            provides=meta.get("provides", {}),
+            compilation_unit_ids=meta.get("compilation_unit_ids", []),
+            package_ids=meta.get("package_ids", []),
         )
     if entity_class in (
         JavaClass,

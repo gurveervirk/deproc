@@ -12,6 +12,7 @@ from ..utils.imports import resolve_java_import
 from .models import (
     JavaResolverResult,
 )
+from .module_visibility import build_module_index, is_visible
 
 logger = logging.getLogger(__name__)
 
@@ -45,23 +46,30 @@ class JavaResolver(Resolver[JavaResolverResult]):
                 return JavaResolverResult(
                     resolved_ids=set(cached[0]),
                     unresolved_ids=set(cached[1]),
+                    inaccessible_ids=set(cached[2]),
                 )
 
         resolved_ids: set[SymbolID] = set()
         unresolved_ids: set[SymbolID] = set()
+        inaccessible_ids: set[SymbolID] = set()
 
         compilation_unit = self._get_compilation_unit(compilation_unit_fqn, context)
         if compilation_unit is None:
             logger.warning(
                 f"Compilation unit not found for FQN: {compilation_unit_fqn}"
             )
-            result = JavaResolverResult(resolved_ids=set(), unresolved_ids=set())
+            result = JavaResolverResult(
+                resolved_ids=set(),
+                unresolved_ids=set(),
+                inaccessible_ids=set(),
+            )
             if symbol_cache is not None:
                 symbol_cache.set(
                     compilation_unit_fqn,
                     symbol_name,
                     result.resolved_ids,
                     result.unresolved_ids,
+                    result.inaccessible_ids,
                 )
             return result
 
@@ -103,9 +111,25 @@ class JavaResolver(Resolver[JavaResolverResult]):
             else:
                 unresolved_ids.add(import_entity.id)
 
+        module_index = build_module_index(context.entity_registry)
+        if module_index.module_by_name:
+            requesting_module = module_index.cu_to_module.get(compilation_unit.id)
+            visible_ids: set[SymbolID] = set()
+            for resolved_id in resolved_ids:
+                entity = context.entity_registry.get(resolved_id)
+                fqn = getattr(entity, "fqn", None) or getattr(
+                    getattr(entity, "variable_binding", None), "fqn", None
+                )
+                if not fqn or is_visible(requesting_module, fqn, module_index):
+                    visible_ids.add(resolved_id)
+                else:
+                    inaccessible_ids.add(resolved_id)
+            resolved_ids = visible_ids
+
         result = JavaResolverResult(
             resolved_ids=resolved_ids,
             unresolved_ids=unresolved_ids,
+            inaccessible_ids=inaccessible_ids,
         )
 
         if symbol_cache is not None:
@@ -114,5 +138,6 @@ class JavaResolver(Resolver[JavaResolverResult]):
                 symbol_name,
                 result.resolved_ids,
                 result.unresolved_ids,
+                result.inaccessible_ids,
             )
         return result

@@ -50,7 +50,7 @@ def find_first_ancestor_of_type(
 
 
 def classify_entity_scope(registry: EntityRegistry, entity_id: SymbolID) -> str:
-    module_types = {"MODULE", "PACKAGE", "NAMESPACE_PACKAGE"}
+    module_types = {"PYTHON_MODULE", "JAVA_MODULE", "PACKAGE", "NAMESPACE_PACKAGE"}
     current_id = entity_id
     seen: set[str] = set()
     while current_id and current_id not in seen:
