@@ -30,9 +30,14 @@ class JavaSymbolCache(SymbolCache[dict, cache_value | None]):
         symbol_name: symbol_name,
         resolved_ids,
         unresolved_ids,
+        inaccessible_ids,
     ) -> None:
         key: cache_key = (compilation_unit_fqn, symbol_name)
-        self.cache[key] = (set(resolved_ids), set(unresolved_ids))
+        self.cache[key] = (
+            set(resolved_ids),
+            set(unresolved_ids),
+            set(inaccessible_ids),
+        )
         if compilation_unit_fqn not in self.compilation_unit_to_cache_keys:
             self.compilation_unit_to_cache_keys[compilation_unit_fqn] = set()
         self.compilation_unit_to_cache_keys[compilation_unit_fqn].add(key)
