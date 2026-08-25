@@ -1,6 +1,12 @@
 """Tests for Java entity serialization."""
 
-from deproc.core.interfaces.parser.models import Signature, SourceRange
+import json
+
+from deproc.core.interfaces.parser.models import (
+    Annotation,
+    Signature,
+    SourceRange,
+)
 from deproc.plugins.java.linker.models import JavaPackage
 from deproc.plugins.java.parser.models import (
     JavaAnnotationType,
@@ -13,6 +19,7 @@ from deproc.plugins.java.parser.models import (
     JavaInterface,
     JavaMethod,
     JavaModule,
+    JavaPackageInfo,
     JavaRecord,
     JavaRecordComponent,
     SimpleBinding,
@@ -346,11 +353,48 @@ class TestSerialization:
             fqn="com.example",
             subpackage_ids=["sub_1"],
             compilation_unit_ids=["cu_1"],
+            package_info_id="pi_1",
         )
         record, back = self._roundtrip(pkg)
         assert record["type"] == "PACKAGE"
         assert back.subpackage_ids == ["sub_1"]
         assert back.compilation_unit_ids == ["cu_1"]
+        assert back.package_info_id == "pi_1"
+
+    def test_package_info_roundtrip(self):
+        pi = JavaPackageInfo(
+            id="pi_1",
+            fqn="com.example.models.package-info",
+            package_fqn="com.example.models",
+            path="com/example/models/package-info.java",
+            source="",
+            docstring_range=None,
+        )
+        record, back = self._roundtrip(pi)
+        assert record["type"] == "PACKAGE_INFO"
+        assert record["full_path"] == "com.example.models.package-info"
+        meta = json.loads(record["metadata_json"])
+        assert meta["package_fqn"] == "com.example.models"
+        assert meta["path"] == "com/example/models/package-info.java"
+        assert back.fqn == "com.example.models.package-info"
+        assert back.package_fqn == "com.example.models"
+
+    def test_package_info_with_annotations_roundtrip(self):
+        sr = SourceRange(lineno=2, end_lineno=2, col_offset=0, end_col_offset=12)
+        pi = JavaPackageInfo(
+            id="pi_2",
+            fqn="com.example.api.package-info",
+            package_fqn="com.example.api",
+            path="com/example/api/package-info.java",
+            source="",
+            docstring_range=None,
+            annotations=[Annotation(name="@Deprecated", source_range=sr)],
+        )
+        record, back = self._roundtrip(pi)
+        assert record["type"] == "PACKAGE_INFO"
+        meta = json.loads(record["metadata_json"])
+        assert meta["annotations"] == ["@Deprecated"]
+        assert back.fqn == "com.example.api.package-info"
 
     def test_unknown_type_returns_none(self):
         result = record_to_entity(

@@ -18,6 +18,7 @@ from .models import (
     JavaInterface,
     JavaMethod,
     JavaModule,
+    JavaPackageInfo,
     JavaRecord,
     JavaRecordComponent,
     SimpleBinding,
@@ -84,7 +85,7 @@ class JavaSourceParser(SourceParser):
 
     def parse_file(
         self, path: str, context: Context
-    ) -> JavaCompilationUnit | JavaModule:
+    ) -> JavaCompilationUnit | JavaModule | JavaPackageInfo:
         if not os.path.exists(path):
             raise FileNotFoundError(f"File not found: {path}")
 
@@ -105,16 +106,29 @@ class JavaSourceParser(SourceParser):
 
         relative_path = os.path.relpath(path, context.base_path).replace("\\", "/")
 
-        source_file = JavaCompilationUnit(
-            fqn=cu_fqn,
-            package_fqn=package_fqn,
-            path=relative_path,
-            source=source_bytes.decode("utf-8"),
-            docstring_range=None,
-        )
+        is_package_info = os.path.splitext(os.path.basename(path))[0] == "package-info"
+        source_file: JavaCompilationUnit
+        if is_package_info:
+            source_file = JavaPackageInfo(
+                fqn=cu_fqn,
+                package_fqn=package_fqn,
+                path=relative_path,
+                source=source_bytes.decode("utf-8"),
+                docstring_range=None,
+            )
+        else:
+            source_file = JavaCompilationUnit(
+                fqn=cu_fqn,
+                package_fqn=package_fqn,
+                path=relative_path,
+                source=source_bytes.decode("utf-8"),
+                docstring_range=None,
+            )
 
         self._current_source_file_id = source_file.id
         source_file.docstring_range = self._extract_file_docstring(root_node)
+        if is_package_info and isinstance(source_file, JavaPackageInfo):
+            source_file.annotations = self._extract_package_annotations(root_node)
         source_file.import_stmt_ids = self._extract_imports(
             root_node, context, parent_id=source_file.id
         )
@@ -147,6 +161,14 @@ class JavaSourceParser(SourceParser):
                     if sub.type == "scoped_identifier":
                         return node_text(sub)
         return None
+
+    def _extract_package_annotations(self, root: Node) -> list[Annotation]:
+        for child in iter_children(root):
+            if child.type == "package_declaration":
+                return extract_annotations(
+                    child, source_file_id=self._current_source_file_id
+                )
+        return []
 
     def _process_module(self, node: Node, path: str, context: Context) -> JavaModule:
         module_name = ""

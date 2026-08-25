@@ -16,6 +16,7 @@ from deproc.plugins.java.parser.models import (
     JavaInterface,
     JavaMethod,
     JavaModule,
+    JavaPackageInfo,
     JavaRecord,
     JavaRecordComponent,
 )
@@ -652,3 +653,51 @@ class TestModuleInfo:
         result, _ = self._parse_module(code)
         assert result.uses == ["com.spi.Service"]
         assert result.provides == {"com.spi.Service": ["com.impl.A", "com.impl.B"]}
+
+
+class TestPackageInfo:
+    def _parse_package_info(self, code: str, package_dir: str = "com/example"):
+        tmp_dir = tempfile.mkdtemp()
+        pkg_dir = os.path.join(tmp_dir, package_dir)
+        os.makedirs(pkg_dir)
+        path = os.path.join(pkg_dir, "package-info.java")
+        with open(path, "w") as f:
+            f.write(code)
+        ctx = Context(base_path=tmp_dir)
+        ctx.set_language("java", ["java"])
+        result = parser.parse_file(path, ctx)
+        return result, ctx
+
+    def test_plain_package_info(self):
+        result, ctx = self._parse_package_info("package com.example.models;\n")
+        assert isinstance(result, JavaPackageInfo)
+        assert result.package_fqn == "com.example.models"
+        assert result.fqn == "com.example.models.package-info"
+        assert result.path == "com/example/package-info.java"
+        assert result.annotations == []
+        assert _entity_of_type(ctx, JavaCompilationUnit) == [result]
+
+    def test_package_info_with_javadoc(self):
+        result, _ = self._parse_package_info(
+            "/**\n * Model classes.\n */\npackage com.example.models;\n"
+        )
+        assert isinstance(result, JavaPackageInfo)
+        assert result.docstring_range is not None
+        assert result.docstring_range.lineno == 1
+
+    def test_package_info_with_annotations(self):
+        result, _ = self._parse_package_info(
+            "/**\n * Model classes.\n */\n"
+            "@Deprecated\n"
+            "@com.example.internal.VisibleForTesting\n"
+            "package com.example.models;\n"
+        )
+        assert isinstance(result, JavaPackageInfo)
+        names = [a.name for a in result.annotations]
+        assert len(names) == 2
+        assert any("Deprecated" in n for n in names)
+        assert any("VisibleForTesting" in n for n in names)
+
+    def test_regular_class_not_package_info(self):
+        cu, _ = _parse("class MyClass {}\n")
+        assert not isinstance(cu, JavaPackageInfo)

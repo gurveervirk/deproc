@@ -4,7 +4,11 @@ from deproc.core.context import Context
 from deproc.core.runtime import EntityRegistry
 from deproc.plugins.java.linker.main import JavaLinker
 from deproc.plugins.java.linker.models import JavaPackage
-from deproc.plugins.java.parser.models import JavaCompilationUnit, JavaModule
+from deproc.plugins.java.parser.models import (
+    JavaCompilationUnit,
+    JavaModule,
+    JavaPackageInfo,
+)
 
 
 def _make_context(base_path: str = "/src") -> Context:
@@ -172,3 +176,46 @@ class TestModuleLinker:
         top = linker.link_files([cu], ctx)
         assert len(top) == 1
         assert isinstance(top[0], JavaPackage)
+
+
+class TestPackageInfoLinker:
+    def _make_package_info(self, fqn: str, package_fqn: str | None) -> JavaPackageInfo:
+        return JavaPackageInfo(
+            id=f"pi_{fqn}",
+            fqn=fqn,
+            package_fqn=package_fqn,
+            path=(package_fqn or "").replace(".", "/") + "/package-info.java",
+            source="",
+            docstring_range=None,
+        )
+
+    def test_package_info_associated_with_package(self):
+        ctx = _make_context()
+        nodes = [
+            _make_cu("com.example.models.User", "com.example.models"),
+            self._make_package_info(
+                "com.example.models.package-info", "com.example.models"
+            ),
+        ]
+        linker = JavaLinker()
+        linker.link_files(nodes, ctx)
+
+        pkg = next(
+            p
+            for p in ctx.entity_registry.values()
+            if isinstance(p, JavaPackage) and p.fqn == "com.example.models"
+        )
+        assert pkg.package_info_id == "pi_com.example.models.package-info"
+
+    def test_package_without_info_has_none(self):
+        ctx = _make_context()
+        nodes = [_make_cu("com.example.other.Thing", "com.example.other")]
+        linker = JavaLinker()
+        linker.link_files(nodes, ctx)
+
+        pkg = next(
+            p
+            for p in ctx.entity_registry.values()
+            if isinstance(p, JavaPackage) and p.fqn == "com.example.other"
+        )
+        assert pkg.package_info_id is None

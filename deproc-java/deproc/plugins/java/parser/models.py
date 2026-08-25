@@ -22,6 +22,11 @@ class JavaCompilationUnit(SourceFile):
 
 
 @dataclass(kw_only=True)
+class JavaPackageInfo(JavaCompilationUnit):
+    annotations: list[Annotation] = field(default_factory=list)
+
+
+@dataclass(kw_only=True)
 class JavaClass(TypeDefinition):
     type: str = field(default="CLASS")
     is_abstract: bool = False
@@ -133,6 +138,7 @@ __all__ = [
     "JavaInterface",
     "JavaMethod",
     "JavaModule",
+    "JavaPackageInfo",
     "JavaRecord",
     "JavaRecordComponent",
     "Signature",
