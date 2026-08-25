@@ -25,6 +25,7 @@ from ..parser.models import (
     JavaInterface,
     JavaMethod,
     JavaModule,
+    JavaPackageInfo,
     JavaRecord,
     JavaRecordComponent,
     SimpleBinding,
@@ -43,6 +44,7 @@ TYPE_TO_CLASS = {
     "RECORD_COMPONENT": JavaRecordComponent,
     "IMPORT": JavaImport,
     "COMPILATION_UNIT": JavaCompilationUnit,
+    "PACKAGE_INFO": JavaPackageInfo,
     "PACKAGE": JavaPackage,
     "JAVA_MODULE": JavaModule,
     "CONTROL_FLOW_BLOCK": ControlFlowBlock,
@@ -78,6 +80,10 @@ def entity_to_record(
         name = entity.imported_name or entity.import_path
         full_path = entity.import_path
         entity_type = "IMPORT"
+    elif isinstance(entity, JavaPackageInfo):
+        name = entity.fqn.split(".")[-1] if entity.fqn else Path(entity.path).stem
+        full_path = entity.fqn or entity.path
+        entity_type = "PACKAGE_INFO"
     elif isinstance(entity, JavaCompilationUnit):
         name = entity.fqn.split(".")[-1] if entity.fqn else Path(entity.path).stem
         full_path = entity.fqn or entity.path
@@ -158,7 +164,11 @@ def entity_to_record(
         metadata["path"] = entity.path
         metadata["import_stmt_ids"] = entity.import_stmt_ids
         metadata["type_ids"] = entity.type_ids
+    if isinstance(entity, JavaPackageInfo) and entity.annotations:
+        metadata["annotations"] = [a.name for a in entity.annotations]
     if isinstance(entity, JavaPackage):
+        if entity.package_info_id:
+            metadata["package_info_id"] = entity.package_info_id
         metadata["subpackage_ids"] = entity.subpackage_ids
         metadata["compilation_unit_ids"] = entity.compilation_unit_ids
     if isinstance(entity, JavaModule):
@@ -351,6 +361,17 @@ def record_to_entity(record: dict) -> Entity | None:
             import_stmt_ids=meta.get("import_stmt_ids", []),
             type_ids=meta.get("type_ids", []),
         )
+    if entity_class is JavaPackageInfo:
+        return JavaPackageInfo(
+            id=record["id"],
+            fqn=meta.get("fqn") or record["full_path"],
+            package_fqn=meta.get("package_fqn"),
+            path=meta.get("path", ""),
+            source="",
+            docstring_range=None,
+            import_stmt_ids=meta.get("import_stmt_ids", []),
+            type_ids=meta.get("type_ids", []),
+        )
     if entity_class is JavaPackage:
         return JavaPackage(
             id=record["id"],
@@ -359,6 +380,7 @@ def record_to_entity(record: dict) -> Entity | None:
             fqn=meta.get("fqn") or record["full_path"],
             subpackage_ids=meta.get("subpackage_ids", []),
             compilation_unit_ids=meta.get("compilation_unit_ids", []),
+            package_info_id=meta.get("package_info_id"),
         )
     if entity_class is JavaModule:
         return JavaModule(
