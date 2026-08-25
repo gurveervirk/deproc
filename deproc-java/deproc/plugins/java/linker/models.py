@@ -10,6 +10,7 @@ class JavaPackage(Node):
     fqn: str
     subpackage_ids: list[SymbolID] = field(default_factory=list)
     compilation_unit_ids: list[SymbolID] = field(default_factory=list)
+    package_info_id: SymbolID | None = None
 
 
 __all__ = [

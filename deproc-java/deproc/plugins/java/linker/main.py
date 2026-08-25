@@ -3,21 +3,32 @@ import os
 from deproc.core.context import Context
 from deproc.core.interfaces import Linker
 
-from ..parser.models import JavaCompilationUnit, JavaModule
+from ..parser.models import JavaCompilationUnit, JavaModule, JavaPackageInfo
 from .models import JavaPackage
 
 
-class JavaLinker(Linker[JavaCompilationUnit | JavaModule, JavaPackage | JavaModule]):
+class JavaLinker(
+    Linker[
+        JavaCompilationUnit | JavaModule | JavaPackageInfo,
+        JavaPackage | JavaModule,
+    ]
+):
     def link_files(
-        self, nodes: list[JavaCompilationUnit | JavaModule], context: Context
+        self,
+        nodes: list[JavaCompilationUnit | JavaModule | JavaPackageInfo],
+        context: Context,
     ) -> list[JavaPackage | JavaModule]:
         package_map: dict[str, JavaPackage] = {}
         modules: list[JavaModule] = []
-        compilation_units: list[JavaCompilationUnit] = []
+        compilation_units: list[JavaCompilationUnit | JavaPackageInfo] = []
+        package_infos: list[JavaPackageInfo] = []
 
         for node in nodes:
             if isinstance(node, JavaModule):
                 modules.append(node)
+            elif isinstance(node, JavaPackageInfo):
+                compilation_units.append(node)
+                package_infos.append(node)
             else:
                 compilation_units.append(node)
 
@@ -55,6 +66,11 @@ class JavaLinker(Linker[JavaCompilationUnit | JavaModule, JavaPackage | JavaModu
         for module in modules:
             self._assign_compilation_units(module, compilation_units, package_map)
 
+        for package_info in package_infos:
+            pkg = package_map.get(package_info.package_fqn or "")
+            if pkg is not None:
+                pkg.package_info_id = package_info.id
+
         for pkg in package_map.values():
             context.entity_registry.add(pkg)
 
@@ -67,7 +83,7 @@ class JavaLinker(Linker[JavaCompilationUnit | JavaModule, JavaPackage | JavaModu
     def _assign_compilation_units(
         self,
         module: JavaModule,
-        compilation_units: list[JavaCompilationUnit],
+        compilation_units: list[JavaCompilationUnit | JavaPackageInfo],
         package_map: dict[str, JavaPackage],
     ) -> None:
         module_root = os.path.dirname(module.path)
