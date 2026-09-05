@@ -2,6 +2,7 @@
 
 from deproc.core.context import Context
 from deproc.core.interfaces.parser.models import SourceRange
+from deproc.core.interfaces.resolver import ResolutionStatus
 from deproc.core.runtime.registries.entity import EntityRegistry
 from deproc.plugins.java.linker.models import JavaPackage
 from deproc.plugins.java.parser.models import (
@@ -324,6 +325,46 @@ class TestModuleVisibility:
         result = JavaResolver().resolve("moda.com.example.Foo", "Bar", ctx)
         assert result.resolved_ids == {"cls_1"}
         assert result.inaccessible_ids == set()
+
+
+class TestTypeRelationships:
+    def test_resolves_superclass_property(self):
+        cu = _make_cu("pkg.Child", "pkg", [], cu_id="cu_child")
+        base = _make_class("pkg.Base", "base")
+        child = _make_class("pkg.Child", "child")
+        child.parent_id = cu.id
+        child.superclass = "pkg.Base"
+        ctx = _context(cu, [base, child])
+
+        result = JavaResolver().resolve_type_reference(child.superclass, child, ctx)
+
+        assert result.status is ResolutionStatus.RESOLVED
+        assert result.value == base.id
+
+    def test_reports_ambiguous_superclass_property(self):
+        cu = _make_cu("pkg.Child", "pkg", [], cu_id="cu_child")
+        child = _make_class("pkg.Child", "child")
+        child.parent_id = cu.id
+        child.superclass = "pkg.Base"
+        first = _make_class("pkg.Base", "base_1")
+        second = _make_class("pkg.Base", "base_2")
+        ctx = _context(cu, [child, first, second])
+
+        result = JavaResolver().resolve_type_reference(child.superclass, child, ctx)
+
+        assert result.status is ResolutionStatus.AMBIGUOUS
+        assert result.candidates == (first.id, second.id)
+
+    def test_reports_unresolved_superclass_property(self):
+        cu = _make_cu("pkg.Child", "pkg", [], cu_id="cu_child")
+        child = _make_class("pkg.Child", "child")
+        child.parent_id = cu.id
+        child.superclass = "pkg.Missing"
+        ctx = _context(cu, [child])
+
+        result = JavaResolver().resolve_type_reference(child.superclass, child, ctx)
+
+        assert result.status is ResolutionStatus.UNRESOLVED
 
     def test_cross_module_requires_and_exports(self):
         imp = _bar_import()
