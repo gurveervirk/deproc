@@ -83,6 +83,20 @@ class TestEntityRegistryFqnMapping:
         registry.add(e)
         assert registry.get_ids_by_fqn("anything") == set()
 
+    def test_variable_binding_fqn_updates_mapping(self):
+        registry = EntityRegistry()
+        e = Entity(id="id_1")
+        e.variable_binding = type("Binding", (), {"fqn": "pkg.Type.field"})()
+        registry.add(e)
+        assert registry.get_ids_by_fqn("pkg.Type.field") == {"id_1"}
+
+    def test_replacing_entity_updates_fqn_mapping(self):
+        registry = EntityRegistry()
+        registry.add(_FakeFqnEntity(id="id_1", fqn="old.Name"))
+        registry.add(_FakeFqnEntity(id="id_1", fqn="new.Name"))
+        assert registry.get_ids_by_fqn("old.Name") == set()
+        assert registry.get_ids_by_fqn("new.Name") == {"id_1"}
+
     def test_get_ids_by_fqn_returns_empty_for_missing(self):
         registry = EntityRegistry()
         assert registry.get_ids_by_fqn("nonexistent") == set()
