@@ -5,12 +5,15 @@ from deproc.core.interfaces.parser.models import Entity
 from deproc.core.interfaces.resolver import Resolver
 
 from ..parser.models import (
+    PythonClass,
     PythonImportAlias,
     PythonImportStatement,
     PythonModule,
     SymbolID,
 )
+from ..utils.exports import build_module_exports, get_dynamic_export_modules
 from ..utils.imports import resolve_relative_import_path
+from ..utils.mro import compute_mro_from_bases
 from .models import (
     PythonResolverResult,
     ResolvedIDs,
@@ -29,18 +32,17 @@ class PythonResolver(Resolver[PythonResolverResult]):
         return symbol
 
     def _get_module(self, symbol_id: SymbolID, context: Context) -> PythonModule | None:
-        symbol = self._get_symbol(symbol_id, context)
-        if not symbol:
-            return None
-
-        if isinstance(symbol, PythonModule):
-            return symbol
-
-        parent_id = getattr(symbol, "parent_id", None)
-        if not parent_id:
-            return None
-
-        return self._get_module(parent_id, context)
+        seen: set[SymbolID] = set()
+        current_id: SymbolID | None = symbol_id
+        while current_id and current_id not in seen:
+            seen.add(current_id)
+            symbol = self._get_symbol(current_id, context)
+            if not symbol:
+                return None
+            if isinstance(symbol, PythonModule):
+                return symbol
+            current_id = getattr(symbol, "parent_id", None)
+        return None
 
     def _get_target_module_fqn(
         self, import_statement_id: SymbolID, context: Context
@@ -130,7 +132,11 @@ class PythonResolver(Resolver[PythonResolverResult]):
     ) -> tuple[ResolvedIDs, UnresolvedIDs]:
         if cache_keys is None:
             cache_keys = set()
+        if visited is None:
+            visited = set()
         current_cache_key = (module_fqn, symbol_name)
+        if current_cache_key in cache_keys:
+            return set(), set()
         cache_keys.add(current_cache_key)
 
         symbol_cache = context.get_symbol_cache("python")
@@ -170,7 +176,6 @@ class PythonResolver(Resolver[PythonResolverResult]):
             module_fqn, symbol_name, resolved_ids, unresolved_ids, symbol_cache
         )
         self._populate_module_cache_key_maps(module_fqn, cache_keys, symbol_cache)
-
         return resolved_ids, unresolved_ids
 
     def _resolve_wildcard_imports(
@@ -184,6 +189,8 @@ class PythonResolver(Resolver[PythonResolverResult]):
         module_ids = context.entity_registry.get_ids_by_fqn(module_fqn)
         resolved_ids = set()
         unresolved_ids = set()
+        module_exports = build_module_exports(context.entity_registry)
+        dynamic_modules = get_dynamic_export_modules(context.entity_registry)
 
         for module_id in module_ids:
             module = self._get_symbol(module_id, context)
@@ -209,12 +216,15 @@ class PythonResolver(Resolver[PythonResolverResult]):
                     {(module_fqn, symbol_name)},
                     context.get_symbol_cache("python"),
                 )
-                if any(
-                    isinstance(target_module, PythonModule)
-                    and target_module.all_exports is not None
-                    and symbol_name not in target_module.all_exports
-                    for target_module in target_modules
-                ):
+                if target_module_fqn in dynamic_modules:
+                    unresolved_ids.add(import_id)
+                    continue
+                if target_module_fqn not in module_exports:
+                    continue
+                if symbol_name not in module_exports[target_module_fqn]:
+                    continue
+                if not target_modules:
+                    unresolved_ids.add(import_id)
                     continue
 
                 target_cache_key = (target_module_fqn, symbol_name)
@@ -296,18 +306,114 @@ class PythonResolver(Resolver[PythonResolverResult]):
                 cache_keys or set(),
                 context.get_symbol_cache("python"),
             )
-            return (
-                context.entity_registry.get_ids_by_fqn(target_module_path),
-                set(),
-            )
+            resolved_ids = context.entity_registry.get_ids_by_fqn(target_module_path)
+            return resolved_ids, set()
 
         if not target_module_path:
             logger.warning(f"Target module path not found for alias: {alias.name}")
             return set(), set()
 
-        return self.resolve_symbol(
+        resolved_ids, unresolved_ids = self.resolve_symbol(
             target_module_path, import_name, context, visited, cache_keys
         )
+        return resolved_ids, unresolved_ids
+
+    def _resolve_base_ids(self, cls: PythonClass, context: Context) -> list[SymbolID]:
+        module = self._get_module(cls.id, context)
+        if module is None:
+            return []
+
+        base_ids: list[SymbolID] = []
+        for base_name in cls.inherits:
+            base_name = base_name.split("[", 1)[0].strip()
+            if not base_name:
+                continue
+            resolved_ids = context.entity_registry.get_ids_by_fqn(base_name)
+            if not resolved_ids:
+                if "." in base_name:
+                    base_module, base_symbol = base_name.rsplit(".", 1)
+                    resolved_ids, _ = self.resolve_symbol(
+                        base_module, base_symbol, context
+                    )
+                else:
+                    resolved_ids, _ = self.resolve_symbol(
+                        module.fqn, base_name, context
+                    )
+            for base_id in sorted(resolved_ids):
+                if isinstance(self._get_symbol(base_id, context), PythonClass):
+                    base_ids.append(base_id)
+        return base_ids
+
+    def _class_mro_ids(
+        self,
+        class_id: SymbolID,
+        context: Context,
+        memo: dict[SymbolID, list[SymbolID] | None],
+        active: set[SymbolID],
+    ) -> list[SymbolID] | None:
+        if class_id in memo:
+            return memo[class_id]
+        if class_id in active:
+            return None
+
+        cls = self._get_symbol(class_id, context)
+        if not isinstance(cls, PythonClass):
+            memo[class_id] = None
+            return None
+        active.add(class_id)
+        base_ids = self._resolve_base_ids(cls, context)
+        if cls.inherits and not base_ids:
+            active.remove(class_id)
+            memo[class_id] = None
+            return None
+        if not base_ids:
+            active.remove(class_id)
+            memo[class_id] = [class_id]
+            return memo[class_id]
+
+        base_mros: dict[str, list[str] | None] = {}
+        base_fqns: list[str] = []
+        for base_id in base_ids:
+            base = self._get_symbol(base_id, context)
+            base_fqn = getattr(base, "fqn", None)
+            if not base_fqn or base_fqn in base_mros:
+                continue
+            base_mro_ids = self._class_mro_ids(base_id, context, memo, active)
+            if base_mro_ids is None:
+                active.remove(class_id)
+                memo[class_id] = None
+                return None
+            base_mros[base_fqn] = [
+                getattr(self._get_symbol(mro_id, context), "fqn", "")
+                for mro_id in base_mro_ids
+            ]
+            base_fqns.append(base_fqn)
+
+        mro_fqns = compute_mro_from_bases(cls.fqn, base_mros, base_fqns)
+        if mro_fqns is None:
+            active.remove(class_id)
+            memo[class_id] = None
+            return None
+
+        mro_ids: list[SymbolID] = []
+        for mro_fqn in mro_fqns:
+            if mro_fqn == cls.fqn:
+                mro_ids.append(class_id)
+                continue
+            candidates = [
+                candidate_id
+                for candidate_id in context.entity_registry.get_ids_by_fqn(mro_fqn)
+                if isinstance(self._get_symbol(candidate_id, context), PythonClass)
+            ]
+            if len(candidates) != 1:
+                active.remove(class_id)
+                memo[class_id] = None
+                return None
+            mro_ids.append(candidates[0])
+
+        active.remove(class_id)
+        memo[class_id] = mro_ids
+        return mro_ids
 
     def resolve(
         self, module_fqn: str, symbol_name: str, context: Context

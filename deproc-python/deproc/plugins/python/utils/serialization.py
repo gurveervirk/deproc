@@ -192,6 +192,8 @@ def entity_to_record(
         metadata["path"] = path
     if isinstance(entity, PythonModule) and entity.all_exports is not None:
         metadata["all_exports"] = entity.all_exports
+    if isinstance(entity, PythonModule) and entity.exports_dynamic:
+        metadata["exports_dynamic"] = True
     visibility = getattr(entity, "visibility", None)
     if visibility:
         metadata["visibility"] = visibility
@@ -319,11 +321,13 @@ def record_to_entity(record: dict) -> Entity | None:
             source_range=sr,
             docstring_range=None,
             visibility=meta.get("visibility"),
+            inherits=meta.get("parent_classes", []),
             **common,
         )
     if entity_class is PythonModule:
         return PythonModule(
             all_exports=meta.get("all_exports"),
+            exports_dynamic=meta.get("exports_dynamic", False),
             path=meta.get("path", ""),
             source="",
             docstring_range=None,
@@ -333,6 +337,7 @@ def record_to_entity(record: dict) -> Entity | None:
         return PythonPackage(
             submodule_ids=meta.get("submodule_ids", []),
             all_exports=meta.get("all_exports"),
+            exports_dynamic=meta.get("exports_dynamic", False),
             path=meta.get("path", ""),
             source="",
             docstring_range=None,

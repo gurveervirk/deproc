@@ -60,6 +60,7 @@ class PythonImportStatement(ImportStatement):
 class PythonModule(SourceFile):
     fqn: str
     all_exports: list[str] | None = None
+    exports_dynamic: bool = False
 
 
 __all__ = [

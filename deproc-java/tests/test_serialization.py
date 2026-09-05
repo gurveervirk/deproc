@@ -78,6 +78,10 @@ class TestSerialization:
         assert back.implements == ["I1"]
         assert back.is_final is True
 
+        metadata = json.loads(record["metadata_json"])
+        assert metadata["superclass"] == "Base"
+        assert metadata["implements"] == ["I1"]
+
     def test_class_inner_types_roundtrip(self):
         cls = JavaClass(
             id="cls_1",
