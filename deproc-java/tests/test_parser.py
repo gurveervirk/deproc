@@ -340,6 +340,8 @@ class MyClass {
         fields = _entity_of_type(ctx, JavaField)
         name_field = next(f for f in fields if f.variable_binding.name == "name")
         count_field = next(f for f in fields if f.variable_binding.name == "COUNT")
+        assert name_field.visibility == "private"
+        assert count_field.visibility == "public"
         assert name_field.is_final is True
         assert name_field.is_static is False
         assert count_field.is_static is True
@@ -353,7 +355,10 @@ class MyClass {
 """
         _, ctx = _parse(code)
         fields = _entity_of_type(ctx, JavaField)
-        assert fields[0].variable_binding.fqn == "com.example.MyClass.x"
+        field = fields[0]
+        assert field.fqn == "com.example.MyClass.x"
+        assert field.variable_binding.fqn == field.fqn
+        assert ctx.entity_registry.get_ids_by_fqn(field.fqn) == {field.id}
 
     def test_method_static_synchronized(self):
         code = """

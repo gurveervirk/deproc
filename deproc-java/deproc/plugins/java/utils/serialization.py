@@ -267,6 +267,8 @@ def entity_to_record(
                 metadata["return_type_col_offset"] = rtr.col_offset
                 metadata["return_type_end_col_offset"] = rtr.end_col_offset
     if isinstance(entity, JavaField):
+        if entity.visibility:
+            metadata["visibility"] = entity.visibility
         metadata["is_static"] = entity.is_static
         metadata["is_final"] = entity.is_final
         metadata["is_transient"] = entity.is_transient
@@ -503,6 +505,7 @@ def record_to_entity(record: dict) -> Entity | None:
             value_range=None,
             type_annotation=None,
             modifiers=meta.get("modifiers", []),
+            visibility=meta.get("visibility", "package-private"),
             is_static=meta.get("is_static", False),
             is_final=meta.get("is_final", False),
             is_transient=meta.get("is_transient", False),

@@ -78,10 +78,15 @@ class JavaMethod(FunctionLike):
 @dataclass(kw_only=True)
 class JavaField(VariableDeclaration):
     type: str = field(default="FIELD")
+    visibility: str = "package-private"
     is_static: bool = False
     is_final: bool = False
     is_transient: bool = False
     is_volatile: bool = False
+
+    @property
+    def fqn(self) -> str | None:
+        return getattr(self.variable_binding, "fqn", None)
 
 
 @dataclass(kw_only=True)
