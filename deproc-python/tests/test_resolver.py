@@ -7,6 +7,7 @@ from deproc.core.context import Context
 from deproc.core.interfaces.parser.models import Entity, SourceRange, generate_id
 from deproc.core.runtime.registries.entity import EntityRegistry
 from deproc.plugins.python.parser.models import (
+    PythonClass,
     PythonImportAlias,
     PythonImportStatement,
     PythonModule,
@@ -513,6 +514,45 @@ class TestResolveSymbolWithCache:
         assert self.cache.get("mymodule", "MyClass") is None
         assert self.cache.get("other", "Other") is not None
         assert self.cache.get_cache_keys_for_module("other") == {("other", "Other")}
+
+    def test_class_mro_uses_inherits_without_relationship_registry(self):
+        module = PythonModule(
+            id="module",
+            fqn="pkg.mod",
+            path="pkg/mod.py",
+            docstring_range=None,
+            source="",
+            type_ids=["base", "child"],
+        )
+        base = PythonClass(
+            id="base",
+            parent_id="module",
+            name="Base",
+            fqn="pkg.mod.Base",
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=10
+            ),
+            docstring_range=None,
+            visibility="public",
+        )
+        child = PythonClass(
+            id="child",
+            parent_id="module",
+            name="Child",
+            fqn="pkg.mod.Child",
+            inherits=["Base"],
+            source_range=SourceRange(
+                lineno=2, end_lineno=2, col_offset=0, end_col_offset=11
+            ),
+            docstring_range=None,
+            visibility="public",
+        )
+        self.context.entity_registry.add_all([module, base, child])
+
+        assert self.resolver._class_mro_ids("child", self.context, {}, set()) == [
+            "child",
+            "base",
+        ]
 
     def test_resolve_symbol_alias_populates_transitive_maps(self):
         target_id = generate_id()

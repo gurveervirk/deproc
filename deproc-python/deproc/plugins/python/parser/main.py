@@ -48,6 +48,15 @@ class PythonSourceParser(SourceParser):
                 )
             )""",
         )
+        self.all_assignment_query = Query(
+            self._language,
+            """
+            (expression_statement
+                (assignment
+                    left: (identifier) @all_name
+                )
+            )""",
+        )
 
     def _sr(self, node: Node) -> SourceRange:
         return create_source_range(node, source_id=self._current_source_file_id)
@@ -103,7 +112,9 @@ class PythonSourceParser(SourceParser):
         source_file.import_stmt_ids = self._extract_import_statements(
             root_node, context, parent_id=source_file.id, module_fqn=parent_fqn
         )
-        source_file.all_exports = self._extract_all_exports(root_node)
+        source_file.all_exports, source_file.exports_dynamic = (
+            self._extract_all_export_state(root_node)
+        )
         source_file.control_flow_group_ids = self._extract_control_flow_groups(
             root_node, context, parent_id=source_file.id, parent_fqn=parent_fqn
         )
@@ -326,18 +337,35 @@ class PythonSourceParser(SourceParser):
     def _extract_all_exports(self, root: Node) -> list[str] | None:
         cursor = QueryCursor(self.all_exports_query)
         captures_dict = cursor.captures(root)
-
         for name, nodes in captures_dict.items():
-            for n in nodes:
-                if name == "all_values":
-                    exports = []
-                    for child in iter_children(n):
-                        if child.type == "string":
-                            export_name = node_text(child).strip().strip('"').strip("'")
-                            exports.append(export_name)
-                    return exports
-
+            if name != "all_values":
+                continue
+            for node in nodes:
+                exports = []
+                for child in iter_children(node):
+                    if child.type == "string":
+                        exports.append(node_text(child).strip().strip('"').strip("'"))
+                return exports
         return None
+
+    def _extract_all_export_state(self, root: Node) -> tuple[list[str] | None, bool]:
+        exports = self._extract_all_exports(root)
+        if exports is not None:
+            captures = QueryCursor(self.all_exports_query).captures(root)
+            for node in captures.get("all_values", []):
+                if any(
+                    child.type not in ("string", ",", "(", ")", "[", "]")
+                    for child in iter_children(node)
+                ):
+                    return None, True
+            return exports, False
+        captures = QueryCursor(self.all_assignment_query).captures(root)
+        if any(
+            name == "all_name" and any(node_text(node) == "__all__" for node in nodes)
+            for name, nodes in captures.items()
+        ):
+            return None, True
+        return None, False
 
     def _process_import_statement(
         self,
