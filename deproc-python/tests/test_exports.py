@@ -29,6 +29,13 @@ class TestBuildModuleExports:
         result = build_module_exports(reg)
         assert result == {}
 
+    def test_with_empty_all_exports(self):
+        reg = EntityRegistry()
+        m = _make_module("pkg.mod", [])
+        reg.add(m)
+        result = build_module_exports(reg)
+        assert result == {"pkg.mod": set()}
+
     def test_ignores_non_module_entities(self):
         reg = EntityRegistry()
         func = PythonModule(

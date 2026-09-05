@@ -5,6 +5,7 @@ from ....interfaces.parser.models import (
     Entity,
     SymbolID,
 )
+from .utils import entity_fqn
 
 
 @dataclass
@@ -16,8 +17,15 @@ class EntityRegistry:
 
     def add(self, entity: Entity) -> None:
         assert entity.id is not None
+        previous = self.entities.get(entity.id)
+        if previous is not None:
+            previous_fqn = entity_fqn(previous)
+            if previous_fqn:
+                self.fqn_to_ids[previous_fqn].discard(entity.id)
+                if not self.fqn_to_ids[previous_fqn]:
+                    del self.fqn_to_ids[previous_fqn]
         self.entities[entity.id] = entity
-        fqn = getattr(entity, "fqn", None)
+        fqn = entity_fqn(entity)
         if fqn:
             self.fqn_to_ids[fqn].add(entity.id)
 
@@ -28,7 +36,7 @@ class EntityRegistry:
     def remove(self, entity_id: SymbolID) -> None:
         entity = self.entities.pop(entity_id, None)
         if entity is not None:
-            fqn = getattr(entity, "fqn", None)
+            fqn = entity_fqn(entity)
             if fqn and entity_id in self.fqn_to_ids.get(fqn, set()):
                 self.fqn_to_ids[fqn].discard(entity_id)
                 if not self.fqn_to_ids[fqn]:

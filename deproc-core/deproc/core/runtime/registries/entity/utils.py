@@ -2,10 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from . import EntityRegistry
-
 if TYPE_CHECKING:
     from ....interfaces.parser.models import Entity, SymbolID
+    from . import EntityRegistry
 
 
 def entity_fqn(entity: Entity) -> str | None:

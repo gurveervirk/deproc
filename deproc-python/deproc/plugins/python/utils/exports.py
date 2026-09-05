@@ -15,8 +15,7 @@ def build_module_exports(registry: EntityRegistry) -> dict[str, set[str]]:
         if (
             isinstance(entity, PythonModule)
             and hasattr(entity, "all_exports")
-            and entity.all_exports
+            and entity.all_exports is not None
         ):
-            for name in entity.all_exports:
-                exports[entity.fqn].add(name)
+            exports[entity.fqn].update(entity.all_exports)
     return dict(exports)

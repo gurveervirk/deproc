@@ -10,14 +10,21 @@ if TYPE_CHECKING:
     from .interfaces.symbol_cache import SymbolCache
 
 from .runtime import EntityRegistry
+from .scope import AnalysisScope
 
 logger = logging.getLogger(__name__)
 
 
 class Context:
-    def __init__(self, base_path: str = "", copy_from: Context | None = None):
+    def __init__(
+        self,
+        base_path: str = "",
+        copy_from: Context | None = None,
+        scope: AnalysisScope | None = None,
+    ):
         if copy_from:
             self.base_path = copy_from.base_path
+            self.scope = copy_from.scope
             self.entity_registry = copy_from.entity_registry
             self._language_aliases = dict(copy_from._language_aliases)
             self._language_extensions = dict(copy_from._language_extensions)
@@ -31,19 +38,42 @@ class Context:
             self.symbol_caches = dict(copy_from.symbol_caches)
             self._skip_paths = set(copy_from._skip_paths)
         else:
-            self.base_path = base_path
+            self.scope = scope or AnalysisScope(
+                project_roots=(base_path,) if base_path else ()
+            )
+            self.base_path = base_path or (
+                self.scope.roots[0].path if self.scope.roots else ""
+            )
             self.entity_registry = EntityRegistry()
             self._language_aliases: dict[str, list[str]] = {}
             self._language_extensions: dict[str, list[str]] = {}
             self._all_languages: set[str] = set()
             self._all_file_extensions: set[str] = set()
-            self._selected_languages: set[str] = set()
-            self._selected_file_extensions: set[str] = set()
-            self._skip_paths: set[str] = set()
+            self._selected_languages: set[str] = set(self.scope.selected_languages)
+            self._selected_file_extensions: set[str] = set(
+                self.scope.selected_file_extensions
+            )
+            self._skip_paths: set[str] = set(self.scope.exclusions)
             self._parsers: dict[str, SourceParser] = {}
             self._resolvers: dict[str, Resolver] = {}
             self._linkers: dict[str, Linker] = {}
             self.symbol_caches: dict[str, SymbolCache] = {}
+
+    @property
+    def analysis_scope(self) -> AnalysisScope:
+        return self.scope
+
+    @analysis_scope.setter
+    def analysis_scope(self, scope: AnalysisScope) -> None:
+        self.set_scope(scope)
+
+    def set_scope(self, scope: AnalysisScope) -> None:
+        self.scope = scope
+        self._selected_languages = set(scope.selected_languages)
+        self._selected_file_extensions = set(scope.selected_file_extensions)
+        if not self.base_path and scope.roots:
+            self.base_path = scope.roots[0].path
+        self._skip_paths = set(scope.exclusions)
 
     def set_language(
         self,

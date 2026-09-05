@@ -247,12 +247,14 @@ class TestSerialization:
             ),
             value_range=None,
             type_annotation=None,
+            visibility="protected",
             is_static=True,
             is_final=True,
         )
         record, back = self._roundtrip(field)
         assert record["type"] == "FIELD"
         assert back.variable_binding.name == "count"
+        assert back.visibility == "protected"
         assert back.is_static is True
 
     def test_field_modifiers_roundtrip(self):

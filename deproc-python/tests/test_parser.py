@@ -364,6 +364,15 @@ class TestAllExports:
         sf = parser.parse_file(tmp_path, ctx)
         assert sf.all_exports is None
 
+    def test_all_exports_empty_list(self):
+        code = "__all__ = []\n"
+        ctx = Context()
+        with tf.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as tmp:
+            tmp.write(code)
+            tmp_path = tmp.name
+        sf = parser.parse_file(tmp_path, ctx)
+        assert sf.all_exports == []
+
     def test_all_exports_tuple(self):
         code = '__all__ = ("Foo", "Bar")\n'
         ctx = Context()
@@ -383,3 +392,52 @@ class TestAllExports:
             tmp_path = tmp.name
         sf = parser.parse_file(tmp_path, ctx)
         assert sf.all_exports == ["helper_func", "SomeClass"]
+
+
+class TestImportExtraction:
+    def test_dotted_import_tracks_source_and_binding(self, tmp_path):
+        path = tmp_path / "consumer.py"
+        path.write_text("import package.module\nimport package.other as other\n")
+        ctx = Context(base_path=str(tmp_path))
+        source_file = parser.parse_file(str(path), ctx)
+
+        statements = [
+            ctx.entity_registry.get(import_id)
+            for import_id in source_file.import_stmt_ids
+        ]
+        aliases = [
+            ctx.entity_registry.get(alias_id)
+            for statement in statements
+            for alias_id in statement.name_ids
+        ]
+
+        assert [statement.path for statement in statements] == [
+            "package.module",
+            "package.other",
+        ]
+        assert [
+            (alias.name, alias.alias, alias.fqn, alias.import_path) for alias in aliases
+        ] == [
+            ("package.module", None, "consumer.package", "package.module"),
+            ("package.other", "other", "consumer.other", "package.other"),
+        ]
+
+    def test_relative_import_keeps_prefix(self, tmp_path):
+        path = tmp_path / "consumer.py"
+        path.write_text(
+            "from .sibling import Item\nfrom .. import parent\nfrom . import *\n"
+        )
+        ctx = Context(base_path=str(tmp_path))
+        source_file = parser.parse_file(str(path), ctx)
+
+        statements = [
+            ctx.entity_registry.get(import_id)
+            for import_id in source_file.import_stmt_ids
+        ]
+
+        assert [statement.path for statement in statements] == [
+            ".sibling",
+            "..",
+            ".",
+        ]
+        assert statements[-1].wildcard is True

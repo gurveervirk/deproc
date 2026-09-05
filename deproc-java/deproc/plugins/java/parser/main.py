@@ -956,6 +956,7 @@ class JavaSourceParser(SourceParser):
                 value_range=None,
                 type_annotation=type_annotation,
                 modifiers=modifier_names,
+                visibility=visibility_from_modifiers(modifier_names),
                 is_static="static" in modifier_names,
                 is_final="final" in modifier_names,
                 is_transient="transient" in modifier_names,
