@@ -46,6 +46,7 @@ class PythonImportAlias(Entity):
     alias: str | None
     source_range: SourceRange
     fqn: str | None = None
+    import_path: str | None = None
 
 
 @dataclass(kw_only=True)

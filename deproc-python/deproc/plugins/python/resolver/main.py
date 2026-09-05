@@ -6,6 +6,7 @@ from deproc.core.interfaces.resolver import Resolver
 
 from ..parser.models import (
     PythonImportAlias,
+    PythonImportStatement,
     PythonModule,
     SymbolID,
 )
@@ -127,6 +128,11 @@ class PythonResolver(Resolver[PythonResolverResult]):
         visited: set[SymbolID] | None = None,
         cache_keys: set[tuple[str, str]] | None = None,
     ) -> tuple[ResolvedIDs, UnresolvedIDs]:
+        if cache_keys is None:
+            cache_keys = set()
+        current_cache_key = (module_fqn, symbol_name)
+        cache_keys.add(current_cache_key)
+
         symbol_cache = context.get_symbol_cache("python")
         if symbol_cache:
             cached_result = symbol_cache.get(module_fqn, symbol_name)
@@ -138,21 +144,21 @@ class PythonResolver(Resolver[PythonResolverResult]):
 
         resolved_ids = self.get_ids_by_fqn(module_fqn, symbol_name, context)
         if not resolved_ids:
-            logger.warning(
-                f"Symbols not found for module: {module_fqn}, symbol: {symbol_name}, caching empty sets"
+            resolved_ids, unresolved_ids = self._resolve_wildcard_imports(
+                module_fqn, symbol_name, context, visited, cache_keys
             )
-            self._populate_cache(module_fqn, symbol_name, set(), set(), symbol_cache)
-            self._populate_module_cache_key_maps(
-                module_fqn, cache_keys or set(), symbol_cache
+            if not resolved_ids and not unresolved_ids:
+                logger.warning(
+                    f"Symbols not found for module: {module_fqn}, symbol: {symbol_name}, caching empty sets"
+                )
+            self._populate_cache(
+                module_fqn, symbol_name, resolved_ids, unresolved_ids, symbol_cache
             )
-            return set(), set()
+            self._populate_module_cache_key_maps(module_fqn, cache_keys, symbol_cache)
+            return resolved_ids, unresolved_ids
 
         found_alias_ids, resolved_ids = self._extract_alias_ids(resolved_ids, context)
         unresolved_ids = set()
-
-        if cache_keys is None:
-            cache_keys = set()
-        cache_keys.add((module_fqn, symbol_name))
 
         if found_alias_ids:
             resolved_alias_ids, unresolved_ids = self.resolve_alias_ids(
@@ -164,6 +170,65 @@ class PythonResolver(Resolver[PythonResolverResult]):
             module_fqn, symbol_name, resolved_ids, unresolved_ids, symbol_cache
         )
         self._populate_module_cache_key_maps(module_fqn, cache_keys, symbol_cache)
+
+        return resolved_ids, unresolved_ids
+
+    def _resolve_wildcard_imports(
+        self,
+        module_fqn: str,
+        symbol_name: str,
+        context: Context,
+        visited: set[SymbolID] | None,
+        cache_keys: set[tuple[str, str]],
+    ) -> tuple[ResolvedIDs, UnresolvedIDs]:
+        module_ids = context.entity_registry.get_ids_by_fqn(module_fqn)
+        resolved_ids = set()
+        unresolved_ids = set()
+
+        for module_id in module_ids:
+            module = self._get_symbol(module_id, context)
+            if not isinstance(module, PythonModule):
+                continue
+
+            for import_id in module.import_stmt_ids:
+                import_stmt = self._get_symbol(import_id, context)
+                if not isinstance(import_stmt, PythonImportStatement):
+                    continue
+                if not import_stmt.wildcard:
+                    continue
+
+                target_module_fqn = self._get_target_module_fqn(import_id, context)
+                if not target_module_fqn:
+                    continue
+                target_ids = context.entity_registry.get_ids_by_fqn(target_module_fqn)
+                target_modules = [
+                    self._get_symbol(target_id, context) for target_id in target_ids
+                ]
+                self._populate_module_cache_key_maps(
+                    target_module_fqn,
+                    {(module_fqn, symbol_name)},
+                    context.get_symbol_cache("python"),
+                )
+                if any(
+                    isinstance(target_module, PythonModule)
+                    and target_module.all_exports is not None
+                    and symbol_name not in target_module.all_exports
+                    for target_module in target_modules
+                ):
+                    continue
+
+                target_cache_key = (target_module_fqn, symbol_name)
+                if target_cache_key in cache_keys:
+                    continue
+                resolved, unresolved = self.resolve_symbol(
+                    target_module_fqn,
+                    symbol_name,
+                    context,
+                    visited,
+                    cache_keys,
+                )
+                resolved_ids.update(resolved)
+                unresolved_ids.update(unresolved)
 
         return resolved_ids, unresolved_ids
 
@@ -215,7 +280,26 @@ class PythonResolver(Resolver[PythonResolverResult]):
             return set(), set()
 
         import_name = alias.name
+        import_statement = self._get_symbol(import_statement_id, context)
         target_module_path = self._get_target_module_fqn(import_statement_id, context)
+
+        if (
+            isinstance(import_statement, PythonImportStatement)
+            and import_statement.type == "generic_import"
+            and alias.import_path is not None
+        ):
+            target_module_path = alias.import_path or target_module_path
+            if not target_module_path:
+                return set(), set()
+            self._populate_module_cache_key_maps(
+                target_module_path,
+                cache_keys or set(),
+                context.get_symbol_cache("python"),
+            )
+            return (
+                context.entity_registry.get_ids_by_fqn(target_module_path),
+                set(),
+            )
 
         if not target_module_path:
             logger.warning(f"Target module path not found for alias: {alias.name}")

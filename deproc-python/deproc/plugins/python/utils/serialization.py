@@ -7,6 +7,7 @@ from deproc.core.interfaces.parser.models import (
     Entity,
     FunctionLike,
     Signature,
+    SimpleBinding,
     SourceRange,
     TypeDefinition,
     VariableDeclaration,
@@ -161,6 +162,8 @@ def entity_to_record(
         metadata["source_id"] = sr.source_id
     if isinstance(entity, PythonImportAlias):
         metadata["original_name"] = entity.name
+        if entity.import_path:
+            metadata["import_path"] = entity.import_path
         if entity.alias:
             metadata["alias"] = entity.alias
     if isinstance(entity, PythonImportStatement):
@@ -187,7 +190,7 @@ def entity_to_record(
     path = getattr(entity, "path", None)
     if path is not None:
         metadata["path"] = path
-    if isinstance(entity, PythonModule) and entity.all_exports:
+    if isinstance(entity, PythonModule) and entity.all_exports is not None:
         metadata["all_exports"] = entity.all_exports
     visibility = getattr(entity, "visibility", None)
     if visibility:
@@ -275,6 +278,7 @@ def record_to_entity(record: dict) -> Entity | None:
         return PythonImportAlias(
             name=meta.get("original_name", ""),
             alias=meta.get("alias"),
+            import_path=meta.get("import_path"),
             parent_id=parent_id,
             source_range=sr,
             **common,
@@ -340,18 +344,21 @@ def record_to_entity(record: dict) -> Entity | None:
             submodule_ids=meta.get("submodule_ids", []),
             **common,
         )
-    null_fields = {
-        "variable_binding": None,
+    variable_fields = {
+        "parent_id": parent_id,
+        "variable_binding": SimpleBinding(
+            name=record["name"], fqn=meta.get("fqn") or record["full_path"]
+        ),
         "value_range": None,
         "type_annotation": None,
-        "modifiers": [],
+        "modifiers": meta.get("modifiers", []),
     }
     if entity_class is PythonConstant:
-        return PythonConstant(source_range=sr, **null_fields, **common)
+        return PythonConstant(id=record["id"], source_range=sr, **variable_fields)
     if entity_class is PythonTypeAlias:
-        return PythonTypeAlias(source_range=sr, **null_fields, **common)
+        return PythonTypeAlias(id=record["id"], source_range=sr, **variable_fields)
     if entity_class is VariableDeclaration:
-        return VariableDeclaration(source_range=sr, **null_fields, **common)
+        return VariableDeclaration(id=record["id"], source_range=sr, **variable_fields)
     if entity_class is ControlFlowBlock:
         condition_range = None
         if "condition_lineno" in meta:

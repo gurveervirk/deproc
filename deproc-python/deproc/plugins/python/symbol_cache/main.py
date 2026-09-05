@@ -34,6 +34,7 @@ class PythonSymbolCache(SymbolCache[cache_key, cache_value]):
     ) -> None:
         key: cache_key = (module_fqn, symbol_name)
         self.cache[key] = (resolved_ids, unresolved_ids)
+        self._link(module_fqn, key)
 
     def _link(self, module_fqn: module_fqn, key: cache_key) -> None:
         if module_fqn not in self.module_to_cache_keys:
@@ -68,12 +69,14 @@ class PythonSymbolCache(SymbolCache[cache_key, cache_value]):
         self.cache_key_to_modules.clear()
 
     def clear_module(self, module_fqn: module_fqn) -> None:
-        if module_fqn in self.module_to_cache_keys:
-            for key in self.module_to_cache_keys[module_fqn]:
-                if key in self.cache:
-                    del self.cache[key]
-                if key in self.cache_key_to_modules:
-                    self.cache_key_to_modules[key].discard(module_fqn)
-                    if not self.cache_key_to_modules[key]:
-                        del self.cache_key_to_modules[key]
-            del self.module_to_cache_keys[module_fqn]
+        keys = self.module_to_cache_keys.pop(module_fqn, set())
+        for key in keys:
+            self.cache.pop(key, None)
+            modules = self.cache_key_to_modules.pop(key, set())
+            for dependent_module in modules:
+                dependent_keys = self.module_to_cache_keys.get(dependent_module)
+                if dependent_keys is None:
+                    continue
+                dependent_keys.discard(key)
+                if not dependent_keys:
+                    del self.module_to_cache_keys[dependent_module]

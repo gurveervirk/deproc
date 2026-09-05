@@ -549,3 +549,178 @@ class TestResolveSymbolWithCache:
         assert ("target_module", "AliasedClass") in source_keys
         assert ("source_module", "AliasedClass") in target_keys
         assert ("target_module", "AliasedClass") in target_keys
+
+    def test_dotted_import_resolves_imported_module(self):
+        source_id = generate_id()
+        target_id = generate_id()
+        alias_id = generate_id()
+        import_id = generate_id()
+        source = PythonModule(
+            id=source_id,
+            fqn="consumer",
+            path="consumer.py",
+            docstring_range=None,
+            source="",
+            import_stmt_ids=[import_id],
+        )
+        target = PythonModule(
+            id=target_id,
+            fqn="package.module",
+            path="package/module.py",
+            docstring_range=None,
+            source="",
+        )
+        alias = PythonImportAlias(
+            id=alias_id,
+            name="package.module",
+            alias=None,
+            import_path="package.module",
+            fqn="consumer.package",
+            parent_id=import_id,
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=21
+            ),
+        )
+        import_stmt = PythonImportStatement(
+            id=import_id,
+            path="package.module",
+            name_ids=[alias_id],
+            parent_id=source_id,
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=21
+            ),
+            type="generic_import",
+        )
+        self.context.entity_registry.add_all([source, target, alias, import_stmt])
+
+        resolved, unresolved = self.resolver.resolve_symbol(
+            "consumer", "package", self.context
+        )
+
+        assert resolved == {target_id}
+        assert unresolved == set()
+        assert self.cache.get_cache_keys_for_module("package.module") == {
+            ("consumer", "package")
+        }
+
+    def test_wildcard_import_uses_explicit_exports(self):
+        source_id = generate_id()
+        target_id = generate_id()
+        import_id = generate_id()
+        exported_id = generate_id()
+        hidden_id = generate_id()
+        source = PythonModule(
+            id=source_id,
+            fqn="consumer",
+            path="consumer.py",
+            docstring_range=None,
+            source="",
+            import_stmt_ids=[import_id],
+        )
+        target = PythonModule(
+            id=target_id,
+            fqn="package.module",
+            path="package/module.py",
+            docstring_range=None,
+            source="",
+            all_exports=["Exported"],
+        )
+        import_stmt = PythonImportStatement(
+            id=import_id,
+            path="package.module",
+            parent_id=source_id,
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=25
+            ),
+            type="from_import",
+            wildcard=True,
+        )
+        exported = _FakeFqnEntity(id=exported_id, fqn="package.module.Exported")
+        hidden = _FakeFqnEntity(id=hidden_id, fqn="package.module.Hidden")
+        self.context.entity_registry.add_all(
+            [source, target, import_stmt, exported, hidden]
+        )
+
+        resolved, unresolved = self.resolver.resolve_symbol(
+            "consumer", "Exported", self.context
+        )
+        assert resolved == {exported_id}
+        assert unresolved == set()
+
+        resolved, unresolved = self.resolver.resolve_symbol(
+            "consumer", "Hidden", self.context
+        )
+        assert resolved == set()
+        assert unresolved == set()
+
+    def test_wildcard_import_respects_empty_exports(self):
+        source_id = generate_id()
+        target_id = generate_id()
+        import_id = generate_id()
+        hidden_id = generate_id()
+        source = PythonModule(
+            id=source_id,
+            fqn="consumer",
+            path="consumer.py",
+            docstring_range=None,
+            source="",
+            import_stmt_ids=[import_id],
+        )
+        target = PythonModule(
+            id=target_id,
+            fqn="package.module",
+            path="package/module.py",
+            docstring_range=None,
+            source="",
+            all_exports=[],
+        )
+        import_stmt = PythonImportStatement(
+            id=import_id,
+            path="package.module",
+            parent_id=source_id,
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=25
+            ),
+            type="from_import",
+            wildcard=True,
+        )
+        hidden = _FakeFqnEntity(id=hidden_id, fqn="package.module.Hidden")
+        self.context.entity_registry.add_all([source, target, import_stmt, hidden])
+
+        resolved, unresolved = self.resolver.resolve_symbol(
+            "consumer", "Hidden", self.context
+        )
+
+        assert resolved == set()
+        assert unresolved == set()
+        assert self.cache.get_cache_keys_for_module("package.module") == {
+            ("consumer", "Hidden")
+        }
+
+        target.all_exports = ["Hidden"]
+        self.cache.clear_module("package.module")
+        resolved, unresolved = self.resolver.resolve_symbol(
+            "consumer", "Hidden", self.context
+        )
+        assert resolved == {hidden_id}
+        assert unresolved == set()
+
+    def test_negative_result_tracks_dependency_for_invalidation(self):
+        resolved, unresolved = self.resolver.resolve_symbol(
+            "missing", "Later", self.context
+        )
+        assert resolved == set()
+        assert unresolved == set()
+        assert self.cache.get_cache_keys_for_module("missing") == {("missing", "Later")}
+
+        target_id = generate_id()
+        self.context.entity_registry.add(
+            _FakeFqnEntity(id=target_id, fqn="missing.Later")
+        )
+        self.cache.clear_module("missing")
+
+        resolved, unresolved = self.resolver.resolve_symbol(
+            "missing", "Later", self.context
+        )
+        assert resolved == {target_id}
+        assert unresolved == set()

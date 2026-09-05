@@ -81,6 +81,12 @@ class TestSymbolCache:
     def test_clear_module_idempotent(self):
         self.cache.clear_module("nonexistent")
 
+    def test_set_tracks_negative_dependency(self):
+        self.cache.set("missing", "symbol", set(), set())
+        assert self.cache.get_cache_keys_for_module("missing") == {
+            ("missing", "symbol")
+        }
+
     def test_clear_clears_all_maps(self):
         self.cache.set("mod_a", "sym1", ["id1"], [])
         self.cache.add_cache_keys_for_module("mod_a", {("mod_a", "sym1")})
