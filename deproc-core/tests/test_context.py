@@ -2,6 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from deproc.core.context import Context
+from deproc.core.scope import AnalysisScope
 
 
 class TestSetLanguage:
@@ -228,6 +229,20 @@ class TestCopyFrom:
         ctx = Context()
         assert ctx.selected_languages == set()
         assert ctx.selected_file_extensions == set()
+
+    def test_scope_is_available_without_changing_base_path_api(self, tmp_path):
+        scope = AnalysisScope(
+            source_roots=[str(tmp_path)], selected_file_extensions=["py"]
+        )
+        ctx = Context(scope=scope)
+        assert ctx.base_path == str(tmp_path)
+        assert ctx.analysis_scope is scope
+        assert ctx.selected_file_extensions == {".py"}
+
+    def test_copy_preserves_scope(self, tmp_path):
+        scope = AnalysisScope(source_roots=[str(tmp_path)])
+        copy = Context(copy_from=Context(scope=scope))
+        assert copy.scope is scope
 
 
 class TestReset:
