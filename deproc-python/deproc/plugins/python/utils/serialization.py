@@ -194,6 +194,14 @@ def entity_to_record(
         metadata["all_exports"] = entity.all_exports
     if isinstance(entity, PythonModule) and entity.exports_dynamic:
         metadata["exports_dynamic"] = True
+    if isinstance(entity, PythonModule):
+        metadata["import_stmt_ids"] = entity.import_stmt_ids
+        metadata["type_ids"] = entity.type_ids
+        metadata["function_ids"] = entity.function_ids
+        metadata["variable_ids"] = entity.variable_ids
+        metadata["control_flow_group_ids"] = entity.control_flow_group_ids
+    if isinstance(entity, (PythonPackage, PythonNamespacePackage)):
+        metadata["submodule_ids"] = entity.submodule_ids
     visibility = getattr(entity, "visibility", None)
     if visibility:
         metadata["visibility"] = visibility
@@ -331,6 +339,11 @@ def record_to_entity(record: dict) -> Entity | None:
             path=meta.get("path", ""),
             source="",
             docstring_range=None,
+            import_stmt_ids=meta.get("import_stmt_ids", []),
+            type_ids=meta.get("type_ids", []),
+            function_ids=meta.get("function_ids", []),
+            variable_ids=meta.get("variable_ids", []),
+            control_flow_group_ids=meta.get("control_flow_group_ids", []),
             **common,
         )
     if entity_class is PythonPackage:
@@ -341,6 +354,11 @@ def record_to_entity(record: dict) -> Entity | None:
             path=meta.get("path", ""),
             source="",
             docstring_range=None,
+            import_stmt_ids=meta.get("import_stmt_ids", []),
+            type_ids=meta.get("type_ids", []),
+            function_ids=meta.get("function_ids", []),
+            variable_ids=meta.get("variable_ids", []),
+            control_flow_group_ids=meta.get("control_flow_group_ids", []),
             **common,
         )
     if entity_class is PythonNamespacePackage:
