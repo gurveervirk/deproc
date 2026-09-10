@@ -12,11 +12,42 @@ jobs:
       pkg_name: ${{ steps.parse.outputs.pkg_name }}
       pkg_dir: ${{ steps.parse.outputs.pkg_dir }}
     steps:
-      - name: Parse tag
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: 3.x
+      - name: Validate package tag
         id: parse
+        env:
+          TAG_NAME: ${{ github.ref_name }}
         run: |
-          TAG_NAME="${{ github.ref_name }}"
+          case "$TAG_NAME" in
+            deproc-core-v*|deproc-python-v*|deproc-java-v*|deproc-utils-tree-sitter-v*|deproc-utils-python-env-v*)
+              ;;
+            *)
+              echo "Unsupported package tag: $TAG_NAME" >&2
+              exit 1
+              ;;
+          esac
           PKG_NAME="${TAG_NAME%-v*}"
+          VERSION="${TAG_NAME##*-v}"
+          python - "$PKG_NAME" "$VERSION" <<'PY'
+          import pathlib
+          import sys
+          import tomllib
+
+          package_name, tag_version = sys.argv[1:]
+          metadata_path = pathlib.Path(package_name) / "pyproject.toml"
+          project = tomllib.loads(metadata_path.read_text())['project']
+          if project['name'] != package_name:
+              raise SystemExit(
+                  f"Package name mismatch: tag selects {package_name!r}, metadata has {project['name']!r}"
+              )
+          if project['version'] != tag_version:
+              raise SystemExit(
+                  f"Version mismatch: tag selects {tag_version!r}, metadata has {project['version']!r}"
+              )
+          PY
           echo "pkg_name=$PKG_NAME" >> $GITHUB_OUTPUT
           echo "pkg_dir=$PKG_NAME" >> $GITHUB_OUTPUT
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deproc-core"
-version = "0.1.0"
+version = "0.2.0"
 description = "Language-agnostic core contracts and runtime for deproc plugins."
 authors = [
     { name = "Gurveer Singh Virk", email = "gurveervirk.15517@gmail.com" }
