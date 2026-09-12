@@ -429,6 +429,46 @@ class JavaResolver(Resolver[JavaResolverResult]):
         owner: Entity,
         context: Context,
     ) -> ResolutionResult[SymbolID]:
+        if "." in raw_name.strip():
+            name = raw_name.strip()
+            leading_name = name.split(".", 1)[0]
+            leading_result = self._resolve_type_name(leading_name, owner, context)
+            if leading_result.status is not ResolutionStatus.UNRESOLVED:
+                if leading_result.status is ResolutionStatus.AMBIGUOUS:
+                    components = name.split(".")
+                    member_candidates = self._lookup_member_type_components(
+                        set(leading_result.candidates), components[1:], context
+                    )
+                    if member_candidates:
+                        return ResolutionResult(
+                            status=ResolutionStatus.AMBIGUOUS,
+                            candidates=tuple(sorted(member_candidates)),
+                            reason=leading_result.reason,
+                        )
+                if leading_result.status is not ResolutionStatus.RESOLVED:
+                    return ResolutionResult(
+                        status=leading_result.status,
+                        candidates=leading_result.candidates,
+                        reason=leading_result.reason,
+                    )
+                if leading_result.value is None:
+                    return ResolutionResult(
+                        status=ResolutionStatus.UNRESOLVED,
+                        reason=f"No type found for '{name}'",
+                    )
+                components = name.split(".")
+                member_candidates = self._lookup_member_type_components(
+                    {leading_result.value}, components[1:], context
+                )
+                if not member_candidates:
+                    return ResolutionResult(
+                        status=ResolutionStatus.UNRESOLVED,
+                        reason=f"No member type found for '{name}'",
+                    )
+                return self._type_resolution_result(
+                    name, owner, context, member_candidates
+                )
+
         candidates = self._type_candidates(raw_name, owner, context)
         if not candidates:
             return ResolutionResult(

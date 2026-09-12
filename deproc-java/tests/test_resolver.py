@@ -230,6 +230,39 @@ class TestResolveOnDemand:
         assert result.status is ResolutionStatus.AMBIGUOUS
         assert result.candidates == ("first_inner", "second_inner")
 
+    def test_ambiguous_leading_type_is_not_disambiguated_by_member_type(self):
+        imports = [
+            JavaImport(
+                id="imp_1",
+                import_path="com.first.*",
+                import_kind="on_demand",
+                source_range=_sr(),
+            ),
+            JavaImport(
+                id="imp_2",
+                import_path="com.second.*",
+                import_kind="on_demand",
+                source_range=_sr(),
+            ),
+        ]
+        cu = _make_cu("com.example.Foo", "com.example", imports)
+        first_outer = _make_class("com.first.Outer", "first_outer")
+        first_inner = _make_class("com.first.Outer.Inner", "first_inner")
+        first_inner.parent_id = first_outer.id
+        second_outer = _make_class("com.second.Outer", "second_outer")
+        owner = _make_class("com.example.Foo", "owner")
+        owner.parent_id = cu.id
+        ctx = _context(
+            cu,
+            [first_outer, first_inner, second_outer, owner],
+            imports,
+        )
+
+        result = JavaResolver().resolve_type_reference("Outer.Inner", owner, ctx)
+
+        assert result.status is ResolutionStatus.AMBIGUOUS
+        assert result.value is None
+
     def test_imported_leading_type_shadows_package_qualified_name(self):
         imp = JavaImport(
             id="imp_1",
