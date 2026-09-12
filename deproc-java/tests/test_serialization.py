@@ -65,7 +65,13 @@ class TestSerialization:
             id="cls_1",
             name="MyClass",
             fqn="com.example.MyClass",
-            source_range=_sr(),
+            source_range=SourceRange(
+                lineno=1,
+                end_lineno=1,
+                col_offset=0,
+                end_col_offset=1,
+                source_id="source-id",
+            ),
             docstring_range=None,
             visibility="public",
             superclass="Base",
@@ -77,6 +83,7 @@ class TestSerialization:
         assert record["type"] == "CLASS"
         assert back.name == "MyClass"
         assert back.fqn == "com.example.MyClass"
+        assert back.source_range.source_id == "source-id"
         assert back.superclass == "Base"
         assert back.implements == ["I1"]
         assert back.is_final is True

@@ -345,6 +345,7 @@ def record_to_entity(record: dict) -> Entity | None:
         end_lineno=meta.get("end_lineno", 0),
         col_offset=meta.get("col_offset", 0),
         end_col_offset=meta.get("end_col_offset", 0),
+        source_id=meta.get("source_id"),
     )
     parent_id = record.get("parent_id") or meta.get("parent_id")
 

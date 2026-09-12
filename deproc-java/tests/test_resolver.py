@@ -567,6 +567,38 @@ class TestResolveCaching:
         cached_result = resolver.resolve("com.example.Foo", "List", ctx)
         assert cached_result.resolved_ids == {"cls_1"}
 
+    def test_cache_hit_preserves_unresolved_reason(self):
+        imp = JavaImport(
+            id="imp_1",
+            import_path="java.util.List",
+            import_kind="single_type",
+            imported_name="List",
+            source_range=_sr(),
+        )
+        cu = _make_cu("com.example.Foo", "com.example", [imp])
+        ctx = _context(cu, [], [imp], use_cache=True)
+        resolver = JavaResolver()
+
+        cold = resolver.resolve("com.example.Foo", "List", ctx)
+        cached = resolver.resolve("com.example.Foo", "List", ctx)
+
+        assert cached.status is cold.status
+        assert cached.reason == cold.reason == "No symbol found for 'List'"
+
+    def test_cache_does_not_hide_compilation_unit_ambiguity(self):
+        first = _make_cu("com.example.Foo", "com.example", [], cu_id="cu_1")
+        second = _make_cu("com.example.Foo", "com.example", [], cu_id="cu_2")
+        ctx = _context(first, use_cache=True)
+        ctx.entity_registry.add(second)
+        resolver = JavaResolver()
+
+        cold = resolver.resolve("com.example.Foo", "List", ctx)
+        cached = resolver.resolve("com.example.Foo", "List", ctx)
+
+        assert cold.status is cached.status is ResolutionStatus.AMBIGUOUS
+        assert cold.ambiguous_ids == cached.ambiguous_ids == {"cu_1", "cu_2"}
+        assert cold.reason == cached.reason
+
 
 def _bar_import(import_id: str = "imp_bar") -> JavaImport:
     return JavaImport(

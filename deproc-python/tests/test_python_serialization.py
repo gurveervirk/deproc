@@ -82,6 +82,38 @@ def test_serialize_round_trip_restores_module_ownership_and_exports():
     assert entity.exports_dynamic is True
 
 
+def test_serialize_round_trip_restores_class_linkage_and_source_id():
+    record = entity_to_record(
+        PythonClass(
+            id="class-id",
+            parent_id="module-id",
+            name="Child",
+            fqn="pkg.Child",
+            source_range=SourceRange(
+                lineno=2,
+                end_lineno=4,
+                col_offset=0,
+                end_col_offset=12,
+                source_id="source-id",
+            ),
+            docstring_range=None,
+            visibility="public",
+            method_ids=["method-id"],
+            inner_type_ids=["inner-id"],
+            property_ids=["property-id"],
+        )
+    )
+    assert record is not None
+
+    entity = record_to_entity(record)
+
+    assert isinstance(entity, PythonClass)
+    assert entity.source_range.source_id == "source-id"
+    assert entity.method_ids == ["method-id"]
+    assert entity.inner_type_ids == ["inner-id"]
+    assert entity.property_ids == ["property-id"]
+
+
 def test_serialize_round_trip_restores_package_submodules():
     record = entity_to_record(
         PythonPackage(

@@ -278,6 +278,7 @@ def record_to_entity(record: dict) -> Entity | None:
         end_lineno=meta.get("end_lineno", 0),
         col_offset=meta.get("col_offset", 0),
         end_col_offset=meta.get("end_col_offset", 0),
+        source_id=meta.get("source_id"),
     )
     common = {
         "id": record["id"],
@@ -330,6 +331,9 @@ def record_to_entity(record: dict) -> Entity | None:
             parent_id=parent_id,
             source_range=sr,
             docstring_range=None,
+            method_ids=meta.get("method_ids", []),
+            inner_type_ids=meta.get("inner_type_ids", []),
+            property_ids=meta.get("property_ids", []),
             visibility=meta.get("visibility"),
             inherits=meta.get("parent_classes", []),
             **common,
