@@ -476,6 +476,31 @@ class Outer {
         assert isinstance(nested, JavaInterface)
         assert nested.fqn == "Outer.NestedIface"
 
+    def test_interface_member_types_are_public_and_static(self):
+        code = """
+package com.api;
+public interface Api {
+    class Nested {}
+    interface NestedIface {}
+}
+"""
+        _, ctx = _parse(code)
+        api = next(
+            entity
+            for entity in _entity_of_type(ctx, JavaInterface)
+            if entity.fqn == "com.api.Api"
+        )
+        nested = [
+            ctx.entity_registry.get(entity_id) for entity_id in api.inner_type_ids
+        ]
+
+        assert {entity.fqn for entity in nested} == {
+            "com.api.Api.Nested",
+            "com.api.Api.NestedIface",
+        }
+        assert all(entity.visibility == "public" for entity in nested)
+        assert all(entity.is_static is True for entity in nested)
+
     def test_deep_nested_chain_fqn(self):
         code = """
 class Outer {

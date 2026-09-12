@@ -3,6 +3,7 @@ from typing import ClassVar
 
 from deproc.core.context import Context
 from deproc.core.interfaces import SourceParser
+from deproc.core.interfaces.parser.models import TypeDefinition
 from deproc.utils.tree_walk import iter_children
 from tree_sitter import Node
 
@@ -476,7 +477,11 @@ class JavaSourceParser(SourceParser):
         )
         iface_obj.inner_type_ids = (
             self._extract_inner_types(
-                body_node, context, parent_id=iface_obj.id, parent_fqn=type_fqn
+                body_node,
+                context,
+                parent_id=iface_obj.id,
+                parent_fqn=type_fqn,
+                enclosing_interface=True,
             )
             if body_node
             else []
@@ -674,7 +679,11 @@ class JavaSourceParser(SourceParser):
         )
         anno_obj.inner_type_ids = (
             self._extract_inner_types(
-                body_node, context, parent_id=anno_obj.id, parent_fqn=type_fqn
+                body_node,
+                context,
+                parent_id=anno_obj.id,
+                parent_fqn=type_fqn,
+                enclosing_interface=True,
             )
             if body_node
             else []
@@ -696,6 +705,7 @@ class JavaSourceParser(SourceParser):
         context: Context,
         parent_id: SymbolID | None = None,
         parent_fqn: str | None = None,
+        enclosing_interface: bool = False,
     ) -> list[SymbolID]:
         inner_ids: list[SymbolID] = []
         if not block_node:
@@ -706,7 +716,23 @@ class JavaSourceParser(SourceParser):
             handler_name = self._TYPE_DECLARATION_NODES.get(child.type)
             if handler_name is not None:
                 handler = getattr(self, handler_name)
-                inner_ids.append(handler(child, context, parent_id, parent_fqn))
+                inner_id = handler(child, context, parent_id, parent_fqn)
+                if enclosing_interface:
+                    inner = context.entity_registry.get(inner_id)
+                    if isinstance(inner, TypeDefinition):
+                        inner.visibility = "public"
+                        if isinstance(
+                            inner,
+                            (
+                                JavaClass,
+                                JavaInterface,
+                                JavaEnum,
+                                JavaRecord,
+                                JavaAnnotationType,
+                            ),
+                        ):
+                            inner.is_static = True
+                inner_ids.append(inner_id)
                 continue
             if child.type == "field_declaration":
                 for oce in self._find_anonymous_class_nodes(child):

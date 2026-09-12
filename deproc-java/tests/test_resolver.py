@@ -9,6 +9,7 @@ from deproc.plugins.java.parser.models import (
     JavaClass,
     JavaCompilationUnit,
     JavaImport,
+    JavaInterface,
     JavaModule,
 )
 from deproc.plugins.java.resolver.main import JavaResolver
@@ -192,6 +193,43 @@ class TestResolveOnDemand:
         assert result.resolved_ids == set()
         assert result.unresolved_ids == {"imp_1"}
 
+    def test_conflicting_on_demand_imports_are_ambiguous_for_qualified_member_type(
+        self,
+    ):
+        imports = [
+            JavaImport(
+                id="imp_1",
+                import_path="com.first.*",
+                import_kind="on_demand",
+                source_range=_sr(),
+            ),
+            JavaImport(
+                id="imp_2",
+                import_path="com.second.*",
+                import_kind="on_demand",
+                source_range=_sr(),
+            ),
+        ]
+        cu = _make_cu("com.example.Foo", "com.example", imports)
+        first_outer = _make_class("com.first.Outer", "first_outer")
+        first_inner = _make_class("com.first.Outer.Inner", "first_inner")
+        first_inner.parent_id = first_outer.id
+        second_outer = _make_class("com.second.Outer", "second_outer")
+        second_inner = _make_class("com.second.Outer.Inner", "second_inner")
+        second_inner.parent_id = second_outer.id
+        owner = _make_class("com.example.Foo", "owner")
+        owner.parent_id = cu.id
+        ctx = _context(
+            cu,
+            [first_outer, first_inner, second_outer, second_inner, owner],
+            imports,
+        )
+
+        result = JavaResolver().resolve_type_reference("Outer.Inner", owner, ctx)
+
+        assert result.status is ResolutionStatus.AMBIGUOUS
+        assert result.candidates == ("first_inner", "second_inner")
+
 
 class TestResolveStatic:
     def test_resolves_single_static_import(self):
@@ -367,6 +405,47 @@ class TestImplicitScopes:
         ctx = _context(cu, [outer, nested, imported], [imp])
 
         result = JavaResolver().resolve_type_reference("Inner", outer, ctx)
+
+        assert result.status is ResolutionStatus.RESOLVED
+        assert result.value == "nested"
+
+    def test_private_member_type_is_visible_to_sibling_nested_type(self):
+        cu = _make_cu("com.example.Client", "com.example", [])
+        outer = _make_class("com.example.Outer", "outer")
+        outer.parent_id = cu.id
+        secret = _make_class("com.example.Outer.Secret", "secret", "private")
+        secret.parent_id = outer.id
+        sibling = _make_class("com.example.Outer.Sibling", "sibling")
+        sibling.parent_id = outer.id
+        ctx = _context(cu, [outer, secret, sibling])
+
+        result = JavaResolver().resolve_type_reference("Secret", sibling, ctx)
+
+        assert result.status is ResolutionStatus.RESOLVED
+        assert result.value == "secret"
+
+    def test_interface_member_type_is_effectively_public(self):
+        owner_cu = _make_cu("com.client.Client", "com.client", [])
+        api_cu = _make_cu("com.api.Api", "com.api", [], cu_id="cu_api")
+        api = JavaInterface(
+            id="api",
+            name="Api",
+            fqn="com.api.Api",
+            parent_id=api_cu.id,
+            source_range=_sr(),
+            docstring_range=None,
+            visibility="public",
+        )
+        nested = _make_class("com.api.Api.Nested", "nested", "package-private")
+        nested.parent_id = api.id
+        client = _make_class("com.client.Client", "client")
+        client.parent_id = owner_cu.id
+        ctx = _context(owner_cu, [api, nested, client])
+        ctx.entity_registry.add(api_cu)
+
+        result = JavaResolver().resolve_type_reference(
+            "com.api.Api.Nested", client, ctx
+        )
 
         assert result.status is ResolutionStatus.RESOLVED
         assert result.value == "nested"

@@ -39,12 +39,14 @@ class JavaClass(TypeDefinition):
 @dataclass(kw_only=True)
 class JavaInterface(TypeDefinition):
     type: str = field(default="INTERFACE")
+    is_static: bool = False
     extends_interfaces: list[str] = field(default_factory=list)
 
 
 @dataclass(kw_only=True)
 class JavaEnum(TypeDefinition):
     type: str = field(default="ENUM")
+    is_static: bool = False
     implements: list[str] = field(default_factory=list)
     enum_constant_ids: list[SymbolID] = field(default_factory=list)
 
@@ -52,6 +54,7 @@ class JavaEnum(TypeDefinition):
 @dataclass(kw_only=True)
 class JavaRecord(TypeDefinition):
     type: str = field(default="RECORD")
+    is_static: bool = False
     implements: list[str] = field(default_factory=list)
     record_component_ids: list[SymbolID] = field(default_factory=list)
 
@@ -59,6 +62,7 @@ class JavaRecord(TypeDefinition):
 @dataclass(kw_only=True)
 class JavaAnnotationType(TypeDefinition):
     type: str = field(default="ANNOTATION_TYPE")
+    is_static: bool = False
 
 
 @dataclass(kw_only=True)

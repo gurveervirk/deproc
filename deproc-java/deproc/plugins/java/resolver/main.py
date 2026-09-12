@@ -7,6 +7,7 @@ from deproc.core.interfaces.resolver import ResolutionResult, ResolutionStatus, 
 from ..parser.models import (
     JavaCompilationUnit,
     JavaImport,
+    JavaInterface,
     SymbolID,
 )
 from ..utils.imports import resolve_java_import
@@ -129,6 +130,7 @@ class JavaResolver(Resolver[JavaResolverResult]):
                 self._lookup_type_fqn(f"{fqn}.{name}", context)
                 for fqn in self._enclosing_type_fqns(owner, context)
             )
+            qualified_on_demand_types: set[SymbolID] = set()
             if compilation_unit is not None:
                 for import_id in compilation_unit.import_stmt_ids:
                     import_entity = context.entity_registry.get(import_id)
@@ -158,10 +160,14 @@ class JavaResolver(Resolver[JavaResolverResult]):
                         package_fqn = resolve_java_import(
                             import_entity.import_path, import_entity.import_kind
                         )
-                        tiers.append(
+                        qualified_on_demand_types.update(
                             self._lookup_type_fqn(f"{package_fqn}.{name}", context)
                         )
-            tiers.append(self._lookup_type_fqn(f"java.lang.{name}", context))
+            qualified_on_demand_types.update(
+                self._lookup_type_fqn(f"java.lang.{name}", context)
+            )
+            if qualified_on_demand_types:
+                tiers.append(qualified_on_demand_types)
             return tiers
 
         tiers = []
@@ -245,6 +251,57 @@ class JavaResolver(Resolver[JavaResolverResult]):
             current_id = getattr(current, "parent_id", None)
         return False
 
+    def _top_level_type(
+        self,
+        entity: Entity,
+        context: Context,
+    ) -> TypeDefinition | None:
+        if not isinstance(entity, TypeDefinition):
+            return None
+
+        top_level = entity
+        current: Entity | None = entity
+        seen: set[SymbolID] = set()
+        while current is not None and current.id not in seen:
+            seen.add(current.id)
+            if not isinstance(current, TypeDefinition):
+                break
+            top_level = current
+            parent_id = getattr(current, "parent_id", None)
+            current = context.entity_registry.get(parent_id) if parent_id else None
+        return top_level
+
+    def _is_in_same_nest(
+        self,
+        candidate: TypeDefinition,
+        owner: Entity,
+        context: Context,
+    ) -> bool:
+        candidate_top_level = self._top_level_type(candidate, context)
+        owner_top_level = self._top_level_type(owner, context)
+        return (
+            candidate_top_level is not None
+            and owner_top_level is not None
+            and candidate_top_level.id == owner_top_level.id
+        )
+
+    def _enclosing_types(
+        self,
+        candidate: TypeDefinition,
+        context: Context,
+    ) -> list[TypeDefinition]:
+        enclosing: list[TypeDefinition] = []
+        current_id = getattr(candidate, "parent_id", None)
+        seen: set[SymbolID] = set()
+        while current_id and current_id not in seen:
+            seen.add(current_id)
+            current = context.entity_registry.get(current_id)
+            if not isinstance(current, TypeDefinition):
+                break
+            enclosing.append(current)
+            current_id = getattr(current, "parent_id", None)
+        return enclosing
+
     def _type_package(
         self,
         entity: TypeDefinition,
@@ -271,7 +328,17 @@ class JavaResolver(Resolver[JavaResolverResult]):
         if not fqn or not is_visible(requester_module, fqn, module_index):
             return False
 
+        if any(
+            not self._is_type_visible(enclosing, owner, context, module_index)
+            for enclosing in self._enclosing_types(candidate, context)
+        ):
+            return False
+
+        parent_id = getattr(candidate, "parent_id", None)
+        parent = context.entity_registry.get(parent_id) if parent_id else None
         visibility = getattr(candidate, "visibility", None) or "package-private"
+        if isinstance(parent, JavaInterface):
+            visibility = "public"
         if visibility == "public":
             return True
 
@@ -283,7 +350,7 @@ class JavaResolver(Resolver[JavaResolverResult]):
                 and self._is_nested_within(candidate, owner, context)
             )
         if visibility == "private":
-            return self._is_nested_within(candidate, owner, context)
+            return self._is_in_same_nest(candidate, owner, context)
         return candidate_package == requester_package
 
     def _type_resolution_result(
