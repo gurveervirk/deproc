@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, Mock
 
 from deproc.core.context import Context
 from deproc.core.interfaces.parser.models import Entity, SourceRange, generate_id
+from deproc.core.interfaces.resolver import ResolutionStatus
 from deproc.core.runtime.registries.entity import EntityRegistry
 from deproc.plugins.python.parser.models import (
     PythonClass,
@@ -13,6 +14,7 @@ from deproc.plugins.python.parser.models import (
     PythonModule,
 )
 from deproc.plugins.python.resolver.main import PythonResolver
+from deproc.plugins.python.resolver.models import PythonResolverResult
 from deproc.plugins.python.symbol_cache import PythonSymbolCache
 
 
@@ -113,6 +115,37 @@ class TestResolveSymbol:
         )
         assert resolved == ids
         assert len(unresolved) == 0
+
+    def test_resolve_reports_structured_ambiguous_result(self):
+        ids = {generate_id() for _ in range(2)}
+        for id_ in ids:
+            self.context.entity_registry.add(
+                _FakeFqnEntity(id=id_, fqn="mymodule.MyClass")
+            )
+
+        result = self.resolver.resolve("mymodule", "MyClass", self.context)
+
+        assert result.status is ResolutionStatus.AMBIGUOUS
+        assert result.candidates == tuple(sorted(ids))
+        assert result.reason == "Multiple symbols found for 'mymodule.MyClass'"
+
+    def test_resolve_reports_structured_unresolved_result(self):
+        result = self.resolver.resolve("mymodule", "MissingClass", self.context)
+
+        assert result.status is ResolutionStatus.UNRESOLVED
+        assert result.candidates == ()
+        assert result.reason == "No symbol found for 'mymodule.MissingClass'"
+
+    def test_mixed_resolved_and_inaccessible_result_prefers_resolved(self):
+        result = PythonResolverResult(
+            resolved_ids={"visible"},
+            unresolved_ids=set(),
+            inaccessible_ids={"hidden"},
+        )
+
+        assert result.status is ResolutionStatus.RESOLVED
+        assert result.candidates == ("visible",)
+        assert result.reason is None
 
 
 class TestResolveAliasIds:

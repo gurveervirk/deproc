@@ -1,13 +1,14 @@
 """Tests for Java symbol resolver."""
 
 from deproc.core.context import Context
-from deproc.core.interfaces.parser.models import SourceRange
+from deproc.core.interfaces.parser.models import SimpleBinding, SourceRange
 from deproc.core.interfaces.resolver import ResolutionStatus
 from deproc.core.runtime.registries.entity import EntityRegistry
 from deproc.plugins.java.linker.models import JavaPackage
 from deproc.plugins.java.parser.models import (
     JavaClass,
     JavaCompilationUnit,
+    JavaField,
     JavaImport,
     JavaInterface,
     JavaModule,
@@ -144,6 +145,7 @@ class TestResolveSingleType:
         result = resolver.resolve("com.example.Foo", "List", ctx)
         assert result.resolved_ids == set()
         assert result.unresolved_ids == {"imp_1"}
+        assert result.reason == "No symbol found for 'List'"
 
     def test_non_matching_import_ignored(self):
         imp = JavaImport(
@@ -566,6 +568,38 @@ class TestResolveCaching:
         cached_result = resolver.resolve("com.example.Foo", "List", ctx)
         assert cached_result.resolved_ids == {"cls_1"}
 
+    def test_cache_hit_preserves_unresolved_reason(self):
+        imp = JavaImport(
+            id="imp_1",
+            import_path="java.util.List",
+            import_kind="single_type",
+            imported_name="List",
+            source_range=_sr(),
+        )
+        cu = _make_cu("com.example.Foo", "com.example", [imp])
+        ctx = _context(cu, [], [imp], use_cache=True)
+        resolver = JavaResolver()
+
+        cold = resolver.resolve("com.example.Foo", "List", ctx)
+        cached = resolver.resolve("com.example.Foo", "List", ctx)
+
+        assert cached.status is cold.status
+        assert cached.reason == cold.reason == "No symbol found for 'List'"
+
+    def test_cache_does_not_hide_compilation_unit_ambiguity(self):
+        first = _make_cu("com.example.Foo", "com.example", [], cu_id="cu_1")
+        second = _make_cu("com.example.Foo", "com.example", [], cu_id="cu_2")
+        ctx = _context(first, use_cache=True)
+        ctx.entity_registry.add(second)
+        resolver = JavaResolver()
+
+        cold = resolver.resolve("com.example.Foo", "List", ctx)
+        cached = resolver.resolve("com.example.Foo", "List", ctx)
+
+        assert cold.status is cached.status is ResolutionStatus.AMBIGUOUS
+        assert cold.ambiguous_ids == cached.ambiguous_ids == {"cu_1", "cu_2"}
+        assert cold.reason == cached.reason
+
 
 def _bar_import(import_id: str = "imp_bar") -> JavaImport:
     return JavaImport(
@@ -593,6 +627,90 @@ class TestModuleVisibility:
         result = JavaResolver().resolve("moda.com.example.Foo", "Bar", ctx)
         assert result.resolved_ids == {"cls_1"}
         assert result.inaccessible_ids == set()
+
+    def test_visible_generic_match_precedes_inaccessible_match_and_cache_matches(
+        self,
+    ):
+        imports = [
+            JavaImport(
+                id="imp_visible",
+                import_path="modb.api.Owner.VALUE",
+                import_kind="single_static",
+                imported_name="VALUE",
+                source_range=_sr(),
+            ),
+            JavaImport(
+                id="imp_hidden",
+                import_path="modc.api.Owner.VALUE",
+                import_kind="single_static",
+                imported_name="VALUE",
+                source_range=_sr(),
+            ),
+        ]
+        cu = _make_cu(
+            "moda.consumer.Use",
+            "moda.consumer",
+            imports,
+            cu_id="cu_consumer",
+        )
+        visible = JavaField(
+            id="visible",
+            source_range=_sr(),
+            variable_binding=SimpleBinding(name="VALUE", fqn="modb.api.Owner.VALUE"),
+            value_range=None,
+            type_annotation=None,
+        )
+        hidden = JavaField(
+            id="hidden",
+            source_range=_sr(),
+            variable_binding=SimpleBinding(name="VALUE", fqn="modc.api.Owner.VALUE"),
+            value_range=None,
+            type_annotation=None,
+        )
+        packages = [
+            _make_package("moda.consumer", "pkg_moda.consumer"),
+            _make_package("modb.api", "pkg_modb.api"),
+            _make_package("modc.api", "pkg_modc.api"),
+        ]
+        modules = [
+            _make_module(
+                "mod.a",
+                "mod_a",
+                ["moda.consumer"],
+                [cu.id],
+                requires=["mod.b", "mod.c"],
+            ),
+            _make_module(
+                "mod.b",
+                "mod_b",
+                ["modb.api"],
+                [],
+                exports=["modb.api"],
+            ),
+            _make_module("mod.c", "mod_c", ["modc.api"], [], exports=[]),
+        ]
+        ctx = _context(
+            cu,
+            imports=imports,
+            use_cache=True,
+            packages=packages,
+            modules=modules,
+        )
+        ctx.entity_registry.add_all([visible, hidden])
+        resolver = JavaResolver()
+
+        cold = resolver.resolve(cu.fqn, "VALUE", ctx)
+        cached = resolver.resolve(cu.fqn, "VALUE", ctx)
+
+        for result in (cold, cached):
+            assert result.status is ResolutionStatus.RESOLVED
+            assert result.resolved_ids == {visible.id}
+            assert result.inaccessible_ids == {hidden.id}
+            assert result.candidates == (visible.id,)
+            assert result.reason is None
+        assert cached.status is cold.status
+        assert cached.candidates == cold.candidates
+        assert cached.reason == cold.reason
 
 
 class TestTypeRelationships:

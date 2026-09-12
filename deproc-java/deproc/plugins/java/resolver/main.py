@@ -496,12 +496,28 @@ class JavaResolver(Resolver[JavaResolverResult]):
             cached = symbol_cache.get(compilation_unit_fqn, symbol_name)
             if cached is not None:
                 cached_resolved = set(cached[0])
+                cached_unresolved = set(cached[1])
+                cached_inaccessible = set(cached[2])
+                cached_ambiguous = (
+                    cached_resolved if len(cached_resolved) > 1 else set()
+                )
                 return JavaResolverResult(
                     resolved_ids=cached_resolved,
-                    unresolved_ids=set(cached[1]),
-                    inaccessible_ids=set(cached[2]),
-                    ambiguous_ids=(
-                        cached_resolved if len(cached_resolved) > 1 else set()
+                    unresolved_ids=cached_unresolved,
+                    inaccessible_ids=cached_inaccessible,
+                    ambiguous_ids=cached_ambiguous,
+                    reason=(
+                        f"Multiple symbols found for '{symbol_name}'"
+                        if cached_ambiguous
+                        else (
+                            f"Symbol '{symbol_name}' is inaccessible"
+                            if cached_inaccessible and not cached_resolved
+                            else (
+                                f"No symbol found for '{symbol_name}'"
+                                if not cached_resolved
+                                else None
+                            )
+                        )
                     ),
                 )
 
@@ -516,15 +532,11 @@ class JavaResolver(Resolver[JavaResolverResult]):
                 unresolved_ids=set(),
                 inaccessible_ids=set(),
                 ambiguous_ids=ambiguous_ids,
+                reason=(
+                    f"Expected one compilation unit for '{compilation_unit_fqn}', "
+                    f"found {len(compilation_units)}"
+                ),
             )
-            if symbol_cache is not None:
-                symbol_cache.set(
-                    compilation_unit_fqn,
-                    symbol_name,
-                    result.resolved_ids,
-                    result.unresolved_ids,
-                    result.inaccessible_ids,
-                )
             return result
         compilation_unit = compilation_units[0]
 
@@ -546,8 +558,9 @@ class JavaResolver(Resolver[JavaResolverResult]):
                 unresolved_ids=set(),
                 inaccessible_ids=type_inaccessible_ids,
                 ambiguous_ids=type_ambiguous_ids,
+                reason=type_result.reason,
             )
-            if symbol_cache is not None:
+            if symbol_cache is not None and result.status is ResolutionStatus.RESOLVED:
                 symbol_cache.set(
                     compilation_unit_fqn,
                     symbol_name,
@@ -618,6 +631,19 @@ class JavaResolver(Resolver[JavaResolverResult]):
             unresolved_ids=unresolved_ids,
             inaccessible_ids=inaccessible_ids,
             ambiguous_ids=resolved_ids if len(resolved_ids) > 1 else set(),
+            reason=(
+                f"Multiple symbols found for '{symbol_name}'"
+                if len(resolved_ids) > 1
+                else (
+                    f"Symbol '{symbol_name}' is inaccessible"
+                    if inaccessible_ids and not resolved_ids
+                    else (
+                        f"No symbol found for '{symbol_name}'"
+                        if not resolved_ids
+                        else None
+                    )
+                )
+            ),
         )
 
         if symbol_cache is not None:

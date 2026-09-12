@@ -278,6 +278,7 @@ def record_to_entity(record: dict) -> Entity | None:
         end_lineno=meta.get("end_lineno", 0),
         col_offset=meta.get("col_offset", 0),
         end_col_offset=meta.get("end_col_offset", 0),
+        source_id=meta.get("source_id"),
     )
     common = {
         "id": record["id"],
@@ -315,6 +316,7 @@ def record_to_entity(record: dict) -> Entity | None:
                 )
         return PythonFunctionLike(
             name=record["name"],
+            parent_id=parent_id,
             source_range=sr,
             docstring_range=None,
             signature=signature,
@@ -326,14 +328,19 @@ def record_to_entity(record: dict) -> Entity | None:
     if entity_class is PythonClass:
         return PythonClass(
             name=record["name"],
+            parent_id=parent_id,
             source_range=sr,
             docstring_range=None,
+            method_ids=meta.get("method_ids", []),
+            inner_type_ids=meta.get("inner_type_ids", []),
+            property_ids=meta.get("property_ids", []),
             visibility=meta.get("visibility"),
             inherits=meta.get("parent_classes", []),
             **common,
         )
     if entity_class is PythonModule:
         return PythonModule(
+            parent_id=parent_id,
             all_exports=meta.get("all_exports"),
             exports_dynamic=meta.get("exports_dynamic", False),
             path=meta.get("path", ""),
@@ -348,6 +355,7 @@ def record_to_entity(record: dict) -> Entity | None:
         )
     if entity_class is PythonPackage:
         return PythonPackage(
+            parent_id=parent_id,
             submodule_ids=meta.get("submodule_ids", []),
             all_exports=meta.get("all_exports"),
             exports_dynamic=meta.get("exports_dynamic", False),
@@ -363,6 +371,7 @@ def record_to_entity(record: dict) -> Entity | None:
         )
     if entity_class is PythonNamespacePackage:
         return PythonNamespacePackage(
+            parent_id=parent_id,
             path=meta.get("path", ""),
             submodule_ids=meta.get("submodule_ids", []),
             **common,

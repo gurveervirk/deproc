@@ -421,6 +421,16 @@ class PythonResolver(Resolver[PythonResolverResult]):
         resolved_ids, unresolved_ids = self.resolve_symbol(
             module_fqn, symbol_name, context
         )
+        ambiguous_ids = resolved_ids if len(resolved_ids) > 1 else set()
+        if ambiguous_ids:
+            reason = f"Multiple symbols found for '{module_fqn}.{symbol_name}'"
+        elif not resolved_ids:
+            reason = f"No symbol found for '{module_fqn}.{symbol_name}'"
+        else:
+            reason = None
         return PythonResolverResult(
-            resolved_ids=resolved_ids, unresolved_ids=unresolved_ids
+            resolved_ids=resolved_ids,
+            unresolved_ids=unresolved_ids,
+            ambiguous_ids=ambiguous_ids,
+            reason=reason,
         )
