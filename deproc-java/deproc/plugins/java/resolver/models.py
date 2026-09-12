@@ -20,14 +20,14 @@ class JavaResolverResult:
     def status(self) -> ResolutionStatus:
         if self.ambiguous_ids:
             return ResolutionStatus.AMBIGUOUS
-        if self.inaccessible_ids:
-            return ResolutionStatus.INACCESSIBLE
         if self.resolved_ids:
             return ResolutionStatus.RESOLVED
+        if self.inaccessible_ids:
+            return ResolutionStatus.INACCESSIBLE
         return ResolutionStatus.UNRESOLVED
 
     @property
     def candidates(self) -> tuple[SymbolID, ...]:
         return tuple(
-            sorted(self.ambiguous_ids or self.inaccessible_ids or self.resolved_ids)
+            sorted(self.ambiguous_ids or self.resolved_ids or self.inaccessible_ids)
         )

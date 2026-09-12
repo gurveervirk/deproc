@@ -14,6 +14,7 @@ from deproc.plugins.python.parser.models import (
     PythonModule,
 )
 from deproc.plugins.python.resolver.main import PythonResolver
+from deproc.plugins.python.resolver.models import PythonResolverResult
 from deproc.plugins.python.symbol_cache import PythonSymbolCache
 
 
@@ -134,6 +135,17 @@ class TestResolveSymbol:
         assert result.status is ResolutionStatus.UNRESOLVED
         assert result.candidates == ()
         assert result.reason == "No symbol found for 'mymodule.MissingClass'"
+
+    def test_mixed_resolved_and_inaccessible_result_prefers_resolved(self):
+        result = PythonResolverResult(
+            resolved_ids={"visible"},
+            unresolved_ids=set(),
+            inaccessible_ids={"hidden"},
+        )
+
+        assert result.status is ResolutionStatus.RESOLVED
+        assert result.candidates == ("visible",)
+        assert result.reason is None
 
 
 class TestResolveAliasIds:
