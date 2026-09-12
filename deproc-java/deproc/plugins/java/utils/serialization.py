@@ -190,6 +190,11 @@ def entity_to_record(
     if isinstance(entity, TypeDefinition):
         if hasattr(entity, "visibility") and entity.visibility:
             metadata["visibility"] = entity.visibility
+        if isinstance(
+            entity,
+            (JavaClass, JavaInterface, JavaEnum, JavaRecord, JavaAnnotationType),
+        ):
+            metadata["is_static"] = entity.is_static
         if hasattr(entity, "annotations") and entity.annotations:
             metadata["annotations"] = [a.name for a in entity.annotations]
         if hasattr(entity, "docstring_range") and entity.docstring_range:
@@ -442,21 +447,27 @@ def record_to_entity(record: dict) -> Entity | None:
         if entity_class is JavaInterface:
             return JavaInterface(
                 **kwargs,
+                is_static=meta.get("is_static", False),
                 extends_interfaces=meta.get("extends_interfaces", []),
             )
         if entity_class is JavaEnum:
             return JavaEnum(
                 **kwargs,
+                is_static=meta.get("is_static", False),
                 implements=meta.get("implements", []),
                 enum_constant_ids=meta.get("enum_constant_ids", []),
             )
         if entity_class is JavaRecord:
             return JavaRecord(
                 **kwargs,
+                is_static=meta.get("is_static", False),
                 implements=meta.get("implements", []),
                 record_component_ids=meta.get("record_component_ids", []),
             )
-        return JavaAnnotationType(**kwargs)
+        return JavaAnnotationType(
+            **kwargs,
+            is_static=meta.get("is_static", False),
+        )
     if entity_class is JavaMethod:
         docstring_range = None
         if "docstring_lineno" in meta:
