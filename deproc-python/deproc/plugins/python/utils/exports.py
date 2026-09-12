@@ -105,7 +105,7 @@ def _compute_exports(
                     continue
                 target_fqn = _module_target(import_statement, module, registry)
                 if not target_fqn:
-                    dynamic = True
+                    dependency_dynamic = True
                     continue
                 if target_fqn in groups:
                     names.update(visit(target_fqn))

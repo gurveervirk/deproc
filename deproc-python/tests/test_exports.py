@@ -175,6 +175,24 @@ class TestBuildModuleExports:
         assert result.status is ResolutionStatus.RESOLVED
         assert result.resolved_ids == {public.id}
 
+    def test_unresolved_relative_wildcard_import_marks_module_dynamic(self):
+        reg = EntityRegistry()
+        module = _make_module("pkg.mod")
+        import_stmt = PythonImportStatement(
+            id="import",
+            parent_id=module.id,
+            path="....",
+            type="from_import",
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=4
+            ),
+            wildcard=True,
+        )
+        module.import_stmt_ids = [import_stmt.id]
+        reg.add_all([module, import_stmt])
+
+        assert get_dynamic_export_modules(reg) == {"pkg.mod"}
+
     def test_wildcard_cycles_are_dynamic(self):
         reg = EntityRegistry()
         first = _make_module("pkg.first")
