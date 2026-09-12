@@ -37,14 +37,14 @@ def _make_cu(
     return cu
 
 
-def _make_class(fqn: str, class_id: str) -> JavaClass:
+def _make_class(fqn: str, class_id: str, visibility: str = "public") -> JavaClass:
     return JavaClass(
         id=class_id,
         name=fqn.split(".")[-1],
         fqn=fqn,
         source_range=_sr(),
         docstring_range=None,
-        visibility="public",
+        visibility=visibility,
     )
 
 
@@ -251,6 +251,125 @@ class TestImplicitScopes:
         resolver = JavaResolver()
         result = resolver.resolve("Foo", "Bar", ctx)
         assert result.resolved_ids == {"cls_1"}
+
+    def test_same_package_type_shadows_on_demand_import(self):
+        imp = JavaImport(
+            id="imp_1",
+            import_path="com.other.*",
+            import_kind="on_demand",
+            source_range=_sr(),
+        )
+        cu = _make_cu("com.example.Foo", "com.example", [imp])
+        same_package = _make_class("com.example.Base", "same")
+        imported = _make_class("com.other.Base", "imported")
+        owner = _make_class("com.example.Foo", "owner")
+        owner.parent_id = cu.id
+        ctx = _context(cu, [same_package, imported, owner], [imp])
+        resolver = JavaResolver()
+
+        reference = resolver.resolve_type_reference("Base", owner, ctx)
+        symbol = resolver.resolve("com.example.Foo", "Base", ctx)
+
+        assert reference.status is ResolutionStatus.RESOLVED
+        assert reference.value == "same"
+        assert symbol.resolved_ids == {"same"}
+
+    def test_single_type_import_shadows_same_package_type(self):
+        imp = JavaImport(
+            id="imp_1",
+            import_path="com.other.Base",
+            import_kind="single_type",
+            imported_name="Base",
+            source_range=_sr(),
+        )
+        cu = _make_cu("com.example.Foo", "com.example", [imp])
+        same_package = _make_class("com.example.Base", "same")
+        imported = _make_class("com.other.Base", "imported")
+        owner = _make_class("com.example.Foo", "owner")
+        owner.parent_id = cu.id
+        ctx = _context(cu, [same_package, imported, owner], [imp])
+        result = JavaResolver().resolve_type_reference("Base", owner, ctx)
+
+        assert result.status is ResolutionStatus.RESOLVED
+        assert result.value == "imported"
+
+    def test_conflicting_on_demand_imports_are_ambiguous(self):
+        imports = [
+            JavaImport(
+                id="imp_1",
+                import_path="com.first.*",
+                import_kind="on_demand",
+                source_range=_sr(),
+            ),
+            JavaImport(
+                id="imp_2",
+                import_path="com.second.*",
+                import_kind="on_demand",
+                source_range=_sr(),
+            ),
+        ]
+        cu = _make_cu("com.example.Foo", "com.example", imports)
+        first = _make_class("com.first.Base", "first")
+        second = _make_class("com.second.Base", "second")
+        owner = _make_class("com.example.Foo", "owner")
+        owner.parent_id = cu.id
+        ctx = _context(cu, [first, second, owner], imports)
+        result = JavaResolver().resolve_type_reference("Base", owner, ctx)
+
+        assert result.status is ResolutionStatus.AMBIGUOUS
+        assert result.candidates == ("first", "second")
+
+    def test_package_private_type_is_inaccessible_across_packages(self):
+        imp = JavaImport(
+            id="imp_1",
+            import_path="com.other.Hidden",
+            import_kind="single_type",
+            imported_name="Hidden",
+            source_range=_sr(),
+        )
+        cu = _make_cu("com.example.Foo", "com.example", [imp])
+        hidden = _make_class("com.other.Hidden", "hidden", visibility="package-private")
+        owner = _make_class("com.example.Foo", "owner")
+        owner.parent_id = cu.id
+        ctx = _context(cu, [hidden, owner], [imp])
+        result = JavaResolver().resolve_type_reference("Hidden", owner, ctx)
+
+        assert result.status is ResolutionStatus.INACCESSIBLE
+        assert result.candidates == ("hidden",)
+
+    def test_package_private_type_is_visible_in_same_package(self):
+        cu = _make_cu("com.example.Foo", "com.example", [])
+        hidden = _make_class(
+            "com.example.Hidden", "hidden", visibility="package-private"
+        )
+        owner = _make_class("com.example.Foo", "owner")
+        owner.parent_id = cu.id
+        ctx = _context(cu, [hidden, owner])
+        result = JavaResolver().resolve_type_reference("Hidden", owner, ctx)
+
+        assert result.status is ResolutionStatus.RESOLVED
+        assert result.value == "hidden"
+
+    def test_nested_type_shadows_imported_type(self):
+        imp = JavaImport(
+            id="imp_1",
+            import_path="com.other.Inner",
+            import_kind="single_type",
+            imported_name="Inner",
+            source_range=_sr(),
+        )
+        cu = _make_cu("com.example.Outer", "com.example", [imp])
+        outer = _make_class("com.example.Outer", "outer")
+        outer.parent_id = cu.id
+        nested = _make_class("com.example.Outer.Inner", "nested")
+        nested.parent_id = outer.id
+        imported = _make_class("com.other.Inner", "imported")
+        ctx = _context(cu, [outer, nested, imported], [imp])
+
+        result = JavaResolver().resolve_type_reference("Inner", outer, ctx)
+
+        assert result.status is ResolutionStatus.RESOLVED
+        assert result.value == "nested"
 
     def test_compilation_unit_not_found(self):
         ctx = Context()
