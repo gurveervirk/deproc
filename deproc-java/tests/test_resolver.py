@@ -144,6 +144,7 @@ class TestResolveSingleType:
         result = resolver.resolve("com.example.Foo", "List", ctx)
         assert result.resolved_ids == set()
         assert result.unresolved_ids == {"imp_1"}
+        assert result.reason == "No symbol found for 'List'"
 
     def test_non_matching_import_ignored(self):
         imp = JavaImport(

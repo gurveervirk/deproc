@@ -2,11 +2,13 @@
 
 import json
 
+from deproc.core.context import Context
 from deproc.core.interfaces.parser.models import (
     Annotation,
     Signature,
     SourceRange,
 )
+from deproc.core.runtime.registries.entity import EntityRegistry
 from deproc.plugins.java.linker.models import JavaPackage
 from deproc.plugins.java.parser.models import (
     JavaAnnotationType,
@@ -24,6 +26,7 @@ from deproc.plugins.java.parser.models import (
     JavaRecordComponent,
     SimpleBinding,
 )
+from deproc.plugins.java.resolver.main import JavaResolver
 from deproc.plugins.java.utils.serialization import (
     entity_to_record,
     record_to_entity,
@@ -413,3 +416,130 @@ class TestSerialization:
             }
         )
         assert result is None
+
+    def test_semantic_queries_survive_round_trip(self):
+        owner_cu = JavaCompilationUnit(
+            id="owner-cu",
+            fqn="com.example.Use",
+            package_fqn="com.example",
+            path="com/example/Use.java",
+            source="",
+            docstring_range=None,
+            import_stmt_ids=["base-import", "contract-import"],
+            type_ids=["owner"],
+        )
+        base_import = JavaImport(
+            id="base-import",
+            parent_id=owner_cu.id,
+            import_path="p.Base",
+            import_kind="single_type",
+            imported_name="Base",
+            source_range=_sr(),
+        )
+        contract_import = JavaImport(
+            id="contract-import",
+            parent_id=owner_cu.id,
+            import_path="p.Contract",
+            import_kind="single_type",
+            imported_name="Contract",
+            source_range=_sr(),
+        )
+        owner = JavaClass(
+            id="owner",
+            parent_id=owner_cu.id,
+            name="Use",
+            fqn="com.example.Use",
+            source_range=_sr(),
+            docstring_range=None,
+            visibility="public",
+            superclass="Base",
+            implements=["Contract"],
+        )
+        target_cu = JavaCompilationUnit(
+            id="target-cu",
+            fqn="p.Base",
+            package_fqn="p",
+            path="p/Base.java",
+            source="",
+            docstring_range=None,
+            type_ids=["base", "contract"],
+        )
+        base = JavaClass(
+            id="base",
+            parent_id=target_cu.id,
+            name="Base",
+            fqn="p.Base",
+            source_range=_sr(),
+            docstring_range=None,
+            visibility="public",
+        )
+        contract = JavaInterface(
+            id="contract",
+            parent_id=target_cu.id,
+            name="Contract",
+            fqn="p.Contract",
+            source_range=_sr(),
+            docstring_range=None,
+            visibility="public",
+        )
+        entities = [
+            owner_cu,
+            base_import,
+            contract_import,
+            owner,
+            target_cu,
+            base,
+            contract,
+        ]
+
+        def make_context(items):
+            context = Context()
+            context.set_language("java", [".java"])
+            context.set_resolver("java", JavaResolver())
+            context.entity_registry = EntityRegistry()
+            context.entity_registry.add_all(items)
+            return context
+
+        original = make_context(entities)
+        original_resolver = original.get_resolver("java")
+        original_symbol = original_resolver.resolve("com.example.Use", "Base", original)
+        original_type = original_resolver.resolve_type_reference(
+            "Base", owner, original
+        )
+        records = [
+            record
+            for entity in entities
+            if (record := entity_to_record(entity, registry=original.entity_registry))
+            is not None
+        ]
+        restored_entities = [record_to_entity(record) for record in records]
+        restored = make_context(restored_entities)
+        restored_owner = restored.entity_registry.get("owner")
+        restored_resolver = restored.get_resolver("java")
+        restored_symbol = restored_resolver.resolve("com.example.Use", "Base", restored)
+        restored_type = restored_resolver.resolve_type_reference(
+            "Base", restored_owner, restored
+        )
+
+        assert (
+            original_symbol.status,
+            original_symbol.candidates,
+            original_symbol.reason,
+        ) == (
+            restored_symbol.status,
+            restored_symbol.candidates,
+            restored_symbol.reason,
+        )
+        assert (
+            original_type.status,
+            original_type.value,
+            original_type.candidates,
+            original_type.reason,
+        ) == (
+            restored_type.status,
+            restored_type.value,
+            restored_type.candidates,
+            restored_type.reason,
+        )
+        assert restored_owner.superclass == owner.superclass
+        assert restored_owner.implements == owner.implements

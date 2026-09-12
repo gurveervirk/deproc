@@ -14,6 +14,7 @@ class JavaResolverResult:
     unresolved_ids: UnresolvedIDs
     inaccessible_ids: InaccessibleIDs = field(default_factory=set)
     ambiguous_ids: set[SymbolID] = field(default_factory=set)
+    reason: str | None = None
 
     @property
     def status(self) -> ResolutionStatus:
@@ -27,4 +28,6 @@ class JavaResolverResult:
 
     @property
     def candidates(self) -> tuple[SymbolID, ...]:
-        return tuple(sorted(self.ambiguous_ids or self.resolved_ids))
+        return tuple(
+            sorted(self.ambiguous_ids or self.inaccessible_ids or self.resolved_ids)
+        )

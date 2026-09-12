@@ -503,6 +503,11 @@ class JavaResolver(Resolver[JavaResolverResult]):
                     ambiguous_ids=(
                         cached_resolved if len(cached_resolved) > 1 else set()
                     ),
+                    reason=(
+                        f"Multiple symbols found for '{symbol_name}'"
+                        if len(cached_resolved) > 1
+                        else None
+                    ),
                 )
 
         compilation_units = self._get_compilation_units(compilation_unit_fqn, context)
@@ -516,6 +521,10 @@ class JavaResolver(Resolver[JavaResolverResult]):
                 unresolved_ids=set(),
                 inaccessible_ids=set(),
                 ambiguous_ids=ambiguous_ids,
+                reason=(
+                    f"Expected one compilation unit for '{compilation_unit_fqn}', "
+                    f"found {len(compilation_units)}"
+                ),
             )
             if symbol_cache is not None:
                 symbol_cache.set(
@@ -546,6 +555,7 @@ class JavaResolver(Resolver[JavaResolverResult]):
                 unresolved_ids=set(),
                 inaccessible_ids=type_inaccessible_ids,
                 ambiguous_ids=type_ambiguous_ids,
+                reason=type_result.reason,
             )
             if symbol_cache is not None:
                 symbol_cache.set(
@@ -618,6 +628,19 @@ class JavaResolver(Resolver[JavaResolverResult]):
             unresolved_ids=unresolved_ids,
             inaccessible_ids=inaccessible_ids,
             ambiguous_ids=resolved_ids if len(resolved_ids) > 1 else set(),
+            reason=(
+                f"Multiple symbols found for '{symbol_name}'"
+                if len(resolved_ids) > 1
+                else (
+                    f"Symbol '{symbol_name}' is inaccessible"
+                    if inaccessible_ids and not resolved_ids
+                    else (
+                        f"No symbol found for '{symbol_name}'"
+                        if not resolved_ids
+                        else None
+                    )
+                )
+            ),
         )
 
         if symbol_cache is not None:

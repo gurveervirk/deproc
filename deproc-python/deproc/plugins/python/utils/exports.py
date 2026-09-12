@@ -85,13 +85,14 @@ def _compute_exports(
         modules = groups.get(module_fqn, [])
         names: set[str] = set()
         explicit = False
+        explicit_names: set[str] = set()
         dynamic = False
         for module in modules:
             if getattr(module, "exports_dynamic", False):
                 dynamic = True
             if module.all_exports is not None:
                 explicit = True
-                names.update(module.all_exports)
+                explicit_names.update(module.all_exports)
             else:
                 names.update(_direct_exports(module, registry))
 
@@ -111,6 +112,8 @@ def _compute_exports(
                 else:
                     dynamic = True
 
+        if explicit:
+            names = explicit_names
         if not explicit and not modules:
             dynamic = True
         if dynamic:

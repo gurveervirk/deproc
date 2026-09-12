@@ -91,6 +91,25 @@ class TestBuildModuleExports:
 
         assert build_module_exports(reg)["pkg.facade"] == {"Visible"}
 
+    def test_explicit_all_limits_wildcard_reexports(self):
+        reg = EntityRegistry()
+        base = _make_module("pkg.base", ["Included", "Excluded"])
+        facade = _make_module("pkg.facade", ["Included"])
+        import_stmt = PythonImportStatement(
+            id="import",
+            parent_id=facade.id,
+            path="pkg.base",
+            type="from_import",
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=20
+            ),
+            wildcard=True,
+        )
+        facade.import_stmt_ids = [import_stmt.id]
+        reg.add_all([base, facade, import_stmt])
+
+        assert build_module_exports(reg)["pkg.facade"] == {"Included"}
+
     def test_wildcard_cycles_are_dynamic(self):
         reg = EntityRegistry()
         first = _make_module("pkg.first")

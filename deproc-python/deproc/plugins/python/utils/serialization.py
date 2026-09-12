@@ -315,6 +315,7 @@ def record_to_entity(record: dict) -> Entity | None:
                 )
         return PythonFunctionLike(
             name=record["name"],
+            parent_id=parent_id,
             source_range=sr,
             docstring_range=None,
             signature=signature,
@@ -326,6 +327,7 @@ def record_to_entity(record: dict) -> Entity | None:
     if entity_class is PythonClass:
         return PythonClass(
             name=record["name"],
+            parent_id=parent_id,
             source_range=sr,
             docstring_range=None,
             visibility=meta.get("visibility"),
@@ -334,6 +336,7 @@ def record_to_entity(record: dict) -> Entity | None:
         )
     if entity_class is PythonModule:
         return PythonModule(
+            parent_id=parent_id,
             all_exports=meta.get("all_exports"),
             exports_dynamic=meta.get("exports_dynamic", False),
             path=meta.get("path", ""),
@@ -348,6 +351,7 @@ def record_to_entity(record: dict) -> Entity | None:
         )
     if entity_class is PythonPackage:
         return PythonPackage(
+            parent_id=parent_id,
             submodule_ids=meta.get("submodule_ids", []),
             all_exports=meta.get("all_exports"),
             exports_dynamic=meta.get("exports_dynamic", False),
@@ -363,6 +367,7 @@ def record_to_entity(record: dict) -> Entity | None:
         )
     if entity_class is PythonNamespacePackage:
         return PythonNamespacePackage(
+            parent_id=parent_id,
             path=meta.get("path", ""),
             submodule_ids=meta.get("submodule_ids", []),
             **common,
