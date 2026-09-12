@@ -230,6 +230,43 @@ class TestResolveOnDemand:
         assert result.status is ResolutionStatus.AMBIGUOUS
         assert result.candidates == ("first_inner", "second_inner")
 
+    def test_imported_leading_type_shadows_package_qualified_name(self):
+        imp = JavaImport(
+            id="imp_1",
+            import_path="p.Outer",
+            import_kind="single_type",
+            imported_name="Outer",
+            source_range=_sr(),
+        )
+        cu = _make_cu("q.Use", "q", [imp])
+        owner = _make_class("q.Use", "owner")
+        owner.parent_id = cu.id
+        imported_cu = _make_cu("p.Outer", "p", [], cu_id="cu_imported")
+        imported_outer = _make_class("p.Outer", "imported_outer")
+        imported_outer.parent_id = imported_cu.id
+        imported_inner = _make_class("p.Outer.Inner", "imported_inner")
+        imported_inner.parent_id = imported_outer.id
+        package_cu = _make_cu("Outer.Inner", "Outer", [], cu_id="cu_package")
+        package_inner = _make_class("Outer.Inner", "package_inner")
+        package_inner.parent_id = package_cu.id
+        ctx = _context(
+            cu,
+            [owner, imported_outer, imported_inner, package_inner],
+            [imp],
+        )
+        ctx.entity_registry.add(imported_cu)
+        ctx.entity_registry.add(package_cu)
+
+        result = JavaResolver().resolve_type_reference("Outer.Inner", owner, ctx)
+        direct_result = JavaResolver().resolve_type_reference(
+            "p.Outer.Inner", owner, ctx
+        )
+
+        assert result.status is ResolutionStatus.RESOLVED
+        assert result.value == "imported_inner"
+        assert direct_result.status is ResolutionStatus.RESOLVED
+        assert direct_result.value == "imported_inner"
+
 
 class TestResolveStatic:
     def test_resolves_single_static_import(self):

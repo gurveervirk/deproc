@@ -124,33 +124,27 @@ class JavaResolver(Resolver[JavaResolverResult]):
         compilation_unit = self._get_compilation_unit_for_type(owner, context)
 
         if "." in name:
-            first_name, remainder = name.split(".", 1)
+            components = name.split(".")
+            leading_candidates = self._type_candidates(components[0], owner, context)
+            if leading_candidates:
+                member_candidates = self._lookup_member_type_components(
+                    leading_candidates, components[1:], context
+                )
+                return [member_candidates]
+
             tiers: list[set[SymbolID]] = [self._lookup_type_fqn(name, context)]
             tiers.extend(
                 self._lookup_type_fqn(f"{fqn}.{name}", context)
                 for fqn in self._enclosing_type_fqns(owner, context)
             )
-            qualified_on_demand_types: set[SymbolID] = set()
             if compilation_unit is not None:
-                for import_id in compilation_unit.import_stmt_ids:
-                    import_entity = context.entity_registry.get(import_id)
-                    if (
-                        isinstance(import_entity, JavaImport)
-                        and import_entity.import_kind == "single_type"
-                        and import_entity.imported_name == first_name
-                    ):
-                        tiers.append(
-                            self._lookup_type_fqn(
-                                f"{import_entity.import_path}.{remainder}", context
-                            )
+                if compilation_unit.package_fqn:
+                    tiers.append(
+                        self._lookup_type_fqn(
+                            f"{compilation_unit.package_fqn}.{name}", context
                         )
-            if compilation_unit is not None and compilation_unit.package_fqn:
-                tiers.append(
-                    self._lookup_type_fqn(
-                        f"{compilation_unit.package_fqn}.{name}", context
                     )
-                )
-            if compilation_unit is not None:
+                qualified_on_demand_types: set[SymbolID] = set()
                 for import_id in compilation_unit.import_stmt_ids:
                     import_entity = context.entity_registry.get(import_id)
                     if (
@@ -163,14 +157,25 @@ class JavaResolver(Resolver[JavaResolverResult]):
                         qualified_on_demand_types.update(
                             self._lookup_type_fqn(f"{package_fqn}.{name}", context)
                         )
-            qualified_on_demand_types.update(
-                self._lookup_type_fqn(f"java.lang.{name}", context)
-            )
-            if qualified_on_demand_types:
-                tiers.append(qualified_on_demand_types)
+                qualified_on_demand_types.update(
+                    self._lookup_type_fqn(f"java.lang.{name}", context)
+                )
+                if qualified_on_demand_types:
+                    tiers.append(qualified_on_demand_types)
+            else:
+                tiers.append(self._lookup_type_fqn(f"java.lang.{name}", context))
             return tiers
 
-        tiers = []
+        return self._simple_type_candidate_tiers(name, owner, context)
+
+    def _simple_type_candidate_tiers(
+        self,
+        name: str,
+        owner: Entity,
+        context: Context,
+    ) -> list[set[SymbolID]]:
+        compilation_unit = self._get_compilation_unit_for_type(owner, context)
+        tiers: list[set[SymbolID]] = []
         tiers.extend(
             self._lookup_type_fqn(f"{fqn}.{name}", context)
             for fqn in self._enclosing_type_fqns(owner, context)
@@ -221,6 +226,34 @@ class JavaResolver(Resolver[JavaResolverResult]):
                 tiers.append(on_demand_types)
 
         return tiers
+
+    def _lookup_member_type_components(
+        self,
+        parent_ids: set[SymbolID],
+        components: list[str],
+        context: Context,
+    ) -> set[SymbolID]:
+        current_ids = parent_ids
+        for component in components:
+            next_ids: set[SymbolID] = set()
+            for parent_id in current_ids:
+                parent = context.entity_registry.get(parent_id)
+                if not isinstance(parent, TypeDefinition):
+                    continue
+                for child_id in self._lookup_type_fqn(
+                    f"{parent.fqn}.{component}", context
+                ):
+                    child = context.entity_registry.get(child_id)
+                    if (
+                        isinstance(child, TypeDefinition)
+                        and child.parent_id == parent.id
+                        and child.name == component
+                    ):
+                        next_ids.add(child_id)
+            current_ids = next_ids
+            if not current_ids:
+                break
+        return current_ids
 
     def _type_candidates(
         self,
