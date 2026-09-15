@@ -9,6 +9,7 @@ from deproc.core.interfaces.resolver import ResolutionStatus
 from deproc.core.runtime.registries.entity import EntityRegistry
 from deproc.plugins.python.parser.models import (
     PythonClass,
+    PythonFunctionLike,
     PythonImportAlias,
     PythonImportStatement,
     PythonModule,
@@ -586,6 +587,221 @@ class TestResolveSymbolWithCache:
             "child",
             "base",
         ]
+
+    def test_public_class_mro_reports_base_outcome_and_members(self):
+        module = PythonModule(
+            id="module",
+            fqn="pkg.mod",
+            path="pkg/mod.py",
+            docstring_range=None,
+            source="",
+            type_ids=["base", "child"],
+        )
+        base = PythonClass(
+            id="base",
+            parent_id="module",
+            name="Base",
+            fqn="pkg.mod.Base",
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=10
+            ),
+            docstring_range=None,
+            visibility="public",
+            method_ids=["method"],
+        )
+        child = PythonClass(
+            id="child",
+            parent_id="module",
+            name="Child",
+            fqn="pkg.mod.Child",
+            inherits=["Base"],
+            source_range=SourceRange(
+                lineno=2, end_lineno=2, col_offset=0, end_col_offset=11
+            ),
+            docstring_range=None,
+            visibility="public",
+        )
+        method = PythonFunctionLike(
+            id="method",
+            parent_id="base",
+            name="run",
+            fqn="pkg.mod.Base.run",
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=10
+            ),
+            docstring_range=None,
+            annotations=[],
+            visibility="public",
+        )
+        self.context.entity_registry.add_all([module, base, child, method])
+
+        mro = self.resolver.resolve_class_mro("child", self.context)
+        inherited = self.resolver.get_inherited_members("child", self.context, mro)
+
+        assert mro.status is ResolutionStatus.RESOLVED
+        assert mro.mro_ids == ("child", "base")
+        assert mro.bases[0].resolved_id == "base"
+        assert inherited.status is ResolutionStatus.RESOLVED
+        assert [(member.name, member.owner_id) for member in inherited.members] == [
+            ("run", "base")
+        ]
+
+    def test_public_class_mro_preserves_ambiguous_base_outcome(self):
+        module = PythonModule(
+            id="module",
+            fqn="pkg.mod",
+            path="pkg/mod.py",
+            docstring_range=None,
+            source="",
+            type_ids=["base-a", "base-b", "child"],
+        )
+        base_kwargs = {
+            "parent_id": "module",
+            "name": "Base",
+            "fqn": "pkg.mod.Base",
+            "source_range": SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=10
+            ),
+            "docstring_range": None,
+            "visibility": "public",
+        }
+        base_a = PythonClass(id="base-a", **base_kwargs)
+        base_b = PythonClass(id="base-b", **base_kwargs)
+        child = PythonClass(
+            id="child",
+            parent_id="module",
+            name="Child",
+            fqn="pkg.mod.Child",
+            inherits=["Base"],
+            source_range=SourceRange(
+                lineno=2, end_lineno=2, col_offset=0, end_col_offset=11
+            ),
+            docstring_range=None,
+            visibility="public",
+        )
+        self.context.entity_registry.add_all([module, base_a, base_b, child])
+
+        result = self.resolver.resolve_class_mro("child", self.context)
+
+        assert result.status is ResolutionStatus.AMBIGUOUS
+        assert result.mro_ids == ("child",)
+        assert result.bases[0].candidates == ("base-a", "base-b")
+
+    def test_public_class_mro_resolves_imported_base_alias(self):
+        base_module = PythonModule(
+            id="base-module",
+            fqn="pkg.base",
+            path="pkg/base.py",
+            docstring_range=None,
+            source="",
+            type_ids=["base"],
+        )
+        consumer_module = PythonModule(
+            id="consumer-module",
+            fqn="pkg.consumer",
+            path="pkg/consumer.py",
+            docstring_range=None,
+            source="",
+            type_ids=["child"],
+            import_stmt_ids=["import"],
+        )
+        import_statement = PythonImportStatement(
+            id="import",
+            path="pkg.base",
+            name_ids=["alias"],
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=25
+            ),
+            type="from_import",
+            parent_id="consumer-module",
+        )
+        alias = PythonImportAlias(
+            id="alias",
+            name="Base",
+            parent_id="import",
+            alias=None,
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=25
+            ),
+            fqn="pkg.consumer.Base",
+        )
+        base = PythonClass(
+            id="base",
+            parent_id="base-module",
+            name="Base",
+            fqn="pkg.base.Base",
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=10
+            ),
+            docstring_range=None,
+            visibility="public",
+        )
+        child = PythonClass(
+            id="child",
+            parent_id="consumer-module",
+            name="Child",
+            fqn="pkg.consumer.Child",
+            inherits=["Base"],
+            source_range=SourceRange(
+                lineno=2, end_lineno=2, col_offset=0, end_col_offset=11
+            ),
+            docstring_range=None,
+            visibility="public",
+        )
+        self.context.entity_registry.add_all(
+            [base_module, consumer_module, import_statement, alias, base, child]
+        )
+
+        result = self.resolver.resolve_class_mro("child", self.context)
+
+        assert result.status is ResolutionStatus.RESOLVED
+        assert result.mro_ids == ("child", "base")
+        assert result.bases[0].resolved_id == "base"
+
+    def test_public_class_mro_accepts_deputy_pin_override(self):
+        module = PythonModule(
+            id="module",
+            fqn="pkg.mod",
+            path="pkg/mod.py",
+            docstring_range=None,
+            source="",
+            type_ids=["base-a", "base-b", "child"],
+        )
+        base_kwargs = {
+            "parent_id": "module",
+            "name": "Base",
+            "fqn": "pkg.mod.Base",
+            "source_range": SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=10
+            ),
+            "docstring_range": None,
+            "visibility": "public",
+        }
+        base_a = PythonClass(id="base-a", **base_kwargs)
+        base_b = PythonClass(id="base-b", **base_kwargs)
+        child = PythonClass(
+            id="child",
+            parent_id="module",
+            name="Child",
+            fqn="pkg.mod.Child",
+            inherits=["Base"],
+            source_range=SourceRange(
+                lineno=2, end_lineno=2, col_offset=0, end_col_offset=11
+            ),
+            docstring_range=None,
+            visibility="public",
+        )
+        self.context.entity_registry.add_all([module, base_a, base_b, child])
+
+        result = self.resolver.resolve_class_mro(
+            "child",
+            self.context,
+            {("child", "Base"): "base-b"},
+        )
+
+        assert result.status is ResolutionStatus.RESOLVED
+        assert result.mro_ids == ("child", "base-b")
+        assert result.bases[0].resolved_id == "base-b"
 
     def test_resolve_symbol_alias_populates_transitive_maps(self):
         target_id = generate_id()
