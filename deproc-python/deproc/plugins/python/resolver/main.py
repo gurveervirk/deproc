@@ -14,7 +14,7 @@ from ..parser.models import (
 )
 from ..utils.exports import build_module_exports, get_dynamic_export_modules
 from ..utils.imports import resolve_relative_import_path
-from ..utils.mro import compute_mro_from_bases
+from ..utils.mro import compute_mro_from_base_ids
 from .models import (
     PythonBaseResolution,
     PythonClassMROResult,
@@ -323,9 +323,70 @@ class PythonResolver(Resolver[PythonResolverResult]):
         )
         return resolved_ids, unresolved_ids
 
+    def resolve_import_alias(
+        self, alias_id: SymbolID, context: Context
+    ) -> PythonResolverResult:
+        """Resolve one imported binding without reinterpreting its import syntax."""
+        alias = self._get_symbol(alias_id, context)
+        if not isinstance(alias, PythonImportAlias):
+            return PythonResolverResult(
+                resolved_ids=set(),
+                unresolved_ids={alias_id},
+                reason=f"entity {alias_id} is not a Python import alias",
+            )
+
+        resolved_ids, unresolved_ids = self.resolve_alias_ids({alias_id}, context)
+        ambiguous_ids = resolved_ids if len(resolved_ids) > 1 else set()
+        if ambiguous_ids:
+            reason = f"Multiple symbols found for imported binding '{alias.name}'"
+        elif not resolved_ids:
+            reason = f"No symbol found for imported binding '{alias.name}'"
+        else:
+            reason = None
+        return PythonResolverResult(
+            resolved_ids=resolved_ids,
+            unresolved_ids=unresolved_ids,
+            ambiguous_ids=ambiguous_ids,
+            reason=reason,
+        )
+
     @staticmethod
     def _normalize_base_name(base_name: str) -> str:
         return base_name.split("[", 1)[0].strip()
+
+    def _resolve_qualified_base_name(
+        self,
+        cls: PythonClass,
+        qualified_name: str,
+        context: Context,
+    ) -> tuple[ResolvedIDs, UnresolvedIDs]:
+        module = self._get_module(cls.id, context)
+        if module is None:
+            return set(), set()
+
+        components = qualified_name.split(".")
+        resolved_ids, unresolved_ids = self.resolve_symbol(
+            module.fqn, components[0], context
+        )
+        for component in components[1:]:
+            next_resolved_ids: ResolvedIDs = set()
+            next_unresolved_ids: UnresolvedIDs = set(unresolved_ids)
+            for container_id in resolved_ids:
+                container = self._get_symbol(container_id, context)
+                container_fqn = getattr(container, "fqn", None)
+                if not container_fqn:
+                    continue
+                resolved, unresolved = self.resolve_symbol(
+                    container_fqn, component, context
+                )
+                next_resolved_ids.update(resolved)
+                next_unresolved_ids.update(unresolved)
+            resolved_ids = next_resolved_ids
+            unresolved_ids = next_unresolved_ids
+            if not resolved_ids:
+                break
+
+        return resolved_ids, unresolved_ids
 
     def _resolve_base(
         self,
@@ -346,22 +407,21 @@ class PythonResolver(Resolver[PythonResolverResult]):
                     candidates=(override_id,),
                 )
 
-        resolved_ids = context.entity_registry.get_ids_by_fqn(normalized_name)
         unresolved_ids: set[SymbolID] = set()
-        if not resolved_ids:
-            module = self._get_module(cls.id, context)
-            if module is None:
-                return PythonBaseResolution(
-                    name=base_name,
-                    status=ResolutionStatus.UNRESOLVED,
-                    reason=f"containing module not found for base {base_name}",
-                )
-            if "." in normalized_name:
-                base_module, base_symbol = normalized_name.rsplit(".", 1)
-                resolved_ids, unresolved_ids = self.resolve_symbol(
-                    base_module, base_symbol, context
-                )
-            else:
+        if "." in normalized_name:
+            resolved_ids, unresolved_ids = self._resolve_qualified_base_name(
+                cls, normalized_name, context
+            )
+        else:
+            resolved_ids = context.entity_registry.get_ids_by_fqn(normalized_name)
+            if not resolved_ids:
+                module = self._get_module(cls.id, context)
+                if module is None:
+                    return PythonBaseResolution(
+                        name=base_name,
+                        status=ResolutionStatus.UNRESOLVED,
+                        reason=f"containing module not found for base {base_name}",
+                    )
                 resolved_ids, unresolved_ids = self.resolve_symbol(
                     module.fqn, normalized_name, context
                 )
@@ -409,38 +469,6 @@ class PythonResolver(Resolver[PythonResolverResult]):
             if self._normalize_base_name(base_name)
         )
 
-    def _mro_ids_from_fqns(
-        self,
-        class_id: SymbolID,
-        mro_fqns: list[str],
-        context: Context,
-        known_ids: Mapping[str, SymbolID | None] | None = None,
-    ) -> list[SymbolID] | None:
-        cls = self._get_symbol(class_id, context)
-        if not isinstance(cls, PythonClass):
-            return None
-
-        mro_ids: list[SymbolID] = []
-        for mro_fqn in mro_fqns:
-            if mro_fqn == cls.fqn:
-                mro_ids.append(class_id)
-                continue
-            if known_ids and mro_fqn in known_ids:
-                known_id = known_ids[mro_fqn]
-                if known_id is None:
-                    return None
-                mro_ids.append(known_id)
-                continue
-            candidates = [
-                candidate_id
-                for candidate_id in context.entity_registry.get_ids_by_fqn(mro_fqn)
-                if isinstance(self._get_symbol(candidate_id, context), PythonClass)
-            ]
-            if len(candidates) != 1:
-                return None
-            mro_ids.append(candidates[0])
-        return mro_ids
-
     def resolve_class_mro(
         self,
         class_id: SymbolID,
@@ -486,9 +514,8 @@ class PythonResolver(Resolver[PythonResolverResult]):
             active.remove(class_id)
             return result
 
-        base_mros: dict[str, list[str] | None] = {}
-        base_fqns: list[str] = []
-        known_mro_ids: dict[str, SymbolID | None] = {cls.fqn: class_id}
+        base_mros: list[list[SymbolID] | None] = []
+        base_ids: list[SymbolID] = []
         failure_status: ResolutionStatus | None = None
         failure_reason: str | None = None
 
@@ -498,13 +525,6 @@ class PythonResolver(Resolver[PythonResolverResult]):
                 failure_reason = base.reason
                 break
 
-            base_entity = self._get_symbol(base.resolved_id, context)
-            base_fqn = getattr(base_entity, "fqn", None)
-            if not base_fqn:
-                failure_status = ResolutionStatus.UNRESOLVED
-                failure_reason = f"resolved base {base.name} has no FQN"
-                break
-
             base_result = self._resolve_class_mro(
                 base.resolved_id,
                 context,
@@ -512,24 +532,24 @@ class PythonResolver(Resolver[PythonResolverResult]):
                 active,
                 base_overrides,
             )
-            base_mro_fqns = [
-                getattr(self._get_symbol(mro_id, context), "fqn", "")
-                for mro_id in base_result.mro_ids
-            ]
-            for mro_id, mro_fqn in zip(base_result.mro_ids, base_mro_fqns, strict=True):
-                if mro_fqn in known_mro_ids and known_mro_ids[mro_fqn] != mro_id:
-                    known_mro_ids[mro_fqn] = None
-                else:
-                    known_mro_ids[mro_fqn] = mro_id
-            base_mros[base_fqn] = base_mro_fqns
-            base_fqns.append(base_fqn)
+            if not base_result.mro_ids:
+                failure_status = ResolutionStatus.UNRESOLVED
+                failure_reason = f"no MRO available for base {base.name}"
+                break
+            base_mros.append(list(base_result.mro_ids))
+            base_ids.append(base.resolved_id)
             if base_result.status is not ResolutionStatus.RESOLVED:
                 failure_status = base_result.status
                 failure_reason = base_result.reason
                 break
 
-        mro_fqns = compute_mro_from_bases(cls.fqn, base_mros, base_fqns)
-        if mro_fqns is None:
+        mro_ids = compute_mro_from_base_ids(class_id, base_mros, base_ids)
+        if mro_ids is not None and class_id in mro_ids[1:]:
+            mro_ids = [class_id, *[mro_id for mro_id in mro_ids if mro_id != class_id]]
+            failure_status = failure_status or ResolutionStatus.UNRESOLVED
+            failure_reason = failure_reason or "cyclic Python inheritance"
+
+        if mro_ids is None:
             result = PythonClassMROResult(
                 status=failure_status or ResolutionStatus.UNRESOLVED,
                 mro_ids=(class_id,),
@@ -537,23 +557,12 @@ class PythonResolver(Resolver[PythonResolverResult]):
                 reason=failure_reason or f"inconsistent MRO for {cls.fqn}",
             )
         else:
-            mro_ids = self._mro_ids_from_fqns(
-                class_id, mro_fqns, context, known_mro_ids
+            result = PythonClassMROResult(
+                status=failure_status or ResolutionStatus.RESOLVED,
+                mro_ids=tuple(mro_ids),
+                bases=bases,
+                reason=failure_reason,
             )
-            if mro_ids is None:
-                result = PythonClassMROResult(
-                    status=ResolutionStatus.AMBIGUOUS,
-                    mro_ids=(class_id,),
-                    bases=bases,
-                    reason=f"ambiguous Python MRO for {cls.fqn}",
-                )
-            else:
-                result = PythonClassMROResult(
-                    status=failure_status or ResolutionStatus.RESOLVED,
-                    mro_ids=tuple(mro_ids),
-                    bases=bases,
-                    reason=failure_reason,
-                )
 
         memo[class_id] = result
         active.remove(class_id)

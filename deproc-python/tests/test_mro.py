@@ -1,5 +1,9 @@
 import pytest
-from deproc.plugins.python.utils.mro import c3_merge, compute_mro_from_bases
+from deproc.plugins.python.utils.mro import (
+    c3_merge,
+    compute_mro_from_base_ids,
+    compute_mro_from_bases,
+)
 
 
 class TestC3Merge:
@@ -44,5 +48,21 @@ class TestComputeMroFromBases:
             "Child",
             {"A": ["A", "O"], "B": ["B", "O"]},
             ["A", "B", "O"],
+        )
+        assert result is None
+
+
+class TestComputeMroFromBaseIds:
+    def test_preserves_distinct_ids_with_same_fqn(self):
+        result = compute_mro_from_base_ids(
+            "child",
+            [["left"], ["right"]],
+            ["left", "right"],
+        )
+        assert result == ["child", "left", "right"]
+
+    def test_unresolved_base_returns_none(self):
+        result = compute_mro_from_base_ids(
+            "child", [["base"], None], ["base", "missing"]
         )
         assert result is None

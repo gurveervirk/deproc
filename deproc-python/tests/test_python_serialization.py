@@ -5,6 +5,7 @@ from deproc.plugins.python.linker.models import PythonPackage
 from deproc.plugins.python.parser.models import (
     PythonClass,
     PythonConstant,
+    PythonImportAlias,
     PythonImportStatement,
     PythonModule,
     PythonTypeAlias,
@@ -180,6 +181,23 @@ def test_semantic_queries_survive_round_trip():
         source="",
         docstring_range=None,
         type_ids=["child"],
+        import_stmt_ids=["child-import"],
+    )
+    child_import = PythonImportStatement(
+        id="child-import",
+        parent_id=child_module.id,
+        path="pkg.base",
+        type="from_import",
+        name_ids=["child-base-alias"],
+        source_range=source_range,
+    )
+    child_base_alias = PythonImportAlias(
+        id="child-base-alias",
+        parent_id=child_import.id,
+        name="Base",
+        alias=None,
+        fqn="pkg.child.Base",
+        source_range=source_range,
     )
     child = PythonClass(
         id="child",
@@ -189,9 +207,18 @@ def test_semantic_queries_survive_round_trip():
         source_range=source_range,
         docstring_range=None,
         visibility="public",
-        inherits=["pkg.base.Base"],
+        inherits=["Base"],
     )
-    entities = [base_module, base, facade, star_import, child_module, child]
+    entities = [
+        base_module,
+        base,
+        facade,
+        star_import,
+        child_module,
+        child_import,
+        child_base_alias,
+        child,
+    ]
 
     def make_context(items):
         context = Context()
