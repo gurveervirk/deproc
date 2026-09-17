@@ -146,7 +146,7 @@ source = { editable = "deproc-core" }
 
 [[package]]
 name = "deproc-java"
-version = "0.2.0"
+version = "0.2.1"
 source = { editable = "deproc-java" }
 dependencies = [
     { name = "deproc-core" },
