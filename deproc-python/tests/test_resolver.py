@@ -833,6 +833,78 @@ class TestResolveSymbolWithCache:
         assert result.mro_ids == ("child", "base")
         assert result.bases[0].resolved_id == "base"
 
+    def test_public_class_mro_resolves_bare_dotted_import(self):
+        consumer_module = PythonModule(
+            id="consumer-module",
+            fqn="consumer",
+            path="consumer.py",
+            docstring_range=None,
+            source="",
+            type_ids=["child"],
+            import_stmt_ids=["import"],
+        )
+        import_statement = PythonImportStatement(
+            id="import",
+            path="package.module",
+            name_ids=["package-alias"],
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=22
+            ),
+            type="generic_import",
+            parent_id="consumer-module",
+        )
+        package_alias = PythonImportAlias(
+            id="package-alias",
+            name="package.module",
+            alias=None,
+            import_path="package.module",
+            parent_id="import",
+            fqn="consumer.package",
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=22
+            ),
+        )
+        base_module = PythonModule(
+            id="base-module",
+            fqn="package.module",
+            path="package/module.py",
+            docstring_range=None,
+            source="",
+            type_ids=["base"],
+        )
+        base = PythonClass(
+            id="base",
+            parent_id="base-module",
+            name="Base",
+            fqn="package.module.Base",
+            source_range=SourceRange(
+                lineno=1, end_lineno=1, col_offset=0, end_col_offset=10
+            ),
+            docstring_range=None,
+            visibility="public",
+        )
+        child = PythonClass(
+            id="child",
+            parent_id="consumer-module",
+            name="Child",
+            fqn="consumer.Child",
+            inherits=["package.module.Base"],
+            source_range=SourceRange(
+                lineno=3, end_lineno=3, col_offset=0, end_col_offset=30
+            ),
+            docstring_range=None,
+            visibility="public",
+        )
+        self.context.entity_registry.add_all(
+            [consumer_module, import_statement, package_alias, base_module, base, child]
+        )
+
+        result = self.resolver.resolve_class_mro("child", self.context)
+
+        assert result.status is ResolutionStatus.RESOLVED
+        assert result.mro_ids == ("child", "base")
+        assert result.bases[0].resolved_id == "base"
+
     def test_public_class_mro_does_not_resolve_unbound_qualified_name(self):
         module = PythonModule(
             id="module",

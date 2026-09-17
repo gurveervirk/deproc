@@ -368,7 +368,30 @@ class PythonResolver(Resolver[PythonResolverResult]):
         resolved_ids, unresolved_ids = self.resolve_symbol(
             module.fqn, components[0], context
         )
-        for component in components[1:]:
+        binding_prefix_length = 1
+        for binding_id in self.get_ids_by_fqn(module.fqn, components[0], context):
+            binding = self._get_symbol(binding_id, context)
+            if not isinstance(binding, PythonImportAlias) or binding.alias is not None:
+                continue
+            if binding.parent_id is None:
+                continue
+            import_statement = self._get_symbol(binding.parent_id, context)
+            if not isinstance(import_statement, PythonImportStatement):
+                continue
+            if import_statement.type != "generic_import":
+                continue
+            target_fqn = binding.import_path or self._get_target_module_fqn(
+                import_statement.id, context
+            )
+            if not target_fqn:
+                continue
+            target_components = target_fqn.split(".")
+            if components[: len(target_components)] == target_components:
+                binding_prefix_length = max(
+                    binding_prefix_length, len(target_components)
+                )
+
+        for component in components[binding_prefix_length:]:
             next_resolved_ids: ResolvedIDs = set()
             next_unresolved_ids: UnresolvedIDs = set(unresolved_ids)
             for container_id in resolved_ids:
