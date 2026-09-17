@@ -30,3 +30,36 @@ class PythonResolverResult:
         return tuple(
             sorted(self.ambiguous_ids or self.resolved_ids or self.inaccessible_ids)
         )
+
+
+@dataclass(frozen=True)
+class PythonBaseResolution:
+    name: str
+    status: ResolutionStatus
+    resolved_id: SymbolID | None = None
+    candidates: tuple[SymbolID, ...] = ()
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
+class PythonClassMROResult:
+    status: ResolutionStatus
+    mro_ids: tuple[SymbolID, ...] = ()
+    bases: tuple[PythonBaseResolution, ...] = ()
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
+class PythonInheritedMember:
+    member_id: SymbolID
+    owner_id: SymbolID
+    name: str
+    mro_depth: int
+
+
+@dataclass(frozen=True)
+class PythonInheritedMembersResult:
+    status: ResolutionStatus
+    mro_ids: tuple[SymbolID, ...] = ()
+    members: tuple[PythonInheritedMember, ...] = ()
+    reason: str | None = None

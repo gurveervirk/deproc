@@ -33,3 +33,21 @@ def compute_mro_from_bases(
         return [self_fqn, *c3_merge(merge_lists)]
     except ValueError:
         return None
+
+
+def compute_mro_from_base_ids(
+    self_id: str,
+    base_mros: list[list[str] | None],
+    base_ids: list[str],
+) -> list[str] | None:
+    """Compute a C3 MRO while preserving entity identity."""
+    base_mro_lists: list[list[str]] = []
+    for mro in base_mros:
+        if mro is None:
+            return None
+        base_mro_lists.append(list(mro))
+
+    try:
+        return [self_id, *c3_merge([*base_mro_lists, list(base_ids)])]
+    except ValueError:
+        return None
