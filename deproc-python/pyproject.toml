@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deproc-python"
-version = "0.2.0"
+version = "0.2.1"
 description = "Python language plugin for deproc."
 authors = [
     { name = "Gurveer Singh Virk", email = "gurveervirk.15517@gmail.com" }
