@@ -32,6 +32,10 @@ class Context:
             self._all_file_extensions = set(copy_from._all_file_extensions)
             self._selected_languages = set(copy_from._selected_languages)
             self._selected_file_extensions = set(copy_from._selected_file_extensions)
+            self._language_selection_explicit = copy_from._language_selection_explicit
+            self._file_extension_selection_explicit = (
+                copy_from._file_extension_selection_explicit
+            )
             self._parsers = dict(copy_from._parsers)
             self._resolvers = dict(copy_from._resolvers)
             self._linkers = dict(copy_from._linkers)
@@ -53,6 +57,10 @@ class Context:
             self._selected_file_extensions: set[str] = set(
                 self.scope.selected_file_extensions
             )
+            self._language_selection_explicit = self.scope.language_selection_explicit
+            self._file_extension_selection_explicit = (
+                self.scope.file_extension_selection_explicit
+            )
             self._skip_paths: set[str] = set(self.scope.exclusions)
             self._parsers: dict[str, SourceParser] = {}
             self._resolvers: dict[str, Resolver] = {}
@@ -71,6 +79,10 @@ class Context:
         self.scope = scope
         self._selected_languages = set(scope.selected_languages)
         self._selected_file_extensions = set(scope.selected_file_extensions)
+        self._language_selection_explicit = scope.language_selection_explicit
+        self._file_extension_selection_explicit = (
+            scope.file_extension_selection_explicit
+        )
         if not self.base_path and scope.roots:
             self.base_path = scope.roots[0].path
         self._skip_paths = set(scope.exclusions)
@@ -100,9 +112,11 @@ class Context:
         else:
             self._language_aliases[normalized] = []
         self._all_languages.add(normalized)
-        self._selected_languages.add(normalized)
+        if not self._language_selection_explicit:
+            self._selected_languages.add(normalized)
         self._all_file_extensions.update(normalized_extensions)
-        self._selected_file_extensions.update(normalized_extensions)
+        if not self._file_extension_selection_explicit:
+            self._selected_file_extensions.update(normalized_extensions)
 
     @property
     def selected_languages(self) -> set[str]:
@@ -241,8 +255,16 @@ class Context:
         include_symbol_caches: bool = True,
     ) -> None:
         if include_languages:
-            self._selected_languages = set(self._all_languages)
+            self._selected_languages = (
+                set(self.scope.selected_languages)
+                if self._language_selection_explicit
+                else set(self._all_languages)
+            )
         if include_file_extensions:
-            self._selected_file_extensions = set(self._all_file_extensions)
+            self._selected_file_extensions = (
+                set(self.scope.selected_file_extensions)
+                if self._file_extension_selection_explicit
+                else set(self._all_file_extensions)
+            )
         if include_symbol_caches:
             self.symbol_caches = {}

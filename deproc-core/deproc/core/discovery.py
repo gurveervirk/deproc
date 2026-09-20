@@ -1,5 +1,6 @@
 import fnmatch
 import os
+from pathlib import Path
 
 from .context import Context
 from .scope import DiscoveredFile, RootDescriptor
@@ -15,6 +16,22 @@ def _root_descriptors(context: Context) -> tuple[RootDescriptor, ...]:
     if context.base_path:
         return (RootDescriptor(context.base_path),)
     return ()
+
+
+_ROOT_KIND_PRECEDENCE = {
+    "project": 0,
+    "source": 1,
+    "generated": 2,
+    "declaration": 3,
+    "dependency": 4,
+}
+
+
+def _root_preference(root: RootDescriptor) -> tuple[int, int, int, str]:
+    specificity = len(Path(root.path).parts)
+    kind_precedence = _ROOT_KIND_PRECEDENCE.get(root.kind, 100)
+    provenance_precedence = 0 if root.provenance == "explicit" else 1
+    return (-specificity, kind_precedence, provenance_precedence, root.root_id or "")
 
 
 def discover_source_files(context: Context) -> list[DiscoveredFile]:
@@ -38,15 +55,9 @@ def discover_source_files(context: Context) -> list[DiscoveredFile]:
                 path = os.path.abspath(os.path.join(dirpath, filename))
                 candidate = DiscoveredFile(path=path, root=root)
                 current = matches.get(path)
-                if current is None or (
-                    candidate.root.kind,
-                    candidate.root.provenance,
-                    candidate.root.path,
-                ) < (
-                    current.root.kind,
-                    current.root.provenance,
-                    current.root.path,
-                ):
+                if current is None or _root_preference(
+                    candidate.root
+                ) < _root_preference(current.root):
                     matches[path] = candidate
 
     return [matches[path] for path in sorted(matches)]
