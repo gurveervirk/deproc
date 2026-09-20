@@ -2,7 +2,7 @@ from pathlib import Path
 
 from deproc.core.context import Context
 from deproc.core.discovery import discover_source_files, find_source_files
-from deproc.core.scope import AnalysisScope
+from deproc.core.scope import AnalysisScope, RootDescriptor
 
 
 class TestFindSourceFiles:
@@ -97,3 +97,38 @@ class TestFindSourceFiles:
         assert [
             Path(path).name for path in find_source_files(Context(scope=scope))
         ] == ["keep.py"]
+
+    def test_overlapping_roots_choose_most_specific_root(self, tmp_path):
+        project = tmp_path / "project"
+        source = project / "src"
+        source.mkdir(parents=True)
+        file_path = source / "module.py"
+        file_path.write_text("")
+
+        scope = AnalysisScope(
+            roots=[
+                RootDescriptor(str(project), kind="dependency", root_id="deps"),
+                RootDescriptor(str(source), kind="source", root_id="source"),
+            ],
+            selected_file_extensions=[".py"],
+        )
+        discovered = discover_source_files(Context(scope=scope))
+
+        assert len(discovered) == 1
+        assert discovered[0].root_id == "source"
+        assert discovered[0].relative_path == "module.py"
+
+    def test_equal_roots_use_root_kind_precedence(self, tmp_path):
+        file_path = tmp_path / "module.py"
+        file_path.write_text("")
+        scope = AnalysisScope(
+            roots=[
+                RootDescriptor(str(tmp_path), kind="dependency", root_id="deps"),
+                RootDescriptor(str(tmp_path), kind="source", root_id="source"),
+            ],
+            selected_file_extensions=[".py"],
+        )
+
+        discovered = discover_source_files(Context(scope=scope))
+
+        assert discovered[0].root_kind == "source"

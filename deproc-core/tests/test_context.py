@@ -34,6 +34,18 @@ class TestSetLanguage:
         assert ctx.selected_languages == {"python", "javascript"}
         assert ctx.selected_file_extensions == {".py", ".js"}
 
+    def test_explicit_scope_does_not_widen_when_plugins_register(self):
+        ctx = Context(
+            scope=AnalysisScope(
+                selected_languages=["python"], selected_file_extensions=[".py"]
+            )
+        )
+        ctx.set_language("python", [".py"])
+        ctx.set_language("java", [".java"])
+
+        assert ctx.selected_languages == {"python"}
+        assert ctx.selected_file_extensions == {".py"}
+
 
 class TestSelectLanguages:
     def setup_method(self):
