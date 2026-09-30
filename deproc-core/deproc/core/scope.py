@@ -19,10 +19,13 @@ def _normalize_extensions(extensions: Iterable[str]) -> frozenset[str]:
 
 @dataclass(frozen=True)
 class RootDescriptor:
+    """Describe a semantic analysis root and its stable logical identity."""
+
     path: str
     kind: str = "project"
     provenance: str = "explicit"
     root_id: str | None = None
+    _root_id_explicit: bool = field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         normalized_path = _normalize_path(self.path)
@@ -31,17 +34,28 @@ class RootDescriptor:
         object.__setattr__(self, "path", normalized_path)
         object.__setattr__(self, "kind", normalized_kind)
         object.__setattr__(self, "provenance", normalized_provenance)
-        if self.root_id is None or not self.root_id.strip():
+        provided_root_id = self.root_id
+        explicit_root_id = provided_root_id is not None and bool(
+            provided_root_id.strip()
+        )
+        object.__setattr__(self, "_root_id_explicit", explicit_root_id)
+        if not explicit_root_id:
             digest = sha256(
                 f"{normalized_kind}\0{normalized_path}".encode()
             ).hexdigest()[:16]
             object.__setattr__(self, "root_id", f"{normalized_kind}-{digest}")
         else:
-            object.__setattr__(self, "root_id", self.root_id.strip())
+            assert provided_root_id is not None
+            object.__setattr__(self, "root_id", provided_root_id.strip())
 
 
 @dataclass(frozen=True)
 class AnalysisScope:
+    """Define the roots and selections that make up an analysis universe.
+
+    Caller-supplied root IDs must be unique within one scope.
+    """
+
     roots: tuple[RootDescriptor, ...] = ()
     selected_languages: frozenset[str] = frozenset()
     selected_file_extensions: frozenset[str] = frozenset()
@@ -70,7 +84,7 @@ class AnalysisScope:
                     item.path,
                     kind,
                     item.provenance,
-                    item.root_id,
+                    item.root_id if item._root_id_explicit else None,
                 )
             return RootDescriptor(item, kind)
 
@@ -86,6 +100,13 @@ class AnalysisScope:
             item if isinstance(item, RootDescriptor) else RootDescriptor(item)
             for item in roots
         )
+        explicit_root_ids = [
+            item.root_id
+            for item in descriptors
+            if item._root_id_explicit and item.root_id
+        ]
+        if len(explicit_root_ids) != len(set(explicit_root_ids)):
+            raise ValueError("Caller-supplied root_id values must be unique")
         object.__setattr__(self, "roots", tuple(descriptors))
         object.__setattr__(
             self, "language_selection_explicit", selected_languages is not None

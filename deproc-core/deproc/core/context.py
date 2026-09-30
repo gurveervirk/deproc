@@ -77,11 +77,19 @@ class Context:
 
     def set_scope(self, scope: AnalysisScope) -> None:
         self.scope = scope
-        self._selected_languages = set(scope.selected_languages)
-        self._selected_file_extensions = set(scope.selected_file_extensions)
         self._language_selection_explicit = scope.language_selection_explicit
         self._file_extension_selection_explicit = (
             scope.file_extension_selection_explicit
+        )
+        self._selected_languages = (
+            set(scope.selected_languages)
+            if self._language_selection_explicit
+            else set(self._all_languages)
+        )
+        self._selected_file_extensions = (
+            set(scope.selected_file_extensions)
+            if self._file_extension_selection_explicit
+            else set(self._all_file_extensions)
         )
         if not self.base_path and scope.roots:
             self.base_path = scope.roots[0].path

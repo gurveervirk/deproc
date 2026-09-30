@@ -2,6 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from deproc.core.context import Context
+from deproc.core.discovery import find_source_files
 from deproc.core.scope import AnalysisScope
 
 
@@ -250,6 +251,37 @@ class TestCopyFrom:
         assert ctx.base_path == str(tmp_path)
         assert ctx.analysis_scope is scope
         assert ctx.selected_file_extensions == {".py"}
+
+    def test_set_scope_reseeds_implicit_registered_selections(self, tmp_path):
+        source_file = tmp_path / "module.py"
+        source_file.write_text("")
+        ctx = Context()
+        ctx.set_language("python", [".py"])
+        ctx.set_language("java", [".java"])
+
+        ctx.set_scope(AnalysisScope(source_roots=[str(tmp_path)]))
+
+        assert ctx.selected_languages == {"python", "java"}
+        assert ctx.selected_file_extensions == {".py", ".java"}
+        assert find_source_files(ctx) == [str(source_file)]
+
+    def test_set_scope_honors_explicit_empty_selections(self, tmp_path):
+        source_file = tmp_path / "module.py"
+        source_file.write_text("")
+        ctx = Context()
+        ctx.set_language("python", [".py"])
+
+        ctx.set_scope(
+            AnalysisScope(
+                source_roots=[str(tmp_path)],
+                selected_languages=[],
+                selected_file_extensions=[],
+            )
+        )
+
+        assert ctx.selected_languages == set()
+        assert ctx.selected_file_extensions == set()
+        assert find_source_files(ctx) == []
 
     def test_copy_preserves_scope(self, tmp_path):
         scope = AnalysisScope(source_roots=[str(tmp_path)])
