@@ -1,3 +1,4 @@
+import pytest
 from deproc.core.scope import AnalysisScope, RootDescriptor
 
 
@@ -16,6 +17,51 @@ class TestAnalysisScope:
         assert scope.selected_languages == {"python"}
         assert scope.selected_file_extensions == {".py"}
         assert scope.exclusions == {".venv"}
+
+    def test_generated_roots_and_root_identity(self, tmp_path):
+        root = RootDescriptor(
+            str(tmp_path / "generated"),
+            kind="generated",
+            root_id="generated-build",
+        )
+        scope = AnalysisScope(generated_roots=[root])
+
+        assert scope.generated_roots[0].root_id == "generated-build"
+        assert scope.generated_roots[0].kind == "generated"
+
+    def test_reclassified_typed_root_rederives_automatic_identity(self, tmp_path):
+        root = RootDescriptor(str(tmp_path / "src"), provenance="provider")
+        scope = AnalysisScope(source_roots=[root])
+
+        assert root.root_id.startswith("project-")
+        assert scope.source_roots[0].root_id.startswith("source-")
+        assert scope.source_roots[0].root_id != root.root_id
+
+    def test_reclassified_typed_root_preserves_custom_identity(self, tmp_path):
+        root = RootDescriptor(
+            str(tmp_path / "src"), provenance="provider", root_id="provider-src"
+        )
+
+        assert AnalysisScope(source_roots=[root]).source_roots[0].root_id == (
+            "provider-src"
+        )
+
+    def test_scope_rejects_duplicate_custom_root_ids(self, tmp_path):
+        with pytest.raises(ValueError, match="root_id values must be unique"):
+            AnalysisScope(
+                roots=[
+                    RootDescriptor(str(tmp_path / "one"), root_id="shared"),
+                    RootDescriptor(str(tmp_path / "two"), root_id="shared"),
+                ]
+            )
+
+    def test_selection_is_explicit_only_when_requested(self):
+        assert not AnalysisScope().language_selection_explicit
+        assert AnalysisScope(selected_languages=[]).language_selection_explicit
+        assert not AnalysisScope().file_extension_selection_explicit
+        assert AnalysisScope(
+            selected_file_extensions=[]
+        ).file_extension_selection_explicit
 
     def test_root_descriptor_is_immutable(self, tmp_path):
         root = RootDescriptor(str(tmp_path))
