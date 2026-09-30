@@ -24,8 +24,8 @@ python -m pip install deproc-core
 - `AnalysisScope` describes the permitted analysis universe, including project,
   source, generated, declaration, and dependency roots, selected languages and
   extensions, exclusions, and root provenance.
-- `EntityRegistry` stores parsed entities and indexes them by deterministic ID
-  and fully qualified name.
+- `EntityRegistry` stores entities by ID and maintains a fully qualified
+  name-to-ID index for entities with FQNs.
 - `SourceParser`, `Linker`, `Resolver`, and `SymbolCache` are the protocols
   implemented by language plugins.
 
@@ -43,8 +43,8 @@ context.set_language("python", [".py", ".pyi"], aliases=["py"])
 files = find_source_files(context)
 ```
 
-Plugins add their parser, linker, resolver, and symbol-cache implementations
-to the same context before parsing and linking source files.
+Plugins register their parser, linker, and resolver implementations with the
+context, and may optionally register a symbol cache.
 
 ## Related packages
 
