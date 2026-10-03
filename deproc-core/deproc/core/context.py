@@ -21,10 +21,16 @@ class Context:
         base_path: str = "",
         copy_from: Context | None = None,
         scope: AnalysisScope | None = None,
+        source_root_id: str | None = None,
     ):
         if copy_from:
             self.base_path = copy_from.base_path
             self.scope = copy_from.scope
+            self.source_root_id = (
+                source_root_id
+                if source_root_id is not None
+                else copy_from.source_root_id
+            )
             self.entity_registry = copy_from.entity_registry
             self._language_aliases = dict(copy_from._language_aliases)
             self._language_extensions = dict(copy_from._language_extensions)
@@ -48,6 +54,7 @@ class Context:
             self.base_path = base_path or (
                 self.scope.roots[0].path if self.scope.roots else ""
             )
+            self.source_root_id = source_root_id
             self.entity_registry = EntityRegistry()
             self._language_aliases: dict[str, list[str]] = {}
             self._language_extensions: dict[str, list[str]] = {}

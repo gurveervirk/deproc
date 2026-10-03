@@ -37,6 +37,7 @@ class JavaLinker(
                 package_map[fqn] = JavaPackage(
                     path=fqn.replace(".", "/"),
                     fqn=fqn,
+                    source_root_id=context.source_root_id,
                 )
             return package_map[fqn]
 

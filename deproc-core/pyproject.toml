@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "deproc-core"
-version = "0.3.0"
+version = "0.3.1"
 description = "Language-agnostic core contracts and runtime for deproc plugins."
 readme = "README.md"
 authors = [

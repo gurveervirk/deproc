@@ -57,6 +57,7 @@ def test_serialize_round_trip_restores_module_ownership_and_exports():
             id="mod-id",
             fqn="pkg",
             path="pkg/__init__.py",
+            source_root_id="generated",
             source="",
             docstring_range=None,
             import_stmt_ids=[f"imp{i}" for i in range(3)],
@@ -74,6 +75,7 @@ def test_serialize_round_trip_restores_module_ownership_and_exports():
 
     assert isinstance(entity, PythonModule)
     assert entity.fqn == "pkg"
+    assert entity.source_root_id == "generated"
     assert entity.import_stmt_ids == ["imp0", "imp1", "imp2"]
     assert entity.type_ids == ["type0", "type1"]
     assert entity.function_ids == ["fn0", "fn1"]

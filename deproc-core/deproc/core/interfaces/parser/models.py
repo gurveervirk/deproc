@@ -139,6 +139,7 @@ class Node(Entity):
 
 @dataclass(kw_only=True)
 class SourceFile(Docstring, Node):
+    source_root_id: str | None = None
     import_stmt_ids: list[SymbolID] = field(default_factory=list)
     type_ids: list[SymbolID] = field(default_factory=list)
     function_ids: list[SymbolID] = field(default_factory=list)
@@ -148,4 +149,7 @@ class SourceFile(Docstring, Node):
 
     def _compute_id(self) -> str:
         h = hashlib.sha256(self.source.encode()).hexdigest()[:16]
-        return uuid5(NAMESPACE_URL, f"file://{self.path}#{h}").hex
+        identity = f"file://{self.path}#{h}"
+        if self.source_root_id:
+            identity = f"file://{self.source_root_id}/{self.path}#{h}"
+        return uuid5(NAMESPACE_URL, identity).hex
