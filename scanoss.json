@@ -26,6 +26,8 @@
           "node_modules/",
           "target/",
           "scanoss.json",
+          "LICENSE",
+          ".github/swh-provenance-allowlist.json",
           "uv.lock",
           "**/*.pyc",
           "**/*.pyo",
@@ -56,6 +58,8 @@
           "node_modules/",
           "target/",
           "scanoss.json",
+          "LICENSE",
+          ".github/swh-provenance-allowlist.json",
           "uv.lock",
           "**/*.pyc",
           "**/*.pyo",
@@ -70,6 +74,24 @@
     }
   },
   "bom": {
-    "include": []
+    "include": [],
+    "remove": [
+      {
+        "purl": "pkg:pypi/deproc-core",
+        "comment": "Ignore self-matches against prior deproc releases"
+      },
+      {
+        "purl": "pkg:pypi/deproc-java",
+        "comment": "Ignore self-matches against prior deproc releases"
+      },
+      {
+        "purl": "pkg:pypi/deproc-python",
+        "comment": "Ignore self-matches against prior deproc releases"
+      },
+      {
+        "purl": "pkg:pypi/deproc-utils-tree-sitter",
+        "comment": "Ignore self-matches against prior deproc releases"
+      }
+    ]
   }
 }
