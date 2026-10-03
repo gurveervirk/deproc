@@ -8,6 +8,7 @@ from ..parser.models import SymbolID
 @dataclass(kw_only=True)
 class JavaPackage(Node):
     fqn: str
+    source_root_id: str | None = None
     subpackage_ids: list[SymbolID] = field(default_factory=list)
     compilation_unit_ids: list[SymbolID] = field(default_factory=list)
     package_info_id: SymbolID | None = None

@@ -11,6 +11,7 @@ from ..parser.models import (
 @dataclass
 class PythonNamespacePackage(Node):
     fqn: str
+    source_root_id: str | None = None
     submodule_ids: list[SymbolID] = field(default_factory=list)
 
 

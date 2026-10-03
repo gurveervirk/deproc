@@ -36,6 +36,13 @@ def _root_preference(root: RootDescriptor) -> tuple[int, int, int, str]:
 
 def discover_source_files(context: Context) -> list[DiscoveredFile]:
     extension_set = set(context.selected_file_extensions)
+    if context.scope.language_selection_explicit:
+        language_extensions = {
+            extension
+            for language in context.selected_languages
+            for extension in context._language_extensions.get(language, ())
+        }
+        extension_set &= language_extensions
     skip_paths = set(context.skip_paths) | set(context.scope.exclusions)
     if not extension_set:
         return []

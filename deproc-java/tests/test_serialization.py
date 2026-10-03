@@ -322,6 +322,7 @@ class TestSerialization:
             fqn="com.example.MyClass",
             package_fqn="com.example",
             path="com/example/MyClass.java",
+            source_root_id="generated",
             source="",
             docstring_range=None,
         )
@@ -329,6 +330,7 @@ class TestSerialization:
         assert record["type"] == "COMPILATION_UNIT"
         assert back.package_fqn == "com.example"
         assert back.fqn == "com.example.MyClass"
+        assert back.source_root_id == "generated"
 
     def test_module_roundtrip(self):
         mod = JavaModule(

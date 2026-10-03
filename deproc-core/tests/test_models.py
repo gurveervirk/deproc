@@ -133,6 +133,31 @@ class TestNodeDeterministicId:
         sf2 = SourceFile(path="foo.py", docstring_range=None, source="hello")
         assert sf1.id == sf2.id
 
+    def test_source_file_root_identity_prevents_cross_root_collision(self):
+        sf1 = SourceFile(
+            path="pkg/mod.py",
+            source_root_id="project",
+            docstring_range=None,
+            source="hello",
+        )
+        sf2 = SourceFile(
+            path="pkg/mod.py",
+            source_root_id="generated",
+            docstring_range=None,
+            source="hello",
+        )
+        assert sf1.id != sf2.id
+
+    def test_source_file_without_root_identity_keeps_legacy_id(self):
+        legacy = SourceFile(path="foo.py", docstring_range=None, source="hello")
+        explicit_none = SourceFile(
+            path="foo.py",
+            source_root_id=None,
+            docstring_range=None,
+            source="hello",
+        )
+        assert legacy.id == explicit_none.id
+
 
 class TestSourceRangeSourceId:
     def test_source_id_defaults_to_none(self):

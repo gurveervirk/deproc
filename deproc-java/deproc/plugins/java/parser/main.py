@@ -114,6 +114,7 @@ class JavaSourceParser(SourceParser):
                 fqn=cu_fqn,
                 package_fqn=package_fqn,
                 path=relative_path,
+                source_root_id=context.source_root_id,
                 source=source_bytes.decode("utf-8"),
                 docstring_range=None,
             )
@@ -122,6 +123,7 @@ class JavaSourceParser(SourceParser):
                 fqn=cu_fqn,
                 package_fqn=package_fqn,
                 path=relative_path,
+                source_root_id=context.source_root_id,
                 source=source_bytes.decode("utf-8"),
                 docstring_range=None,
             )

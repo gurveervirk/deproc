@@ -79,6 +79,7 @@ class PythonLinker(Linker[PythonModule, Node]):
             package = PythonNamespacePackage(
                 path=relative_path,
                 fqn=fqn,
+                source_root_id=context.source_root_id,
                 submodule_ids=[],
             )
 
