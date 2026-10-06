@@ -16,6 +16,12 @@ logger = logging.getLogger(__name__)
 
 
 class Context:
+    """Analysis state with one optional owning root identity.
+
+    ``source_root_id`` carries the corresponding ``RootDescriptor.root_id`` into
+    parsed physical nodes; it is not a second or independent root identity.
+    """
+
     def __init__(
         self,
         base_path: str = "",

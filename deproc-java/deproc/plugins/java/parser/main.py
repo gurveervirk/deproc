@@ -185,6 +185,7 @@ class JavaSourceParser(SourceParser):
         module = JavaModule(
             module_name=module_name,
             path=relative_path,
+            source_root_id=context.source_root_id,
         )
 
         body_node = self._child_by_type(node, "module_body")

@@ -1,9 +1,11 @@
 """Tests for Java linker."""
 
 from deproc.core.context import Context
+from deproc.core.interfaces.parser.models import Node
 from deproc.core.runtime import EntityRegistry
 from deproc.plugins.java.linker.main import JavaLinker
 from deproc.plugins.java.linker.models import JavaPackage
+from deproc.plugins.java.parser.main import JavaSourceParser
 from deproc.plugins.java.parser.models import (
     JavaCompilationUnit,
     JavaModule,
@@ -219,3 +221,105 @@ class TestPackageInfoLinker:
             if isinstance(p, JavaPackage) and p.fqn == "com.example.other"
         )
         assert pkg.package_info_id is None
+
+
+def test_packages_aggregate_compilation_units_and_package_info_across_roots(
+    tmp_path,
+):
+    roots = [
+        (
+            tmp_path / "root-a",
+            "root-a",
+            "A.java",
+            "package com.acme; public class A {}",
+        ),
+        (
+            tmp_path / "root-b",
+            "root-b",
+            "B.java",
+            "package com.acme; public class B {}",
+        ),
+    ]
+    for root, _, filename, source in roots:
+        package_dir = root / "com" / "acme"
+        package_dir.mkdir(parents=True)
+        (package_dir / filename).write_text(source)
+        (package_dir / "Shared.java").write_text(
+            "package com.acme; public class Shared {}"
+        )
+        (package_dir / "package-info.java").write_text("@Deprecated package com.acme;")
+
+    def link_in_order(ordered_roots):
+        registry = EntityRegistry()
+        for root, root_id, filename, _ in ordered_roots:
+            context = _make_context(str(root))
+            context.source_root_id = root_id
+            context.entity_registry = registry
+            parser = JavaSourceParser()
+            nodes = [
+                parser.parse_file(str(root / "com" / "acme" / source_name), context)
+                for source_name in (filename, "Shared.java", "package-info.java")
+            ]
+            JavaLinker().link_files(nodes, context)
+        package = next(
+            entity
+            for entity in registry.values()
+            if isinstance(entity, JavaPackage) and entity.fqn == "com.acme"
+        )
+        return registry, package
+
+    forward_registry, forward = link_in_order(roots)
+    reverse_registry, reverse = link_in_order(list(reversed(roots)))
+
+    assert forward.id == reverse.id
+    assert forward.id != Node(path="com/acme").id
+    assert not hasattr(forward, "source_root_id")
+    assert forward.compilation_unit_ids == reverse.compilation_unit_ids
+    assert forward.package_info_ids == reverse.package_info_ids
+    assert len(forward.compilation_unit_ids) == 6
+    assert len(forward.package_info_ids) == 2
+    assert forward.package_info_id == min(forward.package_info_ids)
+    for registry in (forward_registry, reverse_registry):
+        assert all(entity_id in registry for entity_id in forward.compilation_unit_ids)
+        shared_units = [
+            entity
+            for entity in registry.values()
+            if isinstance(entity, JavaCompilationUnit)
+            and entity.fqn == "com.acme.Shared"
+        ]
+        shared_classes = [
+            registry.get(entity_id)
+            for entity in shared_units
+            for entity_id in entity.type_ids
+        ]
+        assert len({entity.id for entity in shared_units}) == 2
+        assert len({entity.id for entity in shared_classes}) == 2
+    assert {entity.id for entity in forward_registry.values()} == {
+        entity.id for entity in reverse_registry.values()
+    }
+
+
+def test_module_info_identity_includes_its_owning_root(tmp_path):
+    registry = EntityRegistry()
+    modules = []
+    for root_name, root_id, module_name in (
+        ("root-a", "root-a", "example.one"),
+        ("root-b", "root-b", "example.two"),
+    ):
+        root = tmp_path / root_name
+        root.mkdir()
+        module_file = root / "module-info.java"
+        module_file.write_text(f"module {module_name} {{}}")
+        context = _make_context(str(root))
+        context.source_root_id = root_id
+        context.entity_registry = registry
+        modules.append(JavaSourceParser().parse_file(str(module_file), context))
+
+    assert modules[0].path == modules[1].path == "module-info.java"
+    assert modules[0].source_root_id == "root-a"
+    assert modules[1].source_root_id == "root-b"
+    assert modules[0].id != modules[1].id
+    assert (
+        len([entity for entity in registry.values() if isinstance(entity, JavaModule)])
+        == 2
+    )

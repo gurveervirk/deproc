@@ -3,16 +3,19 @@ from pathlib import Path
 
 from deproc.core.context import Context
 from deproc.core.interfaces import Linker
+from deproc.core.interfaces.parser.models import SemanticContainer
 
 from ..parser.models import PythonModule
 from .models import Node, PythonNamespacePackage, PythonPackage
 
 
-class PythonLinker(Linker[PythonModule, Node]):
+class PythonLinker(Linker[PythonModule, Node | SemanticContainer]):
     def _check_skip_patterns(self, path: str, skip_patterns: set[str]) -> bool:
         return any(fnmatch.fnmatch(path, pattern) for pattern in skip_patterns)
 
-    def link_files(self, nodes: list[PythonModule], context: Context) -> list[Node]:
+    def link_files(
+        self, nodes: list[PythonModule], context: Context
+    ) -> list[Node | SemanticContainer]:
         base_path = Path(context.base_path)
 
         path_to_module: dict[str, PythonModule] = {}
@@ -29,7 +32,7 @@ class PythonLinker(Linker[PythonModule, Node]):
             path_to_module[relative_path] = node
 
         skip_patterns = context.skip_paths
-        top_level: list[Node] = []
+        top_level: list[Node | SemanticContainer] = []
         for sub_path in base_path.iterdir():
             if sub_path.name == "__pycache__":
                 continue
@@ -61,7 +64,7 @@ class PythonLinker(Linker[PythonModule, Node]):
         path_to_module: dict[str, PythonModule],
         has_init: dict[str, PythonModule],
         context: Context,
-    ) -> Node | None:
+    ) -> Node | SemanticContainer | None:
         if not self.validate_path(str(current_path)):
             return None
 
@@ -79,7 +82,6 @@ class PythonLinker(Linker[PythonModule, Node]):
             package = PythonNamespacePackage(
                 path=relative_path,
                 fqn=fqn,
-                source_root_id=context.source_root_id,
                 submodule_ids=[],
             )
 
@@ -95,5 +97,9 @@ class PythonLinker(Linker[PythonModule, Node]):
                 sub_node.parent_id = package.id
                 package.submodule_ids.append(sub_node.id)
 
-        context.entity_registry.add(package)
+        if isinstance(package, SemanticContainer):
+            package.submodule_ids = sorted(set(package.submodule_ids))
+            package = context.entity_registry.merge_semantic_container(package)
+        else:
+            context.entity_registry.add(package)
         return package

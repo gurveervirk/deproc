@@ -3,7 +3,10 @@ Provisional data models for the parser interface.
 Please use these models either directly in the plugin implementations or as a reference for defining plugin-specific models.
 """
 
+from __future__ import annotations
+
 import hashlib
+import json
 from dataclasses import dataclass, field
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
@@ -25,6 +28,11 @@ class Entity:
         self.id = self._compute_id()
 
     def _compute_id(self) -> str:
+        """Use deterministic source identity when possible; otherwise allocate a transient ID.
+
+        Persisted semantic entities must provide an explicit ID or override this
+        method with deterministic identity inputs.
+        """
         parent_id = getattr(self, "parent_id", None)
         source_range = getattr(self, "source_range", None)
         if parent_id and source_range:
@@ -132,14 +140,61 @@ class ControlFlowGroup(Entity):
 @dataclass
 class Node(Entity):
     path: str
+    source_root_id: str | None = field(default=None, kw_only=True)
 
     def _compute_id(self) -> str:
-        return uuid5(NAMESPACE_URL, f"file://{self.path}").hex
+        if self.source_root_id is None:
+            identity = f"file://{self.path}"
+        else:
+            rooted_identity = json.dumps(
+                [self.source_root_id, self.path],
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+            identity = f"file://rooted/{rooted_identity}"
+        return uuid5(NAMESPACE_URL, identity).hex
+
+
+@dataclass(kw_only=True)
+class SemanticContainer(Entity):
+    @property
+    def semantic_type(self) -> str:
+        return f"{type(self).__module__}.{type(self).__qualname__}"
+
+    @property
+    def semantic_key(self) -> str:
+        fqn = getattr(self, "fqn", None)
+        if not fqn:
+            raise ValueError("Semantic containers require a non-empty FQN")
+        return fqn
+
+    @property
+    def contribution_ids(self) -> list[SymbolID]:
+        raise NotImplementedError
+
+    def _compute_id(self) -> str:
+        identity = json.dumps(
+            [self.semantic_type, self.semantic_key],
+            ensure_ascii=False,
+            separators=(",", ":"),
+        )
+        return uuid5(NAMESPACE_URL, f"semantic://{identity}").hex
+
+    def merge_from(self, other: SemanticContainer) -> None:
+        if type(self) is not type(other) or self.semantic_key != other.semantic_key:
+            raise ValueError("Only matching semantic containers can be merged")
+        if self.parent_id and other.parent_id and self.parent_id != other.parent_id:
+            raise ValueError("Matching semantic containers have conflicting parents")
+        if self.parent_id is None:
+            self.parent_id = other.parent_id
+        self._merge_contributions(other)
+
+    def _merge_contributions(self, other: SemanticContainer) -> None:
+        raise NotImplementedError
 
 
 @dataclass(kw_only=True)
 class SourceFile(Docstring, Node):
-    source_root_id: str | None = None
     import_stmt_ids: list[SymbolID] = field(default_factory=list)
     type_ids: list[SymbolID] = field(default_factory=list)
     function_ids: list[SymbolID] = field(default_factory=list)
@@ -149,7 +204,13 @@ class SourceFile(Docstring, Node):
 
     def _compute_id(self) -> str:
         h = hashlib.sha256(self.source.encode()).hexdigest()[:16]
-        identity = f"file://{self.path}#{h}"
-        if self.source_root_id:
-            identity = f"file://{self.source_root_id}/{self.path}#{h}"
+        if self.source_root_id is None:
+            identity = f"file://{self.path}#{h}"
+        else:
+            rooted_identity = json.dumps(
+                [self.source_root_id, self.path, h],
+                ensure_ascii=False,
+                separators=(",", ":"),
+            )
+            identity = f"file://rooted/{rooted_identity}"
         return uuid5(NAMESPACE_URL, identity).hex

@@ -2,6 +2,7 @@ import os
 
 from deproc.core.context import Context
 from deproc.core.interfaces import Linker
+from deproc.core.interfaces.parser.models import SemanticContainer
 
 from ..parser.models import JavaCompilationUnit, JavaModule, JavaPackageInfo
 from .models import JavaPackage
@@ -10,14 +11,14 @@ from .models import JavaPackage
 class JavaLinker(
     Linker[
         JavaCompilationUnit | JavaModule | JavaPackageInfo,
-        JavaPackage | JavaModule,
+        SemanticContainer | JavaModule,
     ]
 ):
     def link_files(
         self,
         nodes: list[JavaCompilationUnit | JavaModule | JavaPackageInfo],
         context: Context,
-    ) -> list[JavaPackage | JavaModule]:
+    ) -> list[SemanticContainer | JavaModule]:
         package_map: dict[str, JavaPackage] = {}
         modules: list[JavaModule] = []
         compilation_units: list[JavaCompilationUnit | JavaPackageInfo] = []
@@ -37,7 +38,6 @@ class JavaLinker(
                 package_map[fqn] = JavaPackage(
                     path=fqn.replace(".", "/"),
                     fqn=fqn,
-                    source_root_id=context.source_root_id,
                 )
             return package_map[fqn]
 
@@ -71,14 +71,29 @@ class JavaLinker(
             pkg = package_map.get(package_info.package_fqn or "")
             if pkg is not None:
                 pkg.package_info_id = package_info.id
+                pkg.package_info_ids = sorted(
+                    set(pkg.package_info_ids) | {package_info.id}
+                )
 
-        for pkg in package_map.values():
-            context.entity_registry.add(pkg)
+        for fqn, pkg in package_map.items():
+            pkg.subpackage_ids = sorted(set(pkg.subpackage_ids))
+            pkg.compilation_unit_ids = sorted(set(pkg.compilation_unit_ids))
+            pkg.package_info_id = (
+                min(pkg.package_info_ids) if pkg.package_info_ids else None
+            )
+            package_map[fqn] = context.entity_registry.merge_semantic_container(pkg)
 
         for module in modules:
             context.entity_registry.add(module)
 
-        top_level = [pkg for pkg in package_map.values() if pkg.parent_id is None]
+        top_level_packages = sorted(
+            (pkg for pkg in package_map.values() if pkg.parent_id is None),
+            key=lambda pkg: pkg.fqn,
+        )
+        top_level: list[SemanticContainer | JavaModule] = list(top_level_packages)
+        modules.sort(
+            key=lambda module: (module.module_name, module.source_root_id or "")
+        )
         return modules + top_level
 
     def _assign_compilation_units(
@@ -100,3 +115,4 @@ class JavaLinker(
                 package_ids.add(package_map[node.package_fqn].id)
 
         module.package_ids = sorted(package_ids)
+        module.compilation_unit_ids.sort()

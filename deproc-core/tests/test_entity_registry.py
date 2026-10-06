@@ -2,13 +2,33 @@
 
 from dataclasses import dataclass
 
-from deproc.core.interfaces.parser.models import Entity
+import pytest
+from deproc.core.interfaces.parser.models import Entity, SemanticContainer, SymbolID
 from deproc.core.runtime.registries.entity import EntityRegistry
 
 
 @dataclass(kw_only=True)
 class _FakeFqnEntity(Entity):
     fqn: str
+
+
+@dataclass(kw_only=True)
+class _FakeSemanticContainer(SemanticContainer):
+    fqn: str
+    items: list[SymbolID]
+
+    @property
+    def contribution_ids(self) -> list[SymbolID]:
+        return self.items
+
+    def _merge_contributions(self, other: SemanticContainer) -> None:
+        assert isinstance(other, _FakeSemanticContainer)
+        self.items = sorted(set(self.items) | set(other.items))
+
+
+@dataclass(kw_only=True)
+class _OtherFakeSemanticContainer(_FakeSemanticContainer):
+    pass
 
 
 class TestEntityRegistryValues:
@@ -123,3 +143,54 @@ class TestEntityRegistryFqnMapping:
         registry.add(e)
         registry.remove("id_1")
         assert "id_1" not in registry
+
+
+class TestSemanticContainerMerge:
+    def test_add_does_not_silently_replace_semantic_container(self):
+        registry = EntityRegistry()
+        first = _FakeSemanticContainer(fqn="pkg", items=["a"])
+        second = _FakeSemanticContainer(fqn="pkg", items=["b"])
+        registry.add(first)
+
+        with pytest.raises(ValueError, match="merge_semantic_container"):
+            registry.add(second)
+
+        assert registry.get(first.id) is first
+        assert first.items == ["a"]
+
+    def test_merge_semantic_container_unions_contributions(self):
+        registry = EntityRegistry()
+        first = _FakeSemanticContainer(fqn="pkg", items=["a"])
+        second = _FakeSemanticContainer(fqn="pkg", items=["b", "a"])
+        registry.add(first)
+
+        merged = registry.merge_semantic_container(second)
+
+        assert merged is first
+        assert first.items == ["a", "b"]
+        assert registry.get_ids_by_fqn("pkg") == {first.id}
+
+    def test_registry_merge_uses_explicit_container_merge(self):
+        first_registry = EntityRegistry()
+        second_registry = EntityRegistry()
+        first = _FakeSemanticContainer(fqn="pkg", items=["a"])
+        second = _FakeSemanticContainer(fqn="pkg", items=["b"])
+        first_registry.add(first)
+        second_registry.add(second)
+
+        first_registry.merge_from(second_registry)
+
+        assert first_registry.get(first.id) is first
+        assert first.items == ["a", "b"]
+
+    def test_different_semantic_container_types_have_distinct_identity(self):
+        registry = EntityRegistry()
+        first = _FakeSemanticContainer(fqn="pkg", items=["a"])
+        second = _OtherFakeSemanticContainer(fqn="pkg", items=["b"])
+
+        assert first.id != second.id
+        registry.merge_semantic_container(first)
+        registry.merge_semantic_container(second)
+
+        assert len(list(registry.values())) == 2
+        assert registry.get_ids_by_fqn("pkg") == {first.id, second.id}

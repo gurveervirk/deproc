@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING, Protocol, TypeVar, runtime_checkable
 if TYPE_CHECKING:
     from ..context import Context
 
-from .parser.models import Node
+from .parser.models import Entity, Node
 
 T_In = TypeVar("T_In", bound=Node)
-T_Out = TypeVar("T_Out", bound=Node)
+T_Out = TypeVar("T_Out", bound=Entity)
 
 
 @runtime_checkable

@@ -169,6 +169,7 @@ def entity_to_record(
     if isinstance(entity, JavaPackage):
         if entity.package_info_id:
             metadata["package_info_id"] = entity.package_info_id
+        metadata["package_info_ids"] = entity.package_info_ids
         metadata["subpackage_ids"] = entity.subpackage_ids
         metadata["compilation_unit_ids"] = entity.compilation_unit_ids
     if isinstance(entity, JavaModule):
@@ -391,16 +392,20 @@ def record_to_entity(record: dict) -> Entity | None:
             parent_id=parent_id,
             path=meta.get("path", record["full_path"].replace(".", "/")),
             fqn=meta.get("fqn") or record["full_path"],
-            source_root_id=meta.get("source_root_id"),
             subpackage_ids=meta.get("subpackage_ids", []),
             compilation_unit_ids=meta.get("compilation_unit_ids", []),
             package_info_id=meta.get("package_info_id"),
+            package_info_ids=meta.get(
+                "package_info_ids",
+                [meta["package_info_id"]] if meta.get("package_info_id") else [],
+            ),
         )
     if entity_class is JavaModule:
         return JavaModule(
             id=record["id"],
             parent_id=parent_id,
             path=meta.get("path", ""),
+            source_root_id=meta.get("source_root_id"),
             module_name=meta.get("module_name") or record["full_path"],
             requires=meta.get("requires", []),
             requires_static=meta.get("requires_static", []),

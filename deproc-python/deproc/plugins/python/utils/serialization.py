@@ -378,7 +378,6 @@ def record_to_entity(record: dict) -> Entity | None:
         return PythonNamespacePackage(
             parent_id=parent_id,
             path=meta.get("path", ""),
-            source_root_id=meta.get("source_root_id"),
             submodule_ids=meta.get("submodule_ids", []),
             **common,
         )

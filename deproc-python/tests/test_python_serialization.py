@@ -1,7 +1,7 @@
 from deproc.core.context import Context
 from deproc.core.interfaces.parser.models import SourceRange
 from deproc.core.runtime.registries.entity import EntityRegistry
-from deproc.plugins.python.linker.models import PythonPackage
+from deproc.plugins.python.linker.models import PythonNamespacePackage, PythonPackage
 from deproc.plugins.python.parser.models import (
     PythonClass,
     PythonConstant,
@@ -137,6 +137,23 @@ def test_serialize_round_trip_restores_package_submodules():
     assert entity.fqn == "pkg"
     assert entity.submodule_ids == ["sub1", "sub2"]
     assert entity.import_stmt_ids == ["imp1"]
+
+
+def test_serialize_round_trip_restores_namespace_package_contributions():
+    package = PythonNamespacePackage(
+        fqn="pkg",
+        path="pkg",
+        submodule_ids=["module-a", "module-b"],
+    )
+    record = entity_to_record(package)
+    assert record is not None
+
+    entity = record_to_entity(record)
+
+    assert isinstance(entity, PythonNamespacePackage)
+    assert entity.id == package.id
+    assert entity.semantic_key == "pkg"
+    assert entity.contribution_ids == ["module-a", "module-b"]
 
 
 def test_semantic_queries_survive_round_trip():
