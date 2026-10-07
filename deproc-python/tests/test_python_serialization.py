@@ -1,7 +1,7 @@
 from deproc.core.context import Context
 from deproc.core.interfaces.parser.models import SourceRange
 from deproc.core.runtime.registries.entity import EntityRegistry
-from deproc.plugins.python.linker.models import PythonPackage
+from deproc.plugins.python.linker.models import PythonNamespacePackage, PythonPackage
 from deproc.plugins.python.parser.models import (
     PythonClass,
     PythonConstant,
@@ -57,6 +57,7 @@ def test_serialize_round_trip_restores_module_ownership_and_exports():
             id="mod-id",
             fqn="pkg",
             path="pkg/__init__.py",
+            source_root_id="generated",
             source="",
             docstring_range=None,
             import_stmt_ids=[f"imp{i}" for i in range(3)],
@@ -74,6 +75,7 @@ def test_serialize_round_trip_restores_module_ownership_and_exports():
 
     assert isinstance(entity, PythonModule)
     assert entity.fqn == "pkg"
+    assert entity.source_root_id == "generated"
     assert entity.import_stmt_ids == ["imp0", "imp1", "imp2"]
     assert entity.type_ids == ["type0", "type1"]
     assert entity.function_ids == ["fn0", "fn1"]
@@ -135,6 +137,23 @@ def test_serialize_round_trip_restores_package_submodules():
     assert entity.fqn == "pkg"
     assert entity.submodule_ids == ["sub1", "sub2"]
     assert entity.import_stmt_ids == ["imp1"]
+
+
+def test_serialize_round_trip_restores_namespace_package_contributions():
+    package = PythonNamespacePackage(
+        fqn="pkg",
+        path="pkg",
+        submodule_ids=["module-a", "module-b"],
+    )
+    record = entity_to_record(package)
+    assert record is not None
+
+    entity = record_to_entity(record)
+
+    assert isinstance(entity, PythonNamespacePackage)
+    assert entity.id == package.id
+    assert entity.semantic_key == "pkg"
+    assert entity.contribution_ids == ["module-a", "module-b"]
 
 
 def test_semantic_queries_survive_round_trip():

@@ -190,6 +190,9 @@ def entity_to_record(
     path = getattr(entity, "path", None)
     if path is not None:
         metadata["path"] = path
+    source_root_id = getattr(entity, "source_root_id", None)
+    if source_root_id:
+        metadata["source_root_id"] = source_root_id
     if isinstance(entity, PythonModule) and entity.all_exports is not None:
         metadata["all_exports"] = entity.all_exports
     if isinstance(entity, PythonModule) and entity.exports_dynamic:
@@ -344,6 +347,7 @@ def record_to_entity(record: dict) -> Entity | None:
             all_exports=meta.get("all_exports"),
             exports_dynamic=meta.get("exports_dynamic", False),
             path=meta.get("path", ""),
+            source_root_id=meta.get("source_root_id"),
             source="",
             docstring_range=None,
             import_stmt_ids=meta.get("import_stmt_ids", []),
@@ -360,6 +364,7 @@ def record_to_entity(record: dict) -> Entity | None:
             all_exports=meta.get("all_exports"),
             exports_dynamic=meta.get("exports_dynamic", False),
             path=meta.get("path", ""),
+            source_root_id=meta.get("source_root_id"),
             source="",
             docstring_range=None,
             import_stmt_ids=meta.get("import_stmt_ids", []),

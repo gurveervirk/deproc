@@ -322,6 +322,7 @@ class TestSerialization:
             fqn="com.example.MyClass",
             package_fqn="com.example",
             path="com/example/MyClass.java",
+            source_root_id="generated",
             source="",
             docstring_range=None,
         )
@@ -329,12 +330,14 @@ class TestSerialization:
         assert record["type"] == "COMPILATION_UNIT"
         assert back.package_fqn == "com.example"
         assert back.fqn == "com.example.MyClass"
+        assert back.source_root_id == "generated"
 
     def test_module_roundtrip(self):
         mod = JavaModule(
             id="mod_1",
             module_name="com.example.myapp",
             path="module-info.java",
+            source_root_id="generated",
             requires=["java.sql"],
             requires_static=["java.logging"],
             requires_transitive=["com.core"],
@@ -350,6 +353,7 @@ class TestSerialization:
         record, back = self._roundtrip(mod)
         assert record["type"] == "JAVA_MODULE"
         assert back.module_name == "com.example.myapp"
+        assert back.source_root_id == "generated"
         assert back.requires == ["java.sql"]
         assert back.requires_static == ["java.logging"]
         assert back.requires_transitive == ["com.core"]
@@ -364,18 +368,29 @@ class TestSerialization:
 
     def test_package_roundtrip(self):
         pkg = JavaPackage(
-            id="pkg_1",
             path="com/example",
             fqn="com.example",
             subpackage_ids=["sub_1"],
             compilation_unit_ids=["cu_1"],
             package_info_id="pi_1",
+            package_info_ids=["pi_1", "pi_2"],
         )
         record, back = self._roundtrip(pkg)
         assert record["type"] == "PACKAGE"
         assert back.subpackage_ids == ["sub_1"]
         assert back.compilation_unit_ids == ["cu_1"]
         assert back.package_info_id == "pi_1"
+        assert back.package_info_ids == ["pi_1", "pi_2"]
+
+        legacy_metadata = json.loads(record["metadata_json"])
+        legacy_metadata.pop("package_info_ids")
+        legacy_record = {
+            **record,
+            "metadata_json": json.dumps(legacy_metadata),
+        }
+        legacy_back = record_to_entity(legacy_record)
+        assert isinstance(legacy_back, JavaPackage)
+        assert legacy_back.package_info_ids == ["pi_1"]
 
     def test_package_info_roundtrip(self):
         pi = JavaPackageInfo(

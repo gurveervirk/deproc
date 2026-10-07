@@ -4,9 +4,16 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 from deproc.core.context import Context
+from deproc.core.interfaces.parser.models import Node
 from deproc.core.runtime import EntityRegistry
 from deproc.plugins.python.linker.main import PythonLinker
-from deproc.plugins.python.parser.models import PythonModule
+from deproc.plugins.python.linker.models import PythonNamespacePackage
+from deproc.plugins.python.parser.main import PythonSourceParser
+from deproc.plugins.python.parser.models import (
+    PythonClass,
+    PythonFunctionLike,
+    PythonModule,
+)
 
 
 def _write_file(path: Path, content: str = "") -> Path:
@@ -190,3 +197,112 @@ class TestLinker:
         assert "dist" not in fqns
         assert "node_modules" not in fqns
         assert "src.egg-info" not in fqns
+
+    def test_namespace_package_aggregates_multiple_roots_independent_of_order(
+        self, tmp_path: Path
+    ):
+        roots = [
+            (
+                tmp_path / "root-a",
+                "root-a",
+                "pkg/a.py",
+                "class A:\n    def run(self): pass\n",
+            ),
+            (
+                tmp_path / "root-b",
+                "root-b",
+                "pkg/b.py",
+                "class B:\n    def run(self): pass\n",
+            ),
+        ]
+        for root, _, relative_path, source in roots:
+            _write_file(root / relative_path, source)
+
+        def link_in_order(ordered_roots):
+            registry = EntityRegistry()
+            for root, root_id, relative_path, _ in ordered_roots:
+                context = _make_context(str(root))
+                context.source_root_id = root_id
+                context.entity_registry = registry
+                module = PythonSourceParser().parse_file(
+                    str(root / relative_path), context
+                )
+                PythonLinker().link_files([module], context)
+            packages = [
+                entity
+                for entity in registry.values()
+                if isinstance(entity, PythonNamespacePackage)
+            ]
+            return registry, packages
+
+        forward_registry, forward_packages = link_in_order(roots)
+        reverse_registry, reverse_packages = link_in_order(list(reversed(roots)))
+
+        assert len(forward_packages) == len(reverse_packages) == 1
+        forward = forward_packages[0]
+        reverse = reverse_packages[0]
+        assert forward.fqn == reverse.fqn == "pkg"
+        assert forward.id == reverse.id
+        assert forward.id != Node(path="pkg").id
+        assert forward.submodule_ids == reverse.submodule_ids
+        assert len(forward.submodule_ids) == 2
+        assert not hasattr(forward, "source_root_id")
+
+        for registry in (forward_registry, reverse_registry):
+            modules = [
+                entity
+                for entity in registry.values()
+                if isinstance(entity, PythonModule)
+            ]
+            classes = [
+                entity
+                for entity in registry.values()
+                if isinstance(entity, PythonClass)
+            ]
+            methods = [
+                entity
+                for entity in registry.values()
+                if isinstance(entity, PythonFunctionLike) and entity.type == "METHOD"
+            ]
+            assert len(modules) == len(classes) == len(methods) == 2
+            assert {module.id for module in modules} == set(forward.submodule_ids)
+        assert {entity.id for entity in forward_registry.values()} == {
+            entity.id for entity in reverse_registry.values()
+        }
+
+    def test_identical_source_path_in_two_roots_keeps_descendant_ids_distinct(
+        self, tmp_path: Path
+    ):
+        source = "class Shared:\n    def run(self): pass\n"
+        registry = EntityRegistry()
+        modules = []
+        for root_name, root_id in (("root-a", "root-a"), ("root-b", "root-b")):
+            root = tmp_path / root_name
+            source_path = _write_file(root / "pkg" / "mod.py", source)
+            context = _make_context(str(root))
+            context.source_root_id = root_id
+            context.entity_registry = registry
+            module = PythonSourceParser().parse_file(str(source_path), context)
+            PythonLinker().link_files([module], context)
+            modules.append(module)
+
+        classes = [
+            entity for entity in registry.values() if isinstance(entity, PythonClass)
+        ]
+        methods = [
+            entity
+            for entity in registry.values()
+            if isinstance(entity, PythonFunctionLike) and entity.type == "METHOD"
+        ]
+        namespace = next(
+            entity
+            for entity in registry.values()
+            if isinstance(entity, PythonNamespacePackage)
+        )
+
+        assert modules[0].path == modules[1].path == "pkg/mod.py"
+        assert modules[0].source == modules[1].source
+        assert modules[0].id != modules[1].id
+        assert len({entity.id for entity in classes}) == 2
+        assert len({entity.id for entity in methods}) == 2
+        assert set(namespace.submodule_ids) == {module.id for module in modules}

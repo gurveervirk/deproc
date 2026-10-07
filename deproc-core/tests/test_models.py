@@ -1,7 +1,7 @@
 """Tests for deterministic entity ID generation."""
 
 from dataclasses import dataclass
-from uuid import uuid4
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from deproc.core.interfaces.parser.models import (
     Entity,
@@ -86,6 +86,9 @@ class TestEntityDeterministicId:
         e = _EntityWithSource(id="explicit", parent_id=_PARENT, source_range=sr)
         assert e.id == "explicit"
 
+    def test_root_identity_is_not_a_universal_entity_field(self):
+        assert not hasattr(Entity(), "source_root_id")
+
 
 class TestNodeDeterministicId:
     def test_same_path_produces_same_id(self):
@@ -102,6 +105,11 @@ class TestNodeDeterministicId:
         n = Node(path="src/main.py")
         assert isinstance(n.id, str)
         assert len(n.id) == 32
+
+    def test_node_root_path_encoding_is_structurally_unambiguous(self):
+        first = Node(path="b/c.py", source_root_id="a")
+        second = Node(path="c.py", source_root_id="a/b")
+        assert first.id != second.id
 
     def test_source_file_id_is_deterministic(self):
         sf1 = SourceFile(path="foo/bar.py", docstring_range=None, source="")
@@ -132,6 +140,50 @@ class TestNodeDeterministicId:
         sf1 = SourceFile(path="foo.py", docstring_range=None, source="hello")
         sf2 = SourceFile(path="foo.py", docstring_range=None, source="hello")
         assert sf1.id == sf2.id
+
+    def test_source_file_root_identity_prevents_cross_root_collision(self):
+        sf1 = SourceFile(
+            path="pkg/mod.py",
+            source_root_id="project",
+            docstring_range=None,
+            source="hello",
+        )
+        sf2 = SourceFile(
+            path="pkg/mod.py",
+            source_root_id="generated",
+            docstring_range=None,
+            source="hello",
+        )
+        assert sf1.id != sf2.id
+
+    def test_source_file_root_path_encoding_is_structurally_unambiguous(self):
+        first = SourceFile(
+            path="b/c.py",
+            source_root_id="a",
+            docstring_range=None,
+            source="same",
+        )
+        second = SourceFile(
+            path="c.py",
+            source_root_id="a/b",
+            docstring_range=None,
+            source="same",
+        )
+        assert first.id != second.id
+
+    def test_source_file_without_root_identity_keeps_legacy_id(self):
+        legacy = SourceFile(path="foo.py", docstring_range=None, source="hello")
+        explicit_none = SourceFile(
+            path="foo.py",
+            source_root_id=None,
+            docstring_range=None,
+            source="hello",
+        )
+        assert legacy.id == explicit_none.id
+
+    def test_legacy_node_id_is_preserved_without_root_identity(self):
+        node = Node(path="src/main.py")
+        assert node.id == uuid5(NAMESPACE_URL, "file://src/main.py").hex
 
 
 class TestSourceRangeSourceId:
