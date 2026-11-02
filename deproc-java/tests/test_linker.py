@@ -1,9 +1,11 @@
 """Tests for Java linker."""
 
 from deproc.core.context import Context
+from deproc.core.interfaces.parser.models import Node
 from deproc.core.runtime import EntityRegistry
 from deproc.plugins.java.linker.main import JavaLinker
 from deproc.plugins.java.linker.models import JavaPackage
+from deproc.plugins.java.parser.main import JavaSourceParser
 from deproc.plugins.java.parser.models import (
     JavaCompilationUnit,
     JavaModule,
@@ -219,3 +221,217 @@ class TestPackageInfoLinker:
             if isinstance(p, JavaPackage) and p.fqn == "com.example.other"
         )
         assert pkg.package_info_id is None
+
+
+def test_packages_aggregate_compilation_units_and_package_info_across_roots(
+    tmp_path,
+):
+    roots = [
+        (
+            tmp_path / "root-a",
+            "root-a",
+            "A.java",
+            "package com.acme; public class A {}",
+        ),
+        (
+            tmp_path / "root-b",
+            "root-b",
+            "B.java",
+            "package com.acme; public class B {}",
+        ),
+    ]
+    for root, _, filename, source in roots:
+        package_dir = root / "com" / "acme"
+        package_dir.mkdir(parents=True)
+        (package_dir / filename).write_text(source)
+        (package_dir / "Shared.java").write_text(
+            "package com.acme; public class Shared {}"
+        )
+        (package_dir / "package-info.java").write_text("@Deprecated package com.acme;")
+
+    def link_in_order(ordered_roots):
+        registry = EntityRegistry()
+        for root, root_id, filename, _ in ordered_roots:
+            context = _make_context(str(root))
+            context.source_root_id = root_id
+            context.entity_registry = registry
+            parser = JavaSourceParser()
+            nodes = [
+                parser.parse_file(str(root / "com" / "acme" / source_name), context)
+                for source_name in (filename, "Shared.java", "package-info.java")
+            ]
+            JavaLinker().link_files(nodes, context)
+        package = next(
+            entity
+            for entity in registry.values()
+            if isinstance(entity, JavaPackage) and entity.fqn == "com.acme"
+        )
+        return registry, package
+
+    forward_registry, forward = link_in_order(roots)
+    reverse_registry, reverse = link_in_order(list(reversed(roots)))
+
+    assert forward.id == reverse.id
+    assert forward.id != Node(path="com/acme").id
+    assert not hasattr(forward, "source_root_id")
+    assert forward.compilation_unit_ids == reverse.compilation_unit_ids
+    assert forward.package_info_ids == reverse.package_info_ids
+    assert len(forward.compilation_unit_ids) == 6
+    assert len(forward.package_info_ids) == 2
+    assert forward.package_info_id == min(forward.package_info_ids)
+    for registry in (forward_registry, reverse_registry):
+        assert all(entity_id in registry for entity_id in forward.compilation_unit_ids)
+        shared_units = [
+            entity
+            for entity in registry.values()
+            if isinstance(entity, JavaCompilationUnit)
+            and entity.fqn == "com.acme.Shared"
+        ]
+        shared_classes = [
+            registry.get(entity_id)
+            for entity in shared_units
+            for entity_id in entity.type_ids
+        ]
+        assert len({entity.id for entity in shared_units}) == 2
+        assert len({entity.id for entity in shared_classes}) == 2
+    assert {entity.id for entity in forward_registry.values()} == {
+        entity.id for entity in reverse_registry.values()
+    }
+
+
+def test_module_info_identity_includes_its_owning_root(tmp_path):
+    registry = EntityRegistry()
+    modules = []
+    for root_name, root_id, module_name in (
+        ("root-a", "root-a", "example.one"),
+        ("root-b", "root-b", "example.two"),
+    ):
+        root = tmp_path / root_name
+        root.mkdir()
+        module_file = root / "module-info.java"
+        module_file.write_text(f"module {module_name} {{}}")
+        context = _make_context(str(root))
+        context.source_root_id = root_id
+        context.entity_registry = registry
+        modules.append(JavaSourceParser().parse_file(str(module_file), context))
+
+    assert modules[0].path == modules[1].path == "module-info.java"
+    assert modules[0].source_root_id == "root-a"
+    assert modules[1].source_root_id == "root-b"
+    assert modules[0].id != modules[1].id
+    assert (
+        len([entity for entity in registry.values() if isinstance(entity, JavaModule)])
+        == 2
+    )
+
+
+def _module_cu(module_dir: str, fqn: str, package_fqn: str) -> JavaCompilationUnit:
+    cu = _make_cu(fqn, package_fqn)
+    cu.path = f"{module_dir}/{fqn.replace('.', '/')}.java"
+    return cu
+
+
+def _packages(ctx: Context, fqn: str) -> list[JavaPackage]:
+    return sorted(
+        (
+            entity
+            for entity in ctx.entity_registry.values()
+            if isinstance(entity, JavaPackage) and entity.fqn == fqn
+        ),
+        key=lambda package: package.module_name or "",
+    )
+
+
+class TestModuleScopedPackages:
+    def test_same_package_in_two_named_modules_stays_separate(self):
+        ctx = _make_context()
+        a = _module_cu("m.one", "com.acme.A", "com.acme")
+        b = _module_cu("m.two", "com.acme.B", "com.acme")
+        mod_one = _make_module("m.one", "m.one/module-info.java")
+        mod_two = _make_module("m.two", "m.two/module-info.java")
+
+        JavaLinker().link_files([a, b, mod_one, mod_two], ctx)
+
+        pkg_one, pkg_two = _packages(ctx, "com.acme")
+        assert pkg_one.module_name == "m.one"
+        assert pkg_two.module_name == "m.two"
+        assert pkg_one.id != pkg_two.id
+        assert pkg_one.compilation_unit_ids == [a.id]
+        assert pkg_two.compilation_unit_ids == [b.id]
+        assert mod_one.package_ids == [pkg_one.id]
+        assert mod_two.package_ids == [pkg_two.id]
+        assert mod_one.compilation_unit_ids == [a.id]
+        assert mod_two.compilation_unit_ids == [b.id]
+
+    def test_package_hierarchy_stays_inside_one_module(self):
+        ctx = _make_context()
+        a = _module_cu("m.one", "com.acme.api.A", "com.acme.api")
+        b = _module_cu("m.two", "com.acme.api.B", "com.acme.api")
+        mod_one = _make_module("m.one", "m.one/module-info.java")
+        mod_two = _make_module("m.two", "m.two/module-info.java")
+
+        JavaLinker().link_files([a, b, mod_one, mod_two], ctx)
+
+        for fqn in ("com", "com.acme", "com.acme.api"):
+            assert len(_packages(ctx, fqn)) == 2
+        for module_name in ("m.one", "m.two"):
+            by_fqn = {
+                p.fqn: p
+                for p in ctx.entity_registry.values()
+                if isinstance(p, JavaPackage) and p.module_name == module_name
+            }
+            assert by_fqn["com.acme.api"].parent_id == by_fqn["com.acme"].id
+            assert by_fqn["com.acme"].parent_id == by_fqn["com"].id
+            assert by_fqn["com.acme"].subpackage_ids == [by_fqn["com.acme.api"].id]
+
+    def test_package_info_belongs_to_its_module_package(self):
+        ctx = _make_context()
+        info = JavaPackageInfo(
+            id="pi_one",
+            fqn="com.acme.package-info",
+            package_fqn="com.acme",
+            path="m.one/com/acme/package-info.java",
+            source="",
+            docstring_range=None,
+        )
+        a = _module_cu("m.one", "com.acme.A", "com.acme")
+        b = _module_cu("m.two", "com.acme.B", "com.acme")
+        mod_one = _make_module("m.one", "m.one/module-info.java")
+        mod_two = _make_module("m.two", "m.two/module-info.java")
+
+        JavaLinker().link_files([info, a, b, mod_one, mod_two], ctx)
+
+        pkg_one, pkg_two = _packages(ctx, "com.acme")
+        assert pkg_one.package_info_ids == ["pi_one"]
+        assert pkg_two.package_info_ids == []
+
+    def test_nested_module_takes_its_own_compilation_units(self):
+        ctx = _make_context()
+        outer_cu = _module_cu("outer", "com.acme.Outer", "com.acme")
+        inner_cu = _make_cu("com.acme.Inner", "com.acme")
+        inner_cu.path = "outer/inner/com/acme/Inner.java"
+        outer = _make_module("outer", "outer/module-info.java")
+        inner = _make_module("inner", "outer/inner/module-info.java")
+
+        JavaLinker().link_files([outer_cu, inner_cu, outer, inner], ctx)
+
+        assert outer.compilation_unit_ids == [outer_cu.id]
+        assert inner.compilation_unit_ids == [inner_cu.id]
+
+    def test_code_without_a_module_keeps_legacy_package_identity(self):
+        ctx = _make_context()
+        cu = _make_cu("com.acme.A", "com.acme")
+
+        JavaLinker().link_files([cu], ctx)
+
+        (package,) = _packages(ctx, "com.acme")
+        assert package.module_name is None
+        assert package.semantic_key == "com.acme"
+        legacy = JavaPackage(path="com/acme", fqn="com.acme")
+        assert package.id == legacy.id
+
+    def test_module_scope_changes_package_identity(self):
+        plain = JavaPackage(path="com/acme", fqn="com.acme")
+        scoped_one = JavaPackage(path="com/acme", fqn="com.acme", module_name="m.one")
+        scoped_two = JavaPackage(path="com/acme", fqn="com.acme", module_name="m.two")
+        assert len({plain.id, scoped_one.id, scoped_two.id}) == 3

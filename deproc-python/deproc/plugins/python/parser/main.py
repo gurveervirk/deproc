@@ -91,6 +91,7 @@ class PythonSourceParser(SourceParser):
         source_file = PythonModule(
             fqn=parent_fqn,
             path=relative_path,
+            source_root_id=context.source_root_id,
             docstring_range=docstring_range,
             source=source_bytes.decode("utf-8"),
         )

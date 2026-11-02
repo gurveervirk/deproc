@@ -288,6 +288,13 @@ class TestCopyFrom:
         copy = Context(copy_from=Context(scope=scope))
         assert copy.scope is scope
 
+    def test_copy_can_override_source_root_identity(self):
+        original = Context(source_root_id="project")
+        copy = Context(copy_from=original, source_root_id="generated")
+
+        assert original.source_root_id == "project"
+        assert copy.source_root_id == "generated"
+
 
 class TestReset:
     def test_reset_restores_all_languages(self):

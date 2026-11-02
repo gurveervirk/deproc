@@ -132,3 +132,25 @@ class TestFindSourceFiles:
         discovered = discover_source_files(Context(scope=scope))
 
         assert discovered[0].root_kind == "source"
+
+    def test_explicit_language_selection_limits_implicit_extensions(self, tmp_path):
+        python_file = tmp_path / "module.py"
+        java_file = tmp_path / "Module.java"
+        python_file.write_text("")
+        java_file.write_text("")
+        scope = AnalysisScope(
+            project_roots=[str(tmp_path)], selected_languages=["python"]
+        )
+        context = Context(scope=scope)
+        context.set_language("python", [".py"])
+        context.set_language("java", [".java"])
+
+        assert find_source_files(context) == [str(python_file)]
+
+    def test_explicit_empty_language_selection_discovers_no_files(self, tmp_path):
+        (tmp_path / "module.py").write_text("")
+        scope = AnalysisScope(project_roots=[str(tmp_path)], selected_languages=[])
+        context = Context(scope=scope)
+        context.set_language("python", [".py"])
+
+        assert find_source_files(context) == []

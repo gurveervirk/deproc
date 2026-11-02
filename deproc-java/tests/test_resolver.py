@@ -948,3 +948,85 @@ class TestTypeRelationships:
         result = JavaResolver().resolve("moda.com.example.Foo", "Bar", ctx)
         assert result.resolved_ids == {"cls_1"}
         assert result.inaccessible_ids == set()
+
+
+class TestSharedPackageAcrossModules:
+    def _two_modules(self):
+        imp = JavaImport(
+            id="imp_a",
+            import_path="com.acme.A",
+            import_kind="single_type",
+            imported_name="A",
+            source_range=_sr(),
+        )
+        cu_one = _make_cu("com.acme.Use", "com.acme", [imp], cu_id="cu_one")
+        cu_a = _make_cu("com.acme.A", "com.acme", [], cu_id="cu_a")
+        cu_b = _make_cu("com.acme.B", "com.acme", [], cu_id="cu_b")
+        class_a = _make_class("com.acme.A", "cls_a")
+        class_a.parent_id = "cu_a"
+        class_b = _make_class("com.acme.B", "cls_b")
+        class_b.parent_id = "cu_b"
+        pkg_one = _make_package("com.acme", "pkg_one")
+        pkg_one.module_name = "m.one"
+        pkg_two = _make_package("com.acme", "pkg_two")
+        pkg_two.module_name = "m.two"
+        mod_one = _make_module(
+            "m.one",
+            "mod_one",
+            package_fqns=[],
+            cu_ids=["cu_one", "cu_a"],
+            exports=["com.acme"],
+        )
+        mod_one.package_ids = ["pkg_one"]
+        mod_two = _make_module(
+            "m.two",
+            "mod_two",
+            package_fqns=[],
+            cu_ids=["cu_b"],
+            exports=["com.acme"],
+        )
+        mod_two.package_ids = ["pkg_two"]
+        return (
+            imp,
+            cu_one,
+            [cu_a, cu_b],
+            [class_a, class_b],
+            [pkg_one, pkg_two],
+            [mod_one, mod_two],
+        )
+
+    def test_module_sees_its_own_class_when_the_package_name_is_shared(self):
+        imp, cu_one, extra_cus, classes, packages, modules = self._two_modules()
+        ctx = _context(cu_one, classes, [imp], packages=packages, modules=modules)
+        for extra in extra_cus:
+            ctx.entity_registry.add(extra)
+
+        result = JavaResolver().resolve("com.acme.Use", "A", ctx)
+
+        assert result.resolved_ids == {"cls_a"}
+        assert result.inaccessible_ids == set()
+
+    def test_module_index_keeps_every_module_that_declares_the_package(self):
+        from deproc.plugins.java.resolver.module_visibility import build_module_index
+
+        imp, cu_one, _extra_cus, classes, packages, modules = self._two_modules()
+        ctx = _context(cu_one, classes, [imp], packages=packages, modules=modules)
+
+        index = build_module_index(ctx.entity_registry)
+
+        assert index.package_to_modules == {"com.acme": {"m.one", "m.two"}}
+        assert index.package_to_module == {}
+
+    def test_unrelated_module_cannot_see_a_class_it_does_not_read(self):
+        imp, _, extra_cus, classes, packages, modules = self._two_modules()
+        cu_two = _make_cu("com.acme.UseB", "com.acme", [imp], cu_id="cu_two")
+        modules[1].compilation_unit_ids.append("cu_two")
+        modules[0].exports = []
+        ctx = _context(cu_two, classes, [imp], packages=packages, modules=modules)
+        for extra in extra_cus:
+            ctx.entity_registry.add(extra)
+
+        result = JavaResolver().resolve("com.acme.UseB", "A", ctx)
+
+        assert result.resolved_ids == set()
+        assert result.inaccessible_ids == {"cls_a"}
