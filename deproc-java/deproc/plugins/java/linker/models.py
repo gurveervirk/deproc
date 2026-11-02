@@ -11,10 +11,19 @@ class JavaPackage(SemanticContainer):
     compilation_unit_ids: list[SymbolID] = field(default_factory=list)
     package_info_id: SymbolID | None = None
     package_info_ids: list[SymbolID] = field(default_factory=list)
+    module_name: str | None = None
 
     @property
     def semantic_type(self) -> str:
         return "java.package"
+
+    @property
+    def semantic_key(self) -> str:
+        if not self.fqn:
+            raise ValueError("Semantic containers require a non-empty FQN")
+        if self.module_name:
+            return f"{self.module_name}/{self.fqn}"
+        return self.fqn
 
     def __post_init__(self) -> None:
         super().__post_init__()

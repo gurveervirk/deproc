@@ -172,6 +172,8 @@ def entity_to_record(
         metadata["package_info_ids"] = entity.package_info_ids
         metadata["subpackage_ids"] = entity.subpackage_ids
         metadata["compilation_unit_ids"] = entity.compilation_unit_ids
+        if entity.module_name:
+            metadata["module_name"] = entity.module_name
     if isinstance(entity, JavaModule):
         metadata["module_name"] = entity.module_name
         metadata["requires"] = entity.requires
@@ -399,6 +401,7 @@ def record_to_entity(record: dict) -> Entity | None:
                 "package_info_ids",
                 [meta["package_info_id"]] if meta.get("package_info_id") else [],
             ),
+            module_name=meta.get("module_name"),
         )
     if entity_class is JavaModule:
         return JavaModule(

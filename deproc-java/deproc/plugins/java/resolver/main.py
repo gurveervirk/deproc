@@ -358,7 +358,13 @@ class JavaResolver(Resolver[JavaResolverResult]):
             getattr(requester_unit, "id", "")
         )
         fqn = getattr(candidate, "fqn", None)
-        if not fqn or not is_visible(requester_module, fqn, module_index):
+        candidate_unit = self._get_compilation_unit_for_type(candidate, context)
+        candidate_module = module_index.cu_to_module.get(
+            getattr(candidate_unit, "id", "")
+        )
+        if not fqn or not is_visible(
+            requester_module, fqn, module_index, candidate_module
+        ):
             return False
 
         if any(
@@ -620,7 +626,17 @@ class JavaResolver(Resolver[JavaResolverResult]):
                 fqn = getattr(entity, "fqn", None) or getattr(
                     getattr(entity, "variable_binding", None), "fqn", None
                 )
-                if not fqn or is_visible(requesting_module, fqn, module_index):
+                candidate_unit = (
+                    self._get_compilation_unit_for_type(entity, context)
+                    if isinstance(entity, TypeDefinition)
+                    else None
+                )
+                candidate_module = module_index.cu_to_module.get(
+                    getattr(candidate_unit, "id", "")
+                )
+                if not fqn or is_visible(
+                    requesting_module, fqn, module_index, candidate_module
+                ):
                     visible_ids.add(resolved_id)
                 else:
                     inaccessible_ids.add(resolved_id)

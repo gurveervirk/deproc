@@ -565,3 +565,24 @@ class TestSerialization:
         )
         assert restored_owner.superclass == owner.superclass
         assert restored_owner.implements == owner.implements
+
+
+def test_module_scoped_package_roundtrip_keeps_identity():
+    scoped = JavaPackage(path="com/acme", fqn="com.acme", module_name="m.one")
+    plain = JavaPackage(path="com/acme", fqn="com.acme")
+    scoped_record = entity_to_record(scoped)
+    plain_record = entity_to_record(plain)
+    assert scoped_record is not None and plain_record is not None
+    assert json.loads(scoped_record["metadata_json"])["module_name"] == "m.one"
+    assert "module_name" not in json.loads(plain_record["metadata_json"])
+
+    scoped_back = record_to_entity(scoped_record)
+    plain_back = record_to_entity(plain_record)
+    assert isinstance(scoped_back, JavaPackage)
+    assert isinstance(plain_back, JavaPackage)
+    assert scoped_back.module_name == "m.one"
+    assert plain_back.module_name is None
+    assert scoped_back.id == scoped.id
+    assert scoped_back.semantic_key == "m.one/com.acme"
+    assert plain_back.id == plain.id
+    assert scoped.id != plain.id
