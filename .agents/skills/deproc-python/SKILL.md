@@ -53,7 +53,35 @@ result = ctx.get_resolver("python").resolve("mymodule", "MyClass", ctx)
 | `PythonImportStatement` | Import statement, has `path`, `name_ids`, `wildcard` |
 | `PythonImportAlias` | Imported name with optional alias, has `original_name` via metadata |
 | `PythonPackage` | Directory with `__init__.py`, has `submodule_ids` |
-| `PythonNamespacePackage` | Implicit namespace package (no `__init__.py`) |
+| `PythonNamespacePackage` | Implicit namespace package (no `__init__.py`); a `SemanticContainer` that merges the portions from every root |
+
+## Several roots
+
+`files_by_root` maps each `RootDescriptor` to the `DiscoveredFile` objects that `discover_source_files(ctx)` returned for it.
+
+```python
+from deproc.core.runtime import EntityRegistry
+from deproc.plugins.python.utils.packages import apply_regular_package_precedence
+
+registries = []
+for root, found_files in files_by_root.items():
+    root_ctx = Context(copy_from=ctx, source_root_id=root.root_id)
+    root_ctx.base_path = root.path
+    root_ctx.entity_registry = EntityRegistry()
+    modules = [parser.parse_file(f.path, root_ctx) for f in found_files]
+    linker.link_files(modules, root_ctx)
+    registries.append(root_ctx.entity_registry)
+
+shadowed = apply_regular_package_precedence(registries)
+merged = EntityRegistry()
+for registry in registries:
+    merged.merge_from(registry)
+```
+
+- A namespace package contributed by several roots becomes one `PythonNamespacePackage` after `merge_from()`.
+- `apply_regular_package_precedence()` applies Python's import rule: a regular package (`__init__.py`) in one root wins over a same-named namespace portion, or one under it, in another root. Call it on the per-root registries before merging. The shadowed container is removed, its modules stay in the registry with `parent_id = None`, and the returned `ShadowedNamespacePortion` objects (`fqn`, `path`, `registry_index`, `detached_ids`) say what was detached. A warning is logged on `deproc.plugins.python.utils.packages`.
+- It compares separate per-root registries. A single registry that was linked from several roots still holds both the regular package and the namespace container.
+- Two regular packages with the same name in different roots are both kept. Python would import only the first on its path.
 
 ## MRO / inheritance utilities
 
@@ -117,7 +145,7 @@ result: PythonResolverResult = resolver.resolve("mymodule", "MyClass", ctx)
 
 ## Tree-sitter integration
 
-`PythonSourceParser` uses tree-sitter (pinned to `0.25.2` — `0.26.0` causes segfaults). AST walking utilities in `deproc-utils-tree-sitter`:
+`PythonSourceParser` uses tree-sitter, bounded to `>=0.25.2,<0.26` because `0.26.0` segfaults on real library code. AST walking utilities in `deproc-utils-tree-sitter`:
 
 ```python
 from deproc.utils import iter_children, first_child, walk_preorder

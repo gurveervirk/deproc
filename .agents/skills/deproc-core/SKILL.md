@@ -78,7 +78,8 @@ All entities extend `Entity` with deterministic UUID5 IDs derived from `(parent_
 | `Entity` | Base class | `id`, `parent_id` |
 | `SourceRange` | Location in source | `lineno`, `end_lineno`, `col_offset`, `end_col_offset`, `source_id` |
 | `SourceFile` | Parsed file | `import_stmt_ids`, `type_ids`, `function_ids`, `variable_ids`, `control_flow_group_ids`, `source` |
-| `Node` | File/directory in package tree | `path` (ID from `file://path`) |
+| `Node` | File/directory in package tree | `path`, `source_root_id` (ID from `file://path`, or from the root and path when `source_root_id` is set) |
+| `SemanticContainer` | Package-like entity that several roots can contribute to | `semantic_key`, `contribution_ids`, `merge_from()` |
 | `TypeDefinition` | Class/type | `fqn`, `method_ids`, `inner_type_ids`, `property_ids`, `visibility` |
 | `FunctionLike` | Function/method | `fqn`, `signature`, `visibility` |
 | `VariableDeclaration` | Variable/constant | `variable_binding`, `value_range`, `type_annotation`, `modifiers` |
@@ -95,7 +96,12 @@ registry.add(entity)  # stores + indexes by FQN
 registry.get(entity_id)  # lookup by ID
 registry.get_ids_by_fqn(fqn)  # FQN → set of entity IDs
 registry.values()  # all entities
+registry.merge_from(other)  # merge another registry, combining semantic containers
+registry.merge_semantic_container(container)  # add or merge one container
+registry.remove(entity_id)
 ```
+
+`add()` raises `ValueError` if it would replace a `SemanticContainer` with a different object. Use `merge_from()` or `merge_semantic_container()` for entities that more than one root can contribute to.
 
 ## Entity utilities
 
@@ -122,6 +128,33 @@ from deproc.core.discovery import find_source_files
 ctx.set_skip_paths({"*.dist-info", "*.egg-info"})
 files = find_source_files(ctx)  # list of absolute paths
 ```
+
+## Analysis scope and roots
+
+```python
+from deproc.core.context import Context
+from deproc.core.discovery import discover_source_files
+from deproc.core.scope import AnalysisScope
+
+scope = AnalysisScope(
+    project_roots=["/work/app"],
+    source_roots=["/work/plugins"],
+    generated_roots=["/work/gen"],
+    declaration_roots=["/work/stubs"],
+    dependency_roots=["/work/libs"],
+    selected_languages=["python"],  # omit to allow every registered language
+    selected_file_extensions=[".py"],  # omit to allow every registered extension
+    exclusions=["skip_*", "*_tmp.py"],  # shell-style, matched against names
+)
+ctx = Context(scope=scope)
+for found in discover_source_files(ctx):
+    found.path, found.relative_path, found.root_kind, found.root_id, found.provenance
+```
+
+- A passed selection is authoritative: registering a plugin does not widen it, and an explicitly empty selection selects nothing.
+- When roots overlap, a file is reported once, under the preferred root: most specific (deepest) first, then kind order `project`, `source`, `generated`, `declaration`, `dependency`, then explicit before configured provenance, then root id.
+- To analyse several roots, parse and link each root with its own context and set `Context.source_root_id` to the root's `root_id`. Identical relative paths in two roots then get different IDs. Without it IDs match single-root behaviour.
+- Plugins whose package-like entities can span roots should subclass `SemanticContainer`: implement `contribution_ids` and `_merge_contributions()`, and override `semantic_key` (it defaults to the FQN) when the FQN alone does not tell two containers apart, as Java does by adding the module name.
 
 ## Pipeline pattern
 

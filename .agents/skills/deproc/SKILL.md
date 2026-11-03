@@ -52,6 +52,7 @@ result = ctx.get_resolver("python").resolve("mymodule", "MyClass", ctx)
 ## Learn more
 
 - **Building a language plugin?** See `deproc-core` skill — covers `Context`, `EntityRegistry`, protocol interfaces (`SourceParser`, `Linker`, `Resolver`, `SymbolCache`), entity models, and entity utilities (parent-chain walking, scope classification).
+- **Analysing more than one root?** See the `deproc-core` skill (`AnalysisScope`, root kinds, overlap precedence, `source_root_id`, merging registries) and the `deproc-python` skill (namespace packages across roots and the regular-package precedence rule).
 - **Using deproc for Python analysis?** See `deproc-python` skill — covers Python plugin setup, Python-specific models, MRO/inheritance utilities, and module exports.
 
 ## When to use me

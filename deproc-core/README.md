@@ -46,6 +46,44 @@ files = find_source_files(context)
 Plugins register their parser, linker, and resolver implementations with the
 context, and may optionally register a symbol cache.
 
+## Analysis roots
+
+An `AnalysisScope` groups roots by kind: `project_roots`, `source_roots`,
+`generated_roots`, `declaration_roots`, and `dependency_roots`. Each root has a
+`root_id`, either supplied by the caller (unique within a scope) or derived from
+the kind and the path, for example `source-2a8a187fbe5f19b4`.
+
+`selected_languages`, `selected_file_extensions`, and `exclusions` narrow the
+scope. A selection that is passed is authoritative: registering a plugin does
+not widen it, and an explicitly empty selection selects nothing. A selection
+that is omitted means every registered language and extension. Exclusion
+patterns use shell-style wildcards and match file and directory names.
+
+`discover_source_files(context)` returns `DiscoveredFile` objects that carry
+`path`, `relative_path`, `root`, `root_kind`, `root_id`, and `provenance`.
+`find_source_files(context)` returns only the paths. When roots overlap, each
+file is reported once, under the preferred root, chosen in this order:
+
+1. the most specific root, meaning the deepest path
+2. the kind order `project`, `source`, `generated`, `declaration`, `dependency`
+3. explicit provenance before configured provenance
+4. the root id
+
+## Parsing and linking several roots
+
+Parse and link each root with its own context and set `Context.source_root_id`
+to that root's `root_id`. Physical nodes then derive their IDs from the root
+identity and the path, so a file with the same relative path and contents in two
+roots gets a different ID in each. Without `source_root_id` the IDs are the
+same as for a single root.
+
+Package-like entities that several roots can contribute to, such as Python
+namespace packages and Java packages, are `SemanticContainer` objects.
+`EntityRegistry.add()` raises `ValueError` if it would replace one with another
+object. Combine the per-root registries with `EntityRegistry.merge_from()`, or
+add a single container with `merge_semantic_container()`. Both merge the
+contributions instead of replacing them.
+
 ## Related packages
 
 - [`deproc-python`](https://pypi.org/project/deproc-python/) — Python parsing,

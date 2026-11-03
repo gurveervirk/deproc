@@ -12,6 +12,14 @@ Parses `.java` files using tree-sitter, builds a hierarchical package graph, and
 - Common Java constructs: classes, interfaces, enums, records, annotations, methods, fields, constructors
 - Short-name resolution (`resolver/`) and per-compilation-unit symbol caching (`symbol_cache/`)
 
+## Named modules
+
+A package declared under a named module (`module-info.java`) belongs to that
+module. Two modules that both declare `com.acme` produce two `JavaPackage`
+entities, one per module, each listing only its own compilation units. The owning
+module is recorded in `JavaPackage.module_name`. Code outside any named module
+keeps one package per name.
+
 ## Install
 
 ```bash
