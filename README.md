@@ -44,7 +44,7 @@ ctx.set_skip_paths({".venv", "__pycache__", ".git"})
 ctx.set_parser("python", PythonSourceParser())
 ctx.set_linker("python", PythonLinker())
 ctx.set_resolver("python", PythonResolver())
-ctx.set_symbol_cache("python", PythonSymbolCache())
+ctx.set_symbol_cache(PythonSymbolCache())
 
 # 3. Discover and parse all Python files
 files = find_source_files(ctx)
@@ -189,7 +189,7 @@ When `parent_id` and `source_range` are both set, entity IDs are deterministic a
 ctx.set_parser("mylang", MyParser())
 ctx.set_linker("mylang", MyLinker())
 ctx.set_resolver("mylang", MyResolver())
-ctx.set_symbol_cache("mylang", MySymbolCache())
+ctx.set_symbol_cache(MySymbolCache())
 ```
 
 ## Development

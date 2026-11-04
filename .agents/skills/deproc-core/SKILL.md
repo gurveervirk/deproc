@@ -49,7 +49,7 @@ class MyLinker:  # implements Linker
 
 ### Resolver
 ```python
-from deproc.core.interfaces.resolver import Resolver
+from deproc.core.interfaces.resolver import ResolutionResult, ResolutionStatus, Resolver
 
 
 class MyResolver:  # implements Resolver

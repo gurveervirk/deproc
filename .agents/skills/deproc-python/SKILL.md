@@ -29,7 +29,7 @@ ctx.set_language("python", [".py", ".pyi"], aliases=["py"])
 ctx.set_parser("python", PythonSourceParser())
 ctx.set_linker("python", PythonLinker())
 ctx.set_resolver("python", PythonResolver())
-ctx.set_symbol_cache("python", PythonSymbolCache())
+ctx.set_symbol_cache(PythonSymbolCache())
 ```
 
 ## Pipeline
@@ -133,15 +133,42 @@ record = entity_to_record(entity, module_exports=exports, registry=registry)
 entity = record_to_entity(record)  # → Entity or None
 ```
 
-## Resolver result type
+## Resolver result types
 
 ```python
+from deproc.core.interfaces.resolver import ResolutionStatus
 from deproc.plugins.python.resolver.models import PythonResolverResult
 
 result: PythonResolverResult = resolver.resolve("mymodule", "MyClass", ctx)
 # result.resolved_ids: set[SymbolID]
 # result.unresolved_ids: set[SymbolID]
+# result.ambiguous_ids: set[SymbolID]     # more than one symbol matched
+# result.inaccessible_ids: set[SymbolID]
+# result.reason: str | None
+# result.status: ResolutionStatus         # RESOLVED, UNRESOLVED, AMBIGUOUS or INACCESSIBLE
+# result.candidates: tuple[SymbolID, ...]
 ```
+
+`ResolutionStatus` and the generic `ResolutionResult` live in `deproc.core.interfaces.resolver` and are shared with the Java plugin.
+
+## Class MRO and inherited members
+
+```python
+from deproc.plugins.python import PythonClassMROResult, PythonInheritedMembersResult
+
+mro: PythonClassMROResult = resolver.resolve_class_mro(class_id, ctx)
+# mro.status: ResolutionStatus
+# mro.mro_ids: tuple[SymbolID, ...]       # the C3 order, starting with the class
+# mro.bases: tuple[PythonBaseResolution, ...]  # per base: name, status, resolved_id, candidates, reason
+# mro.reason: str | None
+
+members: PythonInheritedMembersResult = resolver.get_inherited_members(class_id, ctx)
+# members.members: tuple[PythonInheritedMember, ...]  # member_id, owner_id, name, mro_depth
+```
+
+- `resolve_class_mro(class_id, ctx, base_overrides=None)` accepts `base_overrides`, a mapping of `(class_id, base_name)` to the entity ID to use for that base. Callers use it to apply their own choice when a base name is ambiguous.
+- `get_inherited_members(class_id, ctx, mro_result=None)` reuses an `mro_result` you already computed.
+- An unresolved or ambiguous base is reported on the result with its `status` and `reason`, not raised.
 
 ## Tree-sitter integration
 
