@@ -12,6 +12,14 @@ Parses `.java` files using tree-sitter, builds a hierarchical package graph, and
 - Common Java constructs: classes, interfaces, enums, records, annotations, methods, fields, constructors
 - Short-name resolution (`resolver/`) and per-compilation-unit symbol caching (`symbol_cache/`)
 
+## Named modules
+
+A package declared under a named module (`module-info.java`) belongs to that
+module. Two modules that both declare `com.acme` produce two `JavaPackage`
+entities, one per module, each listing only its own compilation units. The owning
+module is recorded in `JavaPackage.module_name`. Code outside any named module
+keeps one package per name.
+
 ## Install
 
 ```bash
@@ -30,7 +38,7 @@ from deproc.plugins.java import (
 )
 
 ctx = Context(base_path="/path/to/src/main/java")
-ctx.set_language("java", ["java"])
+ctx.set_language("java", [".java"])
 
 parser = JavaSourceParser()
 cu = parser.parse_file("/path/to/src/main/java/com/example/Foo.java", ctx)
@@ -42,8 +50,12 @@ ctx.set_resolver("java", JavaResolver())
 ctx.set_symbol_cache(JavaSymbolCache())
 
 result = ctx.get_resolver("java").resolve("com.example.Foo", "List", ctx)
-# JavaResolverResult(resolved_ids={...}, unresolved_ids={...})
+# JavaResolverResult(resolved_ids={...}, unresolved_ids={...}, ...)
 ```
+
+`JavaResolverResult` also carries `inaccessible_ids`, `ambiguous_ids`, and `reason`, and exposes `status` and `candidates`. `status` is a `ResolutionStatus` (`RESOLVED`, `UNRESOLVED`, `AMBIGUOUS`, or `INACCESSIBLE`) from `deproc.core.interfaces.resolver`.
+
+To resolve a type name as written inside a type, call `resolve_type_reference(raw_name, owner, ctx)`. It returns a `ResolutionResult` whose `status` is `INACCESSIBLE` when matching types exist but none is visible from `owner`.
 
 ## Package layout
 
