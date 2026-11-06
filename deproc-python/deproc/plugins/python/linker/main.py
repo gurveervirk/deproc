@@ -6,10 +6,14 @@ from deproc.core.interfaces import Linker
 from deproc.core.interfaces.parser.models import SemanticContainer
 
 from ..parser.models import PythonModule
+from ..utils.packages import apply_regular_package_precedence_to_registry
 from .models import Node, PythonNamespacePackage, PythonPackage
 
 
 class PythonLinker(Linker[PythonModule, Node | SemanticContainer]):
+    def __init__(self, *, apply_package_precedence: bool = True) -> None:
+        self.apply_package_precedence = apply_package_precedence
+
     def _check_skip_patterns(self, path: str, skip_patterns: set[str]) -> bool:
         return any(fnmatch.fnmatch(path, pattern) for pattern in skip_patterns)
 
@@ -47,7 +51,16 @@ class PythonLinker(Linker[PythonModule, Node | SemanticContainer]):
                 sub_node.parent_id = None
                 top_level.append(sub_node)
 
-        return top_level
+        if not self.apply_package_precedence:
+            return top_level
+
+        apply_regular_package_precedence_to_registry(context.entity_registry)
+        return [
+            node
+            for node in top_level
+            if not isinstance(node, SemanticContainer)
+            or node.id in context.entity_registry
+        ]
 
     def validate_path(self, path: str) -> bool:
         return (
