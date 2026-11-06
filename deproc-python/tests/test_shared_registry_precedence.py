@@ -390,3 +390,32 @@ def test_linker_applies_package_precedence_by_default():
     assert (
         PythonLinker(apply_package_precedence=False).apply_package_precedence is False
     )
+
+
+@pytest.mark.parametrize("order", [("first", "second"), ("second", "first")])
+def test_two_same_named_regular_packages_are_kept_in_either_root_order(
+    tmp_path, caplog, order
+):
+    from deproc.plugins.python.utils.packages import (
+        RegularPackageConflict,
+        find_regular_package_conflicts,
+    )
+
+    with caplog.at_level(logging.WARNING, logger=PACKAGES_LOGGER):
+        registry = _link_shared(tmp_path, TWO_REGULAR, order)
+
+    packages = [
+        entity
+        for entity in registry.values()
+        if isinstance(entity, PythonPackage) and entity.fqn == "acme"
+    ]
+    assert len(packages) == 2
+    one = _module(registry, "acme.one")
+    two = _module(registry, "acme.two")
+    assert {one.parent_id, two.parent_id} == {package.id for package in packages}
+    assert find_regular_package_conflicts([registry]) == [
+        RegularPackageConflict(fqn="acme", source_root_ids=("first", "second"))
+    ]
+    assert any(
+        "defined in more than one root" in r.getMessage() for r in caplog.records
+    )

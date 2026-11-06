@@ -85,6 +85,17 @@ for registry in registries:
 - A nested namespace portion, such as `acme.sub` in a root other than the one holding the regular `acme`, is only detected when the roots have different `source_root_id` values. Without them only a portion whose name is exactly the regular package's name is removed.
 - Two regular packages with the same name in different roots are both kept, because Python would import only the first on its path. `find_regular_package_conflicts(registries)` lists them as `RegularPackageConflict` objects (`fqn`, `source_root_ids`), and both precedence functions log a warning for each one.
 
+### Does root order matter?
+
+Checked with Python 3.12.11, importing in both `sys.path` orders:
+
+| Layout across two roots | Order matters in Python? | deproc result |
+|---|---|---|
+| Regular `acme` in one root, plain `acme` folder in the other | No. The regular package always wins, so the plain folder's modules cannot be imported. | Same hierarchy in any root order. The plain folder's modules stay indexed with no parent. |
+| Plain `acme` folder in both roots | No. Both portions are used. | One namespace package holding both, in any root order. |
+| Regular `acme` in one root, plain `acme/sub` folder in the other | No. `acme/sub` in the other root is never imported. | Detached in any root order, when the roots have different `source_root_id` values. |
+| Regular `acme` in both roots | Yes. The first root on `sys.path` wins and the other's modules cannot be imported. | Both kept and a warning logged. deproc does not choose a winner because it does not model root order. |
+
 ## MRO / inheritance utilities
 
 ```python
