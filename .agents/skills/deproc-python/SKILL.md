@@ -80,8 +80,10 @@ for registry in registries:
 
 - A namespace package contributed by several roots becomes one `PythonNamespacePackage` after `merge_from()`.
 - `apply_regular_package_precedence()` applies Python's import rule: a regular package (`__init__.py`) in one root wins over a same-named namespace portion, or one under it, in another root. Call it on the per-root registries before merging. The shadowed container is removed, its modules stay in the registry with `parent_id = None`, and the returned `ShadowedNamespacePortion` objects (`fqn`, `path`, `registry_index`, `detached_ids`) say what was detached. A warning is logged on `deproc.plugins.python.utils.packages`.
-- It compares separate per-root registries. A single registry that was linked from several roots still holds both the regular package and the namespace container.
-- Two regular packages with the same name in different roots are both kept. Python would import only the first on its path.
+- `apply_regular_package_precedence()` compares separate per-root registries. To link several roots into one registry instead, give each root's context its `source_root_id` and reuse one `entity_registry`. `PythonLinker.link_files()` then applies the same rule to the whole registry after every call, in any root order, and drops the removed containers from the nodes it returns. `apply_regular_package_precedence_to_registry(registry)` does the same on demand, for example on registries combined with `merge_from()`, and calling it again changes nothing.
+- `PythonLinker(apply_package_precedence=False)` turns the automatic pass off. The linker then neither prunes the registry nor logs the same-name warning, and you can still call `apply_regular_package_precedence_to_registry()` yourself. The default is `True`.
+- A nested namespace portion, such as `acme.sub` in a root other than the one holding the regular `acme`, is only detected when the roots have different `source_root_id` values. Without them only a portion whose name is exactly the regular package's name is removed.
+- Two regular packages with the same name in different roots are both kept, because Python would import only the first on its path. `find_regular_package_conflicts(registries)` lists them as `RegularPackageConflict` objects (`fqn`, `source_root_ids`), and both precedence functions log a warning for each one.
 
 ## MRO / inheritance utilities
 
