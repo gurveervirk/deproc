@@ -64,8 +64,18 @@ jobs:
       - run: uv sync
       - run: uv run pytest
 
+  provenance:
+    needs: extract-package
+    uses: ./.github/workflows/code-provenance.yml
+    permissions:
+      checks: write
+      contents: read
+      pull-requests: write
+    with:
+      scan_mode: full
+
   publish:
-    needs: [extract-package, test]
+    needs: [extract-package, test, provenance]
     runs-on: ubuntu-latest
     environment: pypi-${{ needs.extract-package.outputs.pkg_name }}
     permissions:
