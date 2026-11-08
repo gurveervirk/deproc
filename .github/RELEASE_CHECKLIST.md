@@ -1,6 +1,6 @@
 # Release checklist
 
-Releases are per package. Pushing a tag named `<package>-v<version>` runs `.github/workflows/publish.yml`, which validates the tag, runs the tests, and publishes through PyPI trusted publishing. Releases are cut from `main` by the owner.
+Releases are per package. Pushing a tag named `<package>-v<version>` runs `.github/workflows/publish.yml`, which validates the tag, runs the tests, runs a full Code Provenance scan, and publishes through PyPI trusted publishing. Publishing waits for the scan; if the scanner is rate-limited, rerun the failed job once the limit lifts. Releases are cut from `main` by the owner.
 
 Packages: `deproc-core`, `deproc-python`, `deproc-java`, `deproc-utils-tree-sitter`, `deproc-utils-python-env`.
 
@@ -24,7 +24,7 @@ Packages: `deproc-core`, `deproc-python`, `deproc-java`, `deproc-utils-tree-sitt
 ## Tag and publish
 
 - [ ] Tag the merged `main` commit as `<package>-v<version>`; the version must equal `<package>/pyproject.toml`, or the workflow fails
-- [ ] Push the tag; `publish.yml` runs `extract-package`, `test`, then `publish` in the `pypi-<package>` environment
+- [ ] Push the tag; `publish.yml` runs `extract-package`, then `test` and `provenance`, then `publish` in the `pypi-<package>` environment
 - [ ] Confirm the new version is visible on PyPI and installs in a clean environment
 - [ ] Publish the GitHub release for the tag with the release notes
 
