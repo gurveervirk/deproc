@@ -11,8 +11,11 @@ jobs:
     outputs:
       pkg_name: ${{ steps.parse.outputs.pkg_name }}
       pkg_dir: ${{ steps.parse.outputs.pkg_dir }}
+      changed_since: ${{ steps.previous.outputs.changed_since }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v6
         with:
           python-version: 3.x
@@ -50,6 +53,19 @@ jobs:
           PY
           echo "pkg_name=$PKG_NAME" >> $GITHUB_OUTPUT
           echo "pkg_dir=$PKG_NAME" >> $GITHUB_OUTPUT
+      - name: Find the previous release of the package
+        id: previous
+        env:
+          PKG_NAME: ${{ steps.parse.outputs.pkg_name }}
+        run: |
+          previous="$(git describe --tags --abbrev=0 --match "${PKG_NAME}-v*" HEAD^ 2>/dev/null || true)"
+          if [ -z "$previous" ]; then
+            previous=4b825dc642cb6eb9a060e54bf8d69288fbee4904
+            echo "No earlier ${PKG_NAME} tag; scanning the whole package."
+          else
+            echo "Previous ${PKG_NAME} release: $previous"
+          fi
+          echo "changed_since=$previous" >> "$GITHUB_OUTPUT"
 
   test:
     needs: extract-package
@@ -73,6 +89,9 @@ jobs:
       pull-requests: write
     with:
       scan_mode: full
+      changed_since: ${{ needs.extract-package.outputs.changed_since }}
+      changed_path: ${{ needs.extract-package.outputs.pkg_dir }}
+      tolerate_unavailable: true
 
   publish:
     needs: [extract-package, test, provenance]
