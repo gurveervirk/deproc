@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "deproc-java"
 version = "0.3.0"
 description = "Java language plugin for deproc."
+readme = "README.md"
 authors = [
     { name = "Gurveer Singh Virk", email = "gurveervirk.15517@gmail.com" }
 ]

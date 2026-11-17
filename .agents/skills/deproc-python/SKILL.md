@@ -188,7 +188,7 @@ members: PythonInheritedMembersResult = resolver.get_inherited_members(class_id,
 `PythonSourceParser` uses tree-sitter, bounded to `>=0.25.2,<0.26` because `0.26.0` segfaults on real library code. AST walking utilities in `deproc-utils-tree-sitter`:
 
 ```python
-from deproc.utils import iter_children, first_child, walk_preorder
+from deproc.utils.tree_walk import iter_children, first_child, walk_preorder
 ```
 
 ## When to use me
