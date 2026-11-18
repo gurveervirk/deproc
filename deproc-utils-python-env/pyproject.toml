@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "deproc-utils-python-env"
 version = "0.1.1"
 description = "Python virtual environment utilities for deproc."
+readme = "README.md"
 authors = [
     { name = "Gurveer Singh Virk", email = "gurveervirk.15517@gmail.com" }
 ]
