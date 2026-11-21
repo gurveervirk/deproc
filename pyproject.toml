@@ -19,8 +19,11 @@ line-length = 88
 extend-exclude = [".venv"]
 
 [tool.ruff.lint]
-ignore = ["E501"]
-select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "C4"]
+ignore = ["E501", "D1"]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "C4", "D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
 
 [tool.basedpyright]
 include = ["deproc-core", "deproc-python", "deproc-java", "deproc-utils-tree-sitter", "deproc-utils-python-env"]

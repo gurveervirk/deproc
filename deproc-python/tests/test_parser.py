@@ -16,7 +16,7 @@ context = Context()
 
 
 def _create_temp_file(content: str) -> str:
-    """Helper to create a temporary file with given content."""
+    """Create a temporary file with the given content."""
     import tempfile
 
     with tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".py") as tmp:

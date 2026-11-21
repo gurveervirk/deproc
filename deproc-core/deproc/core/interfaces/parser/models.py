@@ -1,5 +1,5 @@
-"""
-Provisional data models for the parser interface.
+"""Provisional data models for the parser interface.
+
 Please use these models either directly in the plugin implementations or as a reference for defining plugin-specific models.
 """
 
