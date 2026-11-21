@@ -81,7 +81,10 @@ registry; `PythonLinker(apply_package_precedence=False)` turns it off.
 `deproc.plugins.python.utils.packages` provides
 `apply_regular_package_precedence()` for separate per-root registries,
 `apply_regular_package_precedence_to_registry()` for one shared registry, and
-`find_regular_package_conflicts()`.
+`find_regular_package_conflicts()`. Both precedence functions accept
+`root_labels`, a mapping from source root id (`None` for a root without one) to
+the text that names that root in the warning, such as its directory; roots
+without a label are named by their id.
 
 ## Package layout
 
