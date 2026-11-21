@@ -23,7 +23,7 @@ ignore = ["E501", "D1"]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF", "C4", "D"]
 
 [tool.ruff.lint.pydocstyle]
-convention = "pep257"
+convention = "google"
 
 [tool.basedpyright]
 include = ["deproc-core", "deproc-python", "deproc-java", "deproc-utils-tree-sitter", "deproc-utils-python-env"]

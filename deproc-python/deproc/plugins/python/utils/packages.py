@@ -97,14 +97,20 @@ def apply_regular_package_precedence(
 ) -> list[ShadowedNamespacePortion]:
     """Apply Python's rule that a regular package wins over a namespace portion.
 
-    ``registries`` are the per-root link results, before they are merged. A
-    namespace portion in one registry is shadowed when a different registry
+    A namespace portion in one registry is shadowed when a different registry
     holds a regular package (one with ``__init__.py``) of the same name, or of
     an ancestor name. Python then never imports that portion, so its container
     is removed and the modules it held stay in the registry without a parent.
     A warning is logged for each regular package name that more than one
-    registry defines; all of them are kept. ``root_labels`` names roots in that
-    warning by source root id; unlabelled roots show their id.
+    registry defines; all of them are kept.
+
+    Args:
+        registries: The per-root link results, before they are merged.
+        root_labels: Names for roots in the warning, by source root id.
+            Unlabelled roots show their id.
+
+    Returns:
+        The shadowed portions, with the module IDs each one detached.
     """
     _log_conflicts(find_regular_package_conflicts(registries), root_labels)
     regular_by_registry = [
