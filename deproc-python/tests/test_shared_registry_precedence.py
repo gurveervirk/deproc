@@ -419,3 +419,97 @@ def test_two_same_named_regular_packages_are_kept_in_either_root_order(
     assert any(
         "defined in more than one root" in r.getMessage() for r in caplog.records
     )
+
+
+def _conflict_messages(caplog) -> list[str]:
+    return [
+        r.getMessage()
+        for r in caplog.records
+        if r.name == PACKAGES_LOGGER
+        and "defined in more than one root" in r.getMessage()
+    ]
+
+
+def _per_root_registries(
+    base: Path, layout: Layout, root_ids: dict[str, str | None]
+) -> list[EntityRegistry]:
+    registries = []
+    for name, files in layout.items():
+        registry = EntityRegistry()
+        _link_into(registry, base, name, files, root_ids[name])
+        registries.append(registry)
+    return registries
+
+
+def test_conflict_warning_names_roots_by_their_labels(tmp_path, caplog):
+    registries = _per_root_registries(
+        tmp_path, TWO_REGULAR, {"first": None, "second": "shared"}
+    )
+
+    with caplog.at_level(logging.WARNING, logger=PACKAGES_LOGGER):
+        apply_regular_package_precedence(
+            registries,
+            root_labels={
+                None: "/work/app [project]",
+                "shared": "/work/shared [source]",
+            },
+        )
+
+    assert _conflict_messages(caplog) == [
+        "regular package 'acme' is defined in more than one root "
+        "(/work/app [project], /work/shared [source]); Python imports only the "
+        "first one on its path, and all of them stay indexed"
+    ]
+
+
+def test_conflict_warning_falls_back_to_root_ids_for_unlabelled_roots(tmp_path, caplog):
+    layout = {**TWO_REGULAR, "third": TWO_REGULAR["first"]}
+    registries = _per_root_registries(
+        tmp_path, layout, {"first": None, "second": "shared", "third": "vendor"}
+    )
+
+    with caplog.at_level(logging.WARNING, logger=PACKAGES_LOGGER):
+        apply_regular_package_precedence(
+            registries, root_labels={"shared": "/work/shared [source]"}
+        )
+
+    (message,) = _conflict_messages(caplog)
+    assert "(<no root id>, /work/shared [source], vendor)" in message
+
+
+def test_conflict_warning_without_labels_is_unchanged(tmp_path, caplog):
+    registries = _per_root_registries(
+        tmp_path, TWO_REGULAR, {"first": None, "second": "shared"}
+    )
+
+    with caplog.at_level(logging.WARNING, logger=PACKAGES_LOGGER):
+        apply_regular_package_precedence(registries)
+
+    assert _conflict_messages(caplog) == [
+        "regular package 'acme' is defined in more than one root "
+        "(<no root id>, shared); Python imports only the first one on its path, "
+        "and all of them stay indexed"
+    ]
+
+
+def test_shared_registry_conflict_warning_names_roots_by_their_labels(tmp_path, caplog):
+    from deproc.plugins.python.utils.packages import (
+        apply_regular_package_precedence_to_registry,
+    )
+
+    registry = EntityRegistry()
+    linker = PythonLinker(apply_package_precedence=False)
+    for name in ("first", "second"):
+        _link_into(registry, tmp_path, name, TWO_REGULAR[name], name, linker)
+
+    with caplog.at_level(logging.WARNING, logger=PACKAGES_LOGGER):
+        apply_regular_package_precedence_to_registry(
+            registry,
+            root_labels={
+                "first": "/work/first [source]",
+                "second": "/work/second [source]",
+            },
+        )
+
+    (message,) = _conflict_messages(caplog)
+    assert "(/work/first [source], /work/second [source])" in message

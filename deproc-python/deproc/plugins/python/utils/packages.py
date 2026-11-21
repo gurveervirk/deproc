@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 from deproc.core.interfaces.parser.models import SymbolID
@@ -33,7 +33,11 @@ def _shadows(regular_fqns: set[str], fqn: str) -> bool:
     )
 
 
-def _root_label(root_id: str | None) -> str:
+def _root_label(
+    root_id: str | None, root_labels: Mapping[str | None, str] | None
+) -> str:
+    if root_labels is not None and root_id in root_labels:
+        return root_labels[root_id]
     return root_id if root_id is not None else "<no root id>"
 
 
@@ -70,18 +74,26 @@ def find_regular_package_conflicts(
     ]
 
 
-def _log_conflicts(conflicts: Sequence[RegularPackageConflict]) -> None:
+def _log_conflicts(
+    conflicts: Sequence[RegularPackageConflict],
+    root_labels: Mapping[str | None, str] | None,
+) -> None:
     for conflict in conflicts:
         logger.warning(
             "regular package '%s' is defined in more than one root (%s); Python "
             "imports only the first one on its path, and all of them stay indexed",
             conflict.fqn,
-            ", ".join(_root_label(root_id) for root_id in conflict.source_root_ids),
+            ", ".join(
+                _root_label(root_id, root_labels)
+                for root_id in conflict.source_root_ids
+            ),
         )
 
 
 def apply_regular_package_precedence(
     registries: Sequence[EntityRegistry],
+    *,
+    root_labels: Mapping[str | None, str] | None = None,
 ) -> list[ShadowedNamespacePortion]:
     """Apply Python's rule that a regular package wins over a namespace portion.
 
@@ -91,9 +103,10 @@ def apply_regular_package_precedence(
     an ancestor name. Python then never imports that portion, so its container
     is removed and the modules it held stay in the registry without a parent.
     A warning is logged for each regular package name that more than one
-    registry defines; all of them are kept.
+    registry defines; all of them are kept. ``root_labels`` names roots in that
+    warning by source root id; unlabelled roots show their id.
     """
-    _log_conflicts(find_regular_package_conflicts(registries))
+    _log_conflicts(find_regular_package_conflicts(registries), root_labels)
     regular_by_registry = [
         {
             entity.fqn
@@ -138,12 +151,14 @@ def apply_regular_package_precedence(
 
 def apply_regular_package_precedence_to_registry(
     registry: EntityRegistry,
+    *,
+    root_labels: Mapping[str | None, str] | None = None,
 ) -> list[ShadowedNamespacePortion]:
     regular: dict[str, list[PythonPackage]] = {}
     for entity in registry.values():
         if isinstance(entity, PythonPackage):
             regular.setdefault(entity.fqn, []).append(entity)
-    _log_conflicts(find_regular_package_conflicts([registry]))
+    _log_conflicts(find_regular_package_conflicts([registry]), root_labels)
     if not regular:
         return []
 
