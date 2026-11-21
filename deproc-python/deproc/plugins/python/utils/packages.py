@@ -103,9 +103,8 @@ def apply_regular_package_precedence(
     an ancestor name. Python then never imports that portion, so its container
     is removed and the modules it held stay in the registry without a parent.
     A warning is logged for each regular package name that more than one
-    registry defines; all of them are kept. ``root_labels`` maps a source root
-    id (``None`` for a root without one) to the text that names that root in
-    the warning; roots without a label are named by their id.
+    registry defines; all of them are kept. ``root_labels`` names roots in that
+    warning by source root id; unlabelled roots show their id.
     """
     _log_conflicts(find_regular_package_conflicts(registries), root_labels)
     regular_by_registry = [
