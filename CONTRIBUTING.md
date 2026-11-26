@@ -68,6 +68,12 @@ Run a single package with `uv run pytest deproc-core/tests/` (or `deproc-python/
 - Keep analysis deterministic: entity IDs and ordering must be stable across runs.
 - Do not weaken or skip a test to make a check pass.
 
+## Docstrings and documentation
+
+- Docstrings follow the [Google style](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings): a one-line summary phrased as a command ("Return the ...") and ending in a period, then a blank line before any detail and `Args:`, `Returns:`, or `Raises:` sections. `ruff check` enforces the format but does not require a docstring on every function.
+- Add a docstring, or a section, only where the name, signature, and type hints do not explain the behaviour. Do not repeat types.
+- Keep documentation changes in proportion to the code change.
+
 ## Pull requests
 
 - Open pull requests with the repository template and keep one purpose per pull request.
